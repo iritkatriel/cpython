@@ -1210,7 +1210,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
              '__file__',
              '__return__',
              'pdb'})
-        return vars
+        return sorted(vars)
 
     def do_who(self, arg):
         """who
