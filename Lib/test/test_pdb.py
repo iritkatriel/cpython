@@ -1443,6 +1443,39 @@ def bœr():
             'Fail to handle a syntax error in the debuggee.'
             .format(expected, stdout))
 
+    def test_pdb_who_command(self):
+        """Test the who command"""
+
+        script = textwrap.dedent("""
+            import pdb
+            x = 11
+            def f(a,b=None):
+                x = 22
+                ff = 100
+                def g(a,c):
+                    x = 33
+                    gg = 200
+                    pdb.set_trace()
+                    return
+                g(2,3)
+
+            f(1,2)
+        """)
+
+        commands = """
+            continue
+            next
+            who
+            next
+            who
+            next
+            who
+            continue
+        """
+        stdout, stderr = self.run_pdb_script(script, commands)
+        self.assertIn("(Pdb) a\tc\tf\tgg\tx", stdout.splitlines())
+        self.assertIn("(Pdb) a\tb\tf\tff\tg\tx", stdout.splitlines())
+        self.assertIn("(Pdb) f\tx", stdout.splitlines())
 
     def test_readrc_kwarg(self):
         script = textwrap.dedent("""
