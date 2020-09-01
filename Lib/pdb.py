@@ -1199,35 +1199,43 @@ class Pdb(bdb.Bdb, cmd.Cmd):
     complete_p = _complete_expression
     complete_pp = _complete_expression
 
+    def _user_defined_vars(self):
+        vars  = set(self.curframe_locals.keys())
+        vars.update(self.curframe.f_globals.keys())
+        vars.difference_update(self.curframe.f_builtins.keys())
+        vars.difference_update(
+            {'__annotations__',
+             '__builtins__',
+             '__cached__',
+             '__file__',
+             '__return__',
+             'pdb'})
+        return vars
+
     def do_who(self, arg):
-        """who expression
+        """who
         Print a list of all user-defined variables
         """
         try:
-            self.message('\t'.join(set(list(self.curframe_locals.keys()) +
-                                       list(self.curframe.f_globals.keys())) -
-                                   set(self.curframe.f_builtins.keys()) -
-                                   {'__annotations__', '__builtins__',
-                                    '__return__', 'pdb'}))
+            self.message('\t'.join(self._user_defined_vars()))
         except:
             pass
 
     def do_whos(self, arg):
-        """whos expression
+        """whos
         Print a list of all user-defined variables includeing type and value
         """
-
-        userdef_vars = set(list(self.curframe_locals.keys()) +
-                           list(self.curframe.f_globals.keys())) - \
-            set(self.curframe.f_builtins.keys()) - \
-            {'__annotations__', '__builtins__', '__return__', 'pdb'}
-
         try:
+            userdef_vars = self._user_defined_vars()
+
             output = "Variable\tType\tData/Info\n".expandtabs()
             output += "-" * (len(output) - 1) + "\n"
-            for k, v in list(self.curframe_locals.items()) + \
-                    list(self.curframe.f_builtins.items()):
-                if k not in userdef_vars:
+            for k in userdef_vars:
+                if k in self.curframe_locals:
+                    v = self.curframe_locals[k]
+                elif k in self.curframe.f_globals:
+                    v = self.curframe.f_globals[k]
+                else:
                     continue
                 output += "{key}\t\t{type}\t{value}\n".format(
                         key=k, type=type(v).__name__, value=v)
