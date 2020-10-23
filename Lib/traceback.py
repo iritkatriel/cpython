@@ -1,15 +1,18 @@
 """Extract, format and print information about Python stack traces."""
 
 import collections
+import exception_group
 import itertools
 import linecache
 import sys
+import textwrap
 
 __all__ = ['extract_stack', 'extract_tb', 'format_exception',
            'format_exception_only', 'format_list', 'format_stack',
            'format_tb', 'print_exc', 'format_exc', 'print_exception',
            'print_last', 'print_stack', 'print_tb', 'clear_frames',
-           'FrameSummary', 'StackSummary', 'TracebackException',
+           'ExceptionFormatter', 'FrameSummary', 'StackSummary',
+           'TracebackException', 'TracebackExceptionGroup',
            'walk_stack', 'walk_tb']
 
 #
@@ -71,6 +74,7 @@ def extract_tb(tb, limit=None):
     """
     return StackSummary.extract(walk_tb(tb), limit=limit)
 
+
 #
 # Exception formatting and output.
 #
@@ -110,7 +114,7 @@ def print_exception(exc, /, value=_sentinel, tb=_sentinel, limit=None, \
     value, tb = _parse_value_tb(exc, value, tb)
     if file is None:
         file = sys.stderr
-    for line in TracebackException(
+    for line in ExceptionFormatter.get(
             type(value), value, tb, limit=limit).format(chain=chain):
         print(line, file=file, end="")
 
@@ -126,7 +130,7 @@ def format_exception(exc, /, value=_sentinel, tb=_sentinel, limit=None, \
     printed as does print_exception().
     """
     value, tb = _parse_value_tb(exc, value, tb)
-    return list(TracebackException(
+    return list(ExceptionFormatter.get(
         type(value), value, tb, limit=limit).format(chain=chain))
 
 
@@ -146,7 +150,7 @@ def format_exception_only(exc, /, value=_sentinel):
     """
     if value is _sentinel:
         value = exc
-    return list(TracebackException(
+    return list(ExceptionFormatter.get(
         type(value), value, None).format_exception_only())
 
 
@@ -611,9 +615,10 @@ class TracebackException:
 
         If chain is not *True*, *__cause__* and *__context__* will not be formatted.
 
-        The return value is a generator of strings, each ending in a newline and
-        some containing internal newlines. `print_exception` is a wrapper around
-        this method which just prints the lines to a file.
+        The return value is a generator of strings, each ending in a newline
+        and some containing internal newlines. `print_exception(e)`, when `e`
+        is a single exception (rather than an ExceptionGroup), is a wrapper
+        around this method which just prints the lines to a file.
 
         The message indicating which exception occurred is always the last
         string in the output.
@@ -630,3 +635,101 @@ class TracebackException:
             yield 'Traceback (most recent call last):\n'
             yield from self.stack.format()
         yield from self.format_exception_only()
+
+
+class TracebackExceptionGroup:
+    """An exception group ready for rendering.
+
+    We capture enough attributes from the original exception group to this
+    intermediary form to ensure that no references are held, while still being
+    able to fully print or format it.
+
+    Use `from_exception()` to create TracebackExceptionGroup instances from exception
+    objects, or the constructor to create TracebackExceptionGroup instances from
+    individual components.
+
+    - :attr:`excs` A list of TracebackException objects, one for each exception
+    in the group.
+    """
+
+    SEPARATOR_LINE = '-' * 60 + '\n'
+    INDENT_SIZE = 3
+
+    def __init__(self, exc_type, exc_value, exc_traceback, **kwargs):
+        if not isinstance(exc_value, ExceptionGroup):
+            raise ValueError(f'Expected an ExceptionGroup, got {type(exc_value)}')
+        self.this = TracebackException(
+            exc_type, exc_value, exc_traceback, **kwargs)
+        self.excs = [
+            ExceptionFormatter.from_exception(e) for e in exc_value.excs]
+
+    @staticmethod
+    def from_exception(exc, *args, **kwargs):
+        """Create a TracebackExceptionGroup from an exceptionGroup."""
+        return TracebackExceptionGroup(
+            type(exc), exc, exc.__traceback__, *args, **kwargs)
+
+    def format(self, *, chain=True):
+        """Format the exception group.
+
+        The shared part of the traceback is emitted, followed by each
+        exception in the group, which is expanded recursively.
+
+        If chain is false(y), *__cause__* and *__context__* will not be formatted.
+
+        This is a generator of strings, each ending in a newline
+        and some containing internal newlines. `print_exception`, when called on
+        an ExceptionGroup, is a wrapper around this method which just prints the
+        lines to a file.
+        """
+        # TODO: Add two args to bound -
+        # (1) the depth of exceptions reported, and
+        # (2) the number of exceptions reported per level
+        separator = self.SEPARATOR_LINE
+        yield from self.this.format(chain=chain)
+        for exc in self.excs:
+            yield from self._emit(
+                exc.format(chain=chain), sep=separator)
+
+    def format_exception_only(self):
+        yield from self.this.format_exception_only()
+        for exc in self.excs:
+            yield from self._emit(exc.format_exception_only())
+
+    def _emit(self, text_gen, sep=None):
+        text = ''.join(list(text_gen))
+        indent_str = ' ' * self.INDENT_SIZE
+        if '\n' not in text:
+            yield indent_str + text
+        else:
+            if sep is not None:
+                yield indent_str + sep
+            yield textwrap.indent(text, indent_str)
+
+    def __eq__(self, other):
+        if isinstance(other, TracebackExceptionGroup):
+            return self.__dict__ == other.__dict__
+        return NotImplemented
+
+
+class ExceptionFormatter:
+    '''Factory functions to get the correct formatter for an exception
+
+    Returns a TracebackException instance for a single exception, and a
+    TracebackExceptionGroup for an exception group.
+    '''
+
+    @staticmethod
+    def get(exc_type, exc_value, exc_traceback, **kwargs):
+        if isinstance(exc_value, ExceptionGroup):
+            cls = TracebackExceptionGroup
+        else:
+            cls = TracebackException
+        return cls(exc_type, exc_value, exc_traceback, **kwargs)
+
+    @staticmethod
+    def from_exception(exc, **kwargs):
+        if isinstance(exc, ExceptionGroup):
+            return TracebackExceptionGroup.from_exception(exc, **kwargs)
+        else:
+            return TracebackException.from_exception(exc, **kwargs)

@@ -27,6 +27,12 @@ typedef struct {
 typedef struct {
     PyException_HEAD
     PyObject *msg;
+    PyObject *excs;
+} PyExceptionGroupObject;
+
+typedef struct {
+    PyException_HEAD
+    PyObject *msg;
     PyObject *name;
     PyObject *path;
 } PyImportErrorObject;

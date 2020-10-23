@@ -368,6 +368,25 @@ finally:
     return result;
 }
 
+/* TODO: where should this be? It is used here (in traceback.c) and in pythonrun.c
+ * maybe we have a utility like this somewhere already?
+*/
+int write_indent(int indent, PyObject *f) {
+    int err = 0;
+    char buf[11];
+      strcpy(buf, "          ");
+    assert(strlen(buf) == 10);
+    while (indent > 0) {
+        if (indent < 10)
+            buf[indent] = '\0';
+        err = PyFile_WriteString(buf, f);
+        if (err != 0)
+            return err;
+        indent -= 10;
+    }
+    return 0;
+}
+
 int
 _Py_DisplaySourceLine(PyObject *f, PyObject *filename, int lineno, int indent)
 {
@@ -480,16 +499,7 @@ _Py_DisplaySourceLine(PyObject *f, PyObject *filename, int lineno, int indent)
     }
 
     /* Write some spaces before the line */
-    strcpy(buf, "          ");
-    assert (strlen(buf) == 10);
-    while (indent > 0) {
-        if (indent < 10)
-            buf[indent] = '\0';
-        err = PyFile_WriteString(buf, f);
-        if (err != 0)
-            break;
-        indent -= 10;
-    }
+    err = write_indent(indent, f);
 
     /* finally display the line */
     if (err == 0)
@@ -501,7 +511,7 @@ _Py_DisplaySourceLine(PyObject *f, PyObject *filename, int lineno, int indent)
 }
 
 static int
-tb_displayline(PyObject *f, PyObject *filename, int lineno, PyObject *name)
+tb_displayline(PyObject *f, PyObject *filename, int lineno, PyObject *name, int indent)
 {
     int err;
     PyObject *line;
@@ -512,12 +522,13 @@ tb_displayline(PyObject *f, PyObject *filename, int lineno, PyObject *name)
                                 filename, lineno, name);
     if (line == NULL)
         return -1;
-    err = PyFile_WriteObject(line, f, Py_PRINT_RAW);
+    err = write_indent(indent, f);
+    err |= PyFile_WriteObject(line, f, Py_PRINT_RAW);
     Py_DECREF(line);
     if (err != 0)
         return err;
     /* ignore errors since we can't report them, can we? */
-    if (_Py_DisplaySourceLine(f, filename, lineno, 4))
+    if (_Py_DisplaySourceLine(f, filename, lineno, indent+4))
         PyErr_Clear();
     return err;
 }
@@ -542,7 +553,7 @@ tb_print_line_repeated(PyObject *f, long cnt)
 }
 
 static int
-tb_printinternal(PyTracebackObject *tb, PyObject *f, long limit)
+tb_printinternal(PyTracebackObject *tb, PyObject *f, long limit, int indent)
 {
     int err = 0;
     Py_ssize_t depth = 0;
@@ -576,7 +587,7 @@ tb_printinternal(PyTracebackObject *tb, PyObject *f, long limit)
         cnt++;
         if (err == 0 && cnt <= TB_RECURSIVE_CUTOFF) {
             err = tb_displayline(f, code->co_filename, tb->tb_lineno,
-                                 code->co_name);
+                                 code->co_name, indent);
             if (err == 0) {
                 err = PyErr_CheckSignals();
             }
@@ -593,7 +604,7 @@ tb_printinternal(PyTracebackObject *tb, PyObject *f, long limit)
 #define PyTraceBack_LIMIT 1000
 
 int
-PyTraceBack_Print(PyObject *v, PyObject *f)
+PyTraceBack_Print_Indented(PyObject *v, PyObject *f, int indent)
 {
     int err;
     PyObject *limitv;
@@ -616,10 +627,17 @@ PyTraceBack_Print(PyObject *v, PyObject *f)
             return 0;
         }
     }
-    err = PyFile_WriteString("Traceback (most recent call last):\n", f);
+    err = write_indent(indent, f);
+    err |= PyFile_WriteString("Traceback (most recent call last):\n", f);
     if (!err)
-        err = tb_printinternal((PyTracebackObject *)v, f, limit);
+        err = tb_printinternal((PyTracebackObject *)v, f, limit, indent);
     return err;
+}
+
+int
+PyTraceBack_Print(PyObject *v, PyObject *f)
+{
+    return PyTraceBack_Print_Indented(v, f, 0);
 }
 
 /* Reverse a string. For example, "abcd" becomes "dcba".
