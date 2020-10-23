@@ -115,14 +115,16 @@ tb_next_set(PyTracebackObject *self, PyObject *new_next, void *Py_UNUSED(_))
        tb_next_get) */
     if (new_next == Py_None) {
         new_next = NULL;
-    } else if (!PyTraceBack_Check(new_next)) {
+    } /*
+	  else if (!PyTraceBack_Check(new_next)) {
         PyErr_Format(PyExc_TypeError,
                      "expected traceback object, got '%s'",
                      Py_TYPE(new_next)->tp_name);
         return -1;
-    }
+    }*/
 
     /* Check for loops */
+	/*
     PyTracebackObject *cursor = (PyTracebackObject *)new_next;
     while (cursor) {
         if (cursor == self) {
@@ -130,7 +132,7 @@ tb_next_set(PyTracebackObject *self, PyObject *new_next, void *Py_UNUSED(_))
             return -1;
         }
         cursor = cursor->tb_next;
-    }
+    }*/
 
     PyObject *old_next = (PyObject*)self->tb_next;
     Py_XINCREF(new_next);
