@@ -227,13 +227,11 @@ BaseException_set_tb(PyBaseExceptionObject *self, PyObject *tb, void *Py_UNUSED(
         PyErr_SetString(PyExc_TypeError, "__traceback__ may not be deleted");
         return -1;
     }
-	/*
     else if (!(tb == Py_None || PyTraceBack_Check(tb))) {
         PyErr_SetString(PyExc_TypeError,
                         "__traceback__ must be a traceback or None");
         return -1;
     }
-	*/
     Py_INCREF(tb);
     Py_XSETREF(self->traceback, tb);
     return 0;

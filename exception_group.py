@@ -1,59 +1,63 @@
 import sys
 import traceback
-
-class Traceback:
-    def __init__(self, frame, tb = None):
-        self.tb_frame = frame
-        self.tb = tb
-
-
-class TracebackGroup(Traceback):
-    def __init__(self, frame, tb_next_all = {}):
-        super().__init__(frame)
-        self.tb_next_all = tb_next_all
-
-    def add(self, exc):
-        ''' add an exception to this tb group '''
-        self.tb_next_all[exc] = exc.__traceback__
-
-    def split(self, excs):
-        ''' remove excs from this tb group and return a
-        new tb group for them, with same frame
-        '''
-        r = dict({(k,v) for k,v in self.tb_next_all.items() if k in excs})
-        [self.tb_next_all.pop(k) for k in r]
-        return TracebackGroup(self.tb_frame, r)
+import types
 
 
 class ExceptionGroup(BaseException):
 
     def __init__(self, excs, tb=None):
-        self.excs = excs
+        self.excs = set(excs)
         if tb:
-            self.tb = tb
+            self.__traceback__ = tb
         else:
-            self.tb = TracebackGroup(sys._getframe())
+            self.__traceback__ = types.TracebackType(None, sys._getframe(), 0, 0)
             for e in excs:
-                 self.tb.add(e)
+                 self.add_exc(e)
 
     def add_exc(self, e):
         self.excs.add(e)
-        self.tb.add(e)
+        self.__traceback__.next_map_add(e, e.__traceback__)
 
-    def exc_match(self, E):
+    def split(self, E):
         ''' remove the exceptions that match E
         and return them in a new ExceptionGroup
         '''
-        matches = set()
+        matches = []
         for e in self.excs:
             if isinstance(e, E):
-                matches.add(e)
+                matches.append(e)
         [self.excs.remove(m) for m in matches]
-        tb = self.tb.split(matches)
+        gtb = self.__traceback__
+        while gtb.tb_next: # there could be normal tbs is the ExceptionGroup propagated
+            gtb = gtb.tb_next
+        tb = gtb.group_split(matches)
+
         return ExceptionGroup(matches, tb)
 
     def push_frame(self, frame):
-        self.__traceback__ = TracebackGroup(frame, tb_next=self.__traceback__)
+        self.__traceback__ = types.TracebackType(self.__traceback__, frame, 0, 0)
+
+    def __str__(self):
+        return f"ExceptionGroup({self.excs})"
+
+    def __repr__(self):
+        return str(self)
+
+def render_exception(exc, tb=None, indent=0):
+    print(exc)
+    tb = tb or exc.__traceback__
+    while tb:
+        print(' '*indent, tb.tb_frame)
+        if tb.tb_next: # single traceback
+            tb = tb.tb_next
+        elif tb.tb_next_map:
+            indent += 4
+            for e, t in tb.tb_next_map.items():
+                print('---------------------------------------')
+                render_exception(e, t, indent)
+            tb = None
+        else:
+            tb = None
 
 
 def f(): raise ValueError('bad value: f')
@@ -77,30 +81,46 @@ def aggregator():
 def propagator():
     aggregator()
 
-def propagator1():
-    propagator()
+def get_exception_group():
+    try:
+        propagator()
+    except ExceptionGroup as e:
+        return e
 
 def handle_type_errors():
     try:
-        propagator1()
+        propagator()
     except ExceptionGroup as e:
-        TEs = e.exc_match(TypeError)
-        raise e
+        TEs = e.split(TypeError)
+        return e, TEs
 
 def handle_value_errors():
     try:
-        propagator1()
+        propagator()
     except ExceptionGroup as e:
-        VEs = e.exc_match(ValueError)
-        raise e
+        VEs = e.split(ValueError)
+        return e, VEs
 
 
 def main():
-    ## comment out the one you want to try:
+    print (">>>>>>>>>>>>>>>>>> get_exception_group <<<<<<<<<<<<<<<<<<<<")
+    e = get_exception_group()
+    render_exception(e)
 
-    propagator1()
-    # handle_type_errors()
-    # handle_value_errors()
+    print (">>>>>>>>>>>>>>>>>> handle_type_errors <<<<<<<<<<<<<<<<<<<<")
+
+    e, TEs = handle_type_errors()
+    print ("\n\n\n ------------- The split-off Type Errors:")
+    render_exception(TEs)
+    print ("\n\n\n ------------- The remaining unhandled:")
+    render_exception(e)
+
+    print (">>>>>>>>>>>>>>>>>> handle_value_errors <<<<<<<<<<<<<<<<<<<<")
+    e, VEs = handle_value_errors()
+    print ("\n\n\n ------------- The split-off Value Errors:")
+    render_exception(VEs)
+    print ("\n\n\n ------------- The remaining unhandled:")
+    render_exception(e)
 
 if __name__ == '__main__':
     main()
