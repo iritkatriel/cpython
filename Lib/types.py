@@ -62,7 +62,7 @@ except TypeError:
 GetSetDescriptorType = type(FunctionType.__code__)
 MemberDescriptorType = type(FunctionType.__globals__)
 
-del sys, _f, _g, _C, _c, _ag  # Not for export
+del _f, _g, _C, _c, _ag  # Not for export
 
 
 # Provide a PEP 3115 compliant mechanism for class creation
@@ -299,5 +299,67 @@ Union = type(int | str)
 EllipsisType = type(Ellipsis)
 NoneType = type(None)
 NotImplementedType = type(NotImplemented)
+
+class ExceptionGroup(BaseException):
+
+    def __init__(self, excs, tb=None):
+        self.excs = set(excs)
+        if tb:
+            self.__traceback__ = tb
+        else:
+            import types
+            self.__traceback__ = types.TracebackType(
+                None, sys._getframe(), 0, 0)
+            for e in excs:
+                 self.add_exc(e)
+
+    def add_exc(self, e):
+        self.excs.add(e)
+        self.__traceback__.next_map_add(e, e.__traceback__)
+
+    def split(self, E):
+        ''' remove the exceptions that match E
+        and return them in a new ExceptionGroup
+        '''
+        matches = []
+        for e in self.excs:
+            if isinstance(e, E):
+                matches.append(e)
+        [self.excs.remove(m) for m in matches]
+        gtb = self.__traceback__
+        while gtb.tb_next:
+            # there could be normal tbs is the ExceptionGroup propagated
+            gtb = gtb.tb_next
+        tb = gtb.group_split(matches)
+
+        return ExceptionGroup(matches, tb)
+
+    def push_frame(self, frame):
+        import types
+        self.__traceback__ = types.TracebackType(
+            self.__traceback__, frame, 0, 0)
+
+    @staticmethod
+    def render(exc, tb=None, indent=0):
+        print(exc)
+        tb = tb or exc.__traceback__
+        while tb:
+            print(' '*indent, tb.tb_frame)
+            if tb.tb_next: # single traceback
+                tb = tb.tb_next
+            elif tb.tb_next_map:
+                indent += 4
+                for e, t in tb.tb_next_map.items():
+                    print('---------------------------------------')
+                    ExceptionGroup.render(e, t, indent)
+                tb = None
+            else:
+                tb = None
+
+    def __str__(self):
+        return f"ExceptionGroup({self.excs})"
+
+    def __repr__(self):
+        return str(self)
 
 __all__ = [n for n in globals() if n[:1] != '_']

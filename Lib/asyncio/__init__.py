@@ -19,6 +19,7 @@ from .subprocess import *
 from .tasks import *
 from .threads import *
 from .transports import *
+from .taskgroup import *
 
 # Exposed for _asynciomodule.c to implement now deprecated
 # Task.all_tasks() method.  This function will be removed in 3.9.
@@ -37,7 +38,8 @@ __all__ = (base_events.__all__ +
            subprocess.__all__ +
            tasks.__all__ +
            threads.__all__ +
-           transports.__all__)
+           transports.__all__ +
+           taskgroup.__all__)
 
 if sys.platform == 'win32':  # pragma: no cover
     from .windows_events import *
