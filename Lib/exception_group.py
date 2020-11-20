@@ -100,21 +100,10 @@ class ExceptionGroup(BaseException):
         return match
 
     @staticmethod
-    def format(exc, **kwargs):
-        result = []
-        summary = StackGroupSummary.extract(exc, **kwargs)
-        for indent, traceback_exception in summary:
-            stack = traceback_exception.format()
-            result.extend(
-                [textwrap.indent(l.rstrip(), ' '*indent) for l in stack])
-        return result
-
-    @staticmethod
-    def render(exc, file=None, **kwargs):
-        if file is None:
-            file = sys.stderr
-        for line in ExceptionGroup.format(exc, **kwargs):
-            print(line, file=file)
+    def render(exc, limit=None, file=None, chain=True):
+        traceback.print_exception(
+            type(exc), exc, exc.__traceback__,
+            limit=limit, file=file, chain=chain)
 
     def __iter__(self):
         ''' iterate over the individual exceptions (flattens the tree) '''

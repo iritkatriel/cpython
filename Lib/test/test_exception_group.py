@@ -3,7 +3,7 @@ import collections.abc
 import functools
 import traceback
 import unittest
-from exception_group import ExceptionGroup, TracebackGroup, StackGroupSummary
+from exception_group import ExceptionGroup, TracebackGroup
 from io import StringIO
 
 
@@ -205,7 +205,7 @@ class ExceptionGroupRenderTests(ExceptionGroupTestUtils):
         makeTE = traceback.TracebackException.from_exception
 
         # StackGroupSummary.extract
-        summary = StackGroupSummary.extract(eg)
+        summary = traceback.TracebackExceptionGroup.from_exception(eg).summary
         self.assertEqual(len(expected), len(summary))
         self.assertEqual([e[0] for e in summary],
                          [e[0] for e in expected])
@@ -213,7 +213,7 @@ class ExceptionGroupRenderTests(ExceptionGroupTestUtils):
                          [makeTE(e) for e in [e[1] for e in expected]])
 
         # ExceptionGroup.format
-        format_output = ExceptionGroup.format(eg)
+        format_output = list(traceback.TracebackExceptionGroup.from_exception(eg).format())
         render_output = StringIO()
         ExceptionGroup.render(eg, file=render_output)
 

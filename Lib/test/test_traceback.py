@@ -12,6 +12,7 @@ from test.support.os_helper import TESTFN, unlink
 from test.support.script_helper import assert_python_ok
 import textwrap
 
+import exception_group
 import traceback
 
 
@@ -1265,6 +1266,215 @@ class TestTracebackException(unittest.TestCase):
         exc = traceback.TracebackException(Exception, Exception("haven"), None)
         self.assertEqual(list(exc.format()), ["Exception: haven\n"])
 
+
+class TestTracebackGroupException(unittest.TestCase):
+
+    def test_simple_exception(self):
+        def foo():
+            1/0
+        try:
+            foo()
+        except Exception:
+            exc_info = sys.exc_info()
+            teg = traceback.TracebackExceptionGroup(*exc_info)
+            exc = traceback.TracebackException(*exc_info)
+        self.assertEqual(teg.summary, ((0, exc),))
+
+        try:
+            foo()
+        except Exception as e:
+            teg, exc = (
+                traceback.TracebackExceptionGroup.from_exception(
+                    e, limit=1, lookup_lines=False, capture_locals=True),
+                traceback.TracebackException.from_exception(
+                    e, limit=1, lookup_lines=False, capture_locals=True))
+        self.assertEqual(teg.summary, ((0, exc),))
+
+    def test_exception_group(self):
+        def f():
+            1/0
+
+        def g(v):
+            raise ValueError(v)
+
+        try:
+            try:
+                try:
+                    f()
+                except Exception as e:
+                    exc1 = e
+                try:
+                    g(42)
+                except Exception as e:
+                    exc2 = e
+                raise exception_group.ExceptionGroup(
+                    [exc1, exc2], message="eg1")
+            except exception_group.ExceptionGroup as e:
+                exc3 = e
+            try:
+                g(24)
+            except Exception as e:
+                exc4 = e
+            raise exception_group.ExceptionGroup(
+                [exc3, exc4], message="eg2")
+        except exception_group.ExceptionGroup as eg:
+            exc_info = sys.exc_info()
+            exc = traceback.TracebackExceptionGroup(*exc_info)
+            expected_stack = traceback.StackSummary.extract(
+                traceback.walk_tb(exc_info[2]))
+        expected_summary = (
+            (0, traceback.TracebackException(*exc_info)),
+            (4, traceback.TracebackException.from_exception(exc3)),
+            (8, traceback.TracebackException.from_exception(exc1)),
+            (8, traceback.TracebackException.from_exception(exc2)),
+            (4, traceback.TracebackException.from_exception(exc4)),
+        )
+        self.assertEqual(exc.summary, expected_summary)
+        formatted_exception_only = list(exc.format_exception_only())
+
+        expected_exception_only = [
+            'exception_group.ExceptionGroup: eg2\n',
+            '    exception_group.ExceptionGroup: eg1\n',
+            '        ZeroDivisionError: division by zero\n',
+            '        ValueError: 42\n',
+            '    ValueError: 24\n'
+        ]
+
+        self.assertEqual(formatted_exception_only, expected_exception_only)
+
+        formatted = ''.join(exc.format()).split('\n')
+        lineno_f = f.__code__.co_firstlineno
+        lineno_g = g.__code__.co_firstlineno
+
+        expected = [
+            'Traceback (most recent call last):',
+            f'  File "{__file__}", '
+            f'line {lineno_g+21}, in test_exception_group',
+            '    raise exception_group.ExceptionGroup(',
+            'exception_group.ExceptionGroup: eg2',
+            '    --------------------------------------------------------',
+            '    Traceback (most recent call last):',
+            f'      File "{__file__}", '
+            f'line {lineno_g+13}, in test_exception_group',
+            '        raise exception_group.ExceptionGroup(',
+            '    exception_group.ExceptionGroup: eg1',
+            '        ----------------------------------------------------',
+            '        Traceback (most recent call last):',
+            '          File '
+            f'"{__file__}", line {lineno_g+6}, in '
+            'test_exception_group',
+            '            f()',
+            '          File '
+            f'"{__file__}", line {lineno_f+1}, in '
+            'f',
+            '            1/0',
+            '        ZeroDivisionError: division by zero',
+            '        ----------------------------------------------------',
+            '        Traceback (most recent call last):',
+            '          File '
+            f'"{__file__}", line {lineno_g+10}, in '
+            'test_exception_group',
+            '            g(42)',
+            '          File '
+            f'"{__file__}", line {lineno_g+1}, in '
+            'g',
+            '            raise ValueError(v)',
+            '        ValueError: 42',
+            '    --------------------------------------------------------',
+            '    Traceback (most recent call last):',
+            f'      File "{__file__}", '
+            f'line {lineno_g+18}, in test_exception_group',
+            '        g(24)',
+            f'      File "{__file__}", '
+            f'line {lineno_g+1}, in g',
+            '        raise ValueError(v)',
+            '    ValueError: 24',
+            '']
+
+        self.assertEqual(formatted, expected)
+
+    def test_comparison(self):
+        try:
+            1/0
+        except Exception:
+            exc_info = sys.exc_info()
+            exc = traceback.TracebackExceptionGroup(*exc_info)
+            exc2 = traceback.TracebackExceptionGroup(*exc_info)
+        self.assertIsNot(exc, exc2)
+        self.assertEqual(exc, exc2)
+        self.assertNotEqual(exc, object())
+        self.assertEqual(exc, ALWAYS_EQ)
+
+    def test_unhashable(self):
+        class UnhashableException(Exception):
+            def __eq__(self, other):
+                return True
+
+        ex1 = UnhashableException('ex1')
+        ex2 = UnhashableException('ex2')
+        try:
+            raise ex2 from ex1
+        except UnhashableException:
+            try:
+                raise ex1
+            except UnhashableException:
+                exc_info = sys.exc_info()
+        exc = traceback.TracebackExceptionGroup(*exc_info)
+        formatted = list(exc.format())
+        self.assertIn('UnhashableException: ex2\n', formatted[2])
+        self.assertIn('UnhashableException: ex1\n', formatted[6])
+
+    def test_limit(self):
+        def recurse(n):
+            if n:
+                recurse(n-1)
+            else:
+                1/0
+        try:
+            recurse(10)
+        except Exception:
+            exc_info = sys.exc_info()
+            exc = traceback.TracebackExceptionGroup(*exc_info, limit=5)
+            expected_stack = traceback.StackSummary.extract(
+                traceback.walk_tb(exc_info[2]), limit=5)
+        self.assertEqual(expected_stack, exc.summary[0][1].stack)
+
+    def test_lookup_lines(self):
+        linecache.clearcache()
+        e = Exception("uh oh")
+        c = test_code('/foo.py', 'method')
+        f = test_frame(c, None, None)
+        tb = test_tb(f, 6, None)
+        exc = traceback.TracebackExceptionGroup(Exception, e, tb, lookup_lines=False)
+        self.assertEqual({}, linecache.cache)
+        linecache.updatecache('/foo.py', globals())
+        self.assertEqual(exc.summary[0][1].stack[0].line, "import sys")
+
+    def test_locals(self):
+        linecache.updatecache('/foo.py', globals())
+        e = Exception("uh oh")
+        c = test_code('/foo.py', 'method')
+        f = test_frame(c, globals(), {'something': 1, 'other': 'string'})
+        tb = test_tb(f, 6, None)
+        exc = traceback.TracebackExceptionGroup(
+            Exception, e, tb, capture_locals=True)
+        self.assertEqual(
+            exc.summary[0][1].stack[0].locals, {'something': '1', 'other': "'string'"})
+
+    def test_no_locals(self):
+        linecache.updatecache('/foo.py', globals())
+        e = Exception("uh oh")
+        c = test_code('/foo.py', 'method')
+        f = test_frame(c, globals(), {'something': 1})
+        tb = test_tb(f, 6, None)
+        exc = traceback.TracebackExceptionGroup(Exception, e, tb)
+        self.assertEqual(exc.summary[0][1].stack[0].locals, None)
+
+    def test_traceback_header(self):
+        # do not print a traceback header if exc_traceback is None
+        # see issue #24695
+        exc = traceback.TracebackExceptionGroup(Exception, Exception("haven"), None)
+        self.assertEqual(list(exc.format()), ["Exception: haven\n"])
 
 class MiscTest(unittest.TestCase):
 
