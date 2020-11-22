@@ -637,7 +637,7 @@ class TracebackException:
 class TracebackExceptionGroup:
     """An exception or exception group ready for rendering.
 
-    The traceback module captures enough attributes from the original exception
+    We capture enough attributes from the original exception
     group to this intermediary form to ensure that no references are held, while
     still being able to fully print or format it.
 
