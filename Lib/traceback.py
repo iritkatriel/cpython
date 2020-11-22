@@ -670,7 +670,7 @@ class TracebackExceptionGroup:
 
     @classmethod
     def from_exception(cls, exc, *args, **kwargs):
-        """Create a TracebackException from an exception."""
+        """Create a TracebackExceptionGroup from an exception."""
         return cls(type(exc), exc, exc.__traceback__, *args, **kwargs)
 
     def format(self, *, chain=True):
