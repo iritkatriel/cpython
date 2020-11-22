@@ -680,7 +680,7 @@ class TracebackExceptionGroup:
         followed by a printout of each exception in the group, which is
         expanded recursively.
 
-        If chain is not *True*, *__cause__* and *__context__* will not be formatted.
+        If chain is false(y), *__cause__* and *__context__* will not be formatted.
 
         This is a generator of strings, each ending in a newline and
         some containing internal newlines. `print_exception_group` is a wrapper
