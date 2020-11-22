@@ -682,7 +682,7 @@ class TracebackExceptionGroup:
 
         If chain is not *True*, *__cause__* and *__context__* will not be formatted.
 
-        The return value is a generator of strings, each ending in a newline and
+        This is a generator of strings, each ending in a newline and
         some containing internal newlines. `print_exception_group` is a wrapper
         around this method which just prints the lines to a file.
         """
