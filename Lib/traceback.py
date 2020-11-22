@@ -641,7 +641,7 @@ class TracebackExceptionGroup:
     group to this intermediary form to ensure that no references are held, while
     still being able to fully print or format it.
 
-    Use `from_exception` to create TracebackExceptionGroup instances from exception
+    Use `from_exception()` to create TracebackExceptionGroup instances from exception
     objects, or the constructor to create TracebackExceptionGroup instances from
     individual components.
 
