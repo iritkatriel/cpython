@@ -1278,7 +1278,7 @@ class TestTracebackGroupException(unittest.TestCase):
             exc_info = sys.exc_info()
             teg = traceback.TracebackExceptionGroup(*exc_info)
             exc = traceback.TracebackException(*exc_info)
-        self.assertEqual(teg.summary, ((0, exc),))
+        self.assertEqual(teg.summary, [(0, exc)])
 
         try:
             foo()
@@ -1288,7 +1288,7 @@ class TestTracebackGroupException(unittest.TestCase):
                     e, limit=1, lookup_lines=False, capture_locals=True),
                 traceback.TracebackException.from_exception(
                     e, limit=1, lookup_lines=False, capture_locals=True))
-        self.assertEqual(teg.summary, ((0, exc),))
+        self.assertEqual(teg.summary, [(0, exc)])
 
     def test_exception_group(self):
         def f():
@@ -1322,13 +1322,13 @@ class TestTracebackGroupException(unittest.TestCase):
             exc = traceback.TracebackExceptionGroup(*exc_info)
             expected_stack = traceback.StackSummary.extract(
                 traceback.walk_tb(exc_info[2]))
-        expected_summary = (
+        expected_summary = [
             (0, traceback.TracebackException(*exc_info)),
-            (4, traceback.TracebackException.from_exception(exc3)),
-            (8, traceback.TracebackException.from_exception(exc1)),
-            (8, traceback.TracebackException.from_exception(exc2)),
-            (4, traceback.TracebackException.from_exception(exc4)),
-        )
+            (1, traceback.TracebackException.from_exception(exc3)),
+            (2, traceback.TracebackException.from_exception(exc1)),
+            (2, traceback.TracebackException.from_exception(exc2)),
+            (1, traceback.TracebackException.from_exception(exc4)),
+        ]
         self.assertEqual(exc.summary, expected_summary)
         formatted_exception_only = list(exc.format_exception_only())
 

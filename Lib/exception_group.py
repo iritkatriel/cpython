@@ -99,12 +99,6 @@ class ExceptionGroup(BaseException):
         match, _ = self.project(lambda e: e in keep)
         return match
 
-    @staticmethod
-    def render(exc, limit=None, file=None, chain=True):
-        traceback.print_exception(
-            type(exc), exc, exc.__traceback__,
-            limit=limit, file=file, chain=chain)
-
     def __iter__(self):
         ''' iterate over the individual exceptions (flattens the tree) '''
         for e in self.excs:
@@ -123,21 +117,6 @@ class ExceptionGroup(BaseException):
     @staticmethod
     def catch(types, handler):
         return ExceptionGroupCatcher(types, handler)
-
-
-class StackGroupSummary(list):
-    @classmethod
-    def extract(klass, exc, *, indent=0, result=None, **kwargs):
-
-        if result is None:
-            result = klass()
-        te = traceback.TracebackException.from_exception(exc, **kwargs)
-        result.append([indent, te])
-        if isinstance(exc, ExceptionGroup):
-            for e in exc.excs:
-                StackGroupSummary.extract(
-                    e, indent=indent+4, result=result, **kwargs)
-        return result
 
 
 class ExceptionGroupCatcher:

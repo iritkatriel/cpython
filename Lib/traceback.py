@@ -613,9 +613,10 @@ class TracebackException:
 
         If chain is not *True*, *__cause__* and *__context__* will not be formatted.
 
-        The return value is a generator of strings, each ending in a newline and
-        some containing internal newlines. `print_exception` is a wrapper around
-        this method which just prints the lines to a file.
+        The return value is a generator of strings, each ending in a newline
+        and some containing internal newlines. `print_exception(e)`, when `e`
+        is a single exception (rather than an ExceptionGroup), is essentially
+        a wrapper around this method which just prints the lines to a file.
 
         The message indicating which exception occurred is always the last
         string in the output.
@@ -649,7 +650,8 @@ class TracebackExceptionGroup:
     """
 
     def __init__(self, exc_type, exc_value, exc_traceback, **kwargs):
-        self.summary = tuple(
+        self.indent_size = 4
+        self.summary = list(
             self._gen_summary(
                 exc_type, exc_value, exc_traceback, **kwargs))
         self._str = _some_str(exc_value)
@@ -666,7 +668,7 @@ class TracebackExceptionGroup:
         if isinstance(exc_value, exception_group.ExceptionGroup):
             for e in exc_value.excs:
                 yield from self._gen_summary(
-                    type(e), e, e.__traceback__, indent=indent+4, **kwargs)
+                    type(e), e, e.__traceback__, indent=indent+1, **kwargs)
 
     @classmethod
     def from_exception(cls, exc, *args, **kwargs):
@@ -682,8 +684,8 @@ class TracebackExceptionGroup:
 
         If chain is false(y), *__cause__* and *__context__* will not be formatted.
 
-        This is a generator of strings, each ending in a newline and
-        some containing internal newlines. `print_exception_group` is a wrapper
+        This is a generator of strings, each ending in a newline
+        and some containing internal newlines. `print_exception` is a wrapper
         around this method which just prints the lines to a file.
         """
         # TODO: should we add an arg to bound the number of exceptions printed?
@@ -692,8 +694,8 @@ class TracebackExceptionGroup:
             if indent == 0:
                 yield from te.format(chain=chain)
             else:
-                indent_str = ' '*indent
-                yield indent_str + '-'*(60-indent) +'\n'
+                indent_str = ' '*self.indent_size*indent
+                yield indent_str + '-'*(60-len(indent_str)) +'\n'
                 yield textwrap.indent(
                     ''.join(list(te.format(chain=chain))), indent_str)
 
@@ -702,8 +704,9 @@ class TracebackExceptionGroup:
             if indent == 0:
                 yield from te.format_exception_only()
             else:
+                indent_str = ' '*self.indent_size*indent
                 yield textwrap.indent(
-                    ''.join(list(te.format_exception_only())),' '*indent)
+                    ''.join(list(te.format_exception_only())), indent_str)
 
     def __eq__(self, other):
         if isinstance(other, TracebackExceptionGroup):

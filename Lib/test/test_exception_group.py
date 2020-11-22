@@ -194,9 +194,9 @@ class ExceptionGroupRenderTests(ExceptionGroupTestUtils):
 
         expected = [  # (indent, exception) pairs
             (0, eg),
-            (4, eg.excs[0]),
-            (4, eg.excs[1]),
-            (4, eg.excs[2]),
+            (1, eg.excs[0]),
+            (1, eg.excs[1]),
+            (1, eg.excs[2]),
         ]
 
         self.check_summary_format_and_render(eg, expected)
@@ -204,7 +204,6 @@ class ExceptionGroupRenderTests(ExceptionGroupTestUtils):
     def check_summary_format_and_render(self, eg, expected):
         makeTE = traceback.TracebackException.from_exception
 
-        # StackGroupSummary.extract
         summary = traceback.TracebackExceptionGroup.from_exception(eg).summary
         self.assertEqual(len(expected), len(summary))
         self.assertEqual([e[0] for e in summary],
@@ -212,32 +211,26 @@ class ExceptionGroupRenderTests(ExceptionGroupTestUtils):
         self.assertEqual([e[1] for e in summary],
                          [makeTE(e) for e in [e[1] for e in expected]])
 
-        # ExceptionGroup.format
+        # smoke test for traceback.TracebackExceptionGroup.format
         format_output = list(traceback.TracebackExceptionGroup.from_exception(eg).format())
-        render_output = StringIO()
-        ExceptionGroup.render(eg, file=render_output)
-
         self.assertIsInstance(format_output, list)
-        self.assertIsInstance(render_output.getvalue(), str)
-        self.assertEqual("".join(format_output).replace('\n', ''),
-                         render_output.getvalue().replace('\n', ''))
 
     def test_stack_summary_nested(self):
         eg = self.newNestedEG(15)
 
         expected = [  # (indent, exception) pairs
             (0, eg),
-            (4, eg.excs[0]),
-            (8, eg.excs[0].excs[0]),
-            (12, eg.excs[0].excs[0].excs[0]),
-            (12, eg.excs[0].excs[0].excs[1]),
-            (12, eg.excs[0].excs[0].excs[2]),
-            (8, eg.excs[0].excs[1]),
-            (12, eg.excs[0].excs[1].excs[0]),
-            (12, eg.excs[0].excs[1].excs[1]),
-            (12, eg.excs[0].excs[1].excs[2]),
-            (8, eg.excs[0].excs[2]),
-            (4, eg.excs[1]),
+            (1, eg.excs[0]),
+            (2, eg.excs[0].excs[0]),
+            (3, eg.excs[0].excs[0].excs[0]),
+            (3, eg.excs[0].excs[0].excs[1]),
+            (3, eg.excs[0].excs[0].excs[2]),
+            (2, eg.excs[0].excs[1]),
+            (3, eg.excs[0].excs[1].excs[0]),
+            (3, eg.excs[0].excs[1].excs[1]),
+            (3, eg.excs[0].excs[1].excs[2]),
+            (2, eg.excs[0].excs[2]),
+            (1, eg.excs[1]),
         ]
         self.check_summary_format_and_render(eg, expected)
 
