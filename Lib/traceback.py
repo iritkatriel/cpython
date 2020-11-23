@@ -478,7 +478,7 @@ class TracebackException:
     """
 
     def __init__(self, exc_type, exc_value, exc_traceback, *, limit=None,
-            lookup_lines=True, capture_locals=False, _seen=None):
+            lookup_lines=True, capture_locals=False, _seen=None, indent_level=0):
         # NB: we need to accept exc_traceback, exc_value, exc_traceback to
         # permit backwards compat with the existing API, otherwise we
         # need stub thunk objects just to glue it together.
@@ -533,6 +533,7 @@ class TracebackException:
             self.msg = exc_value.msg
         if lookup_lines:
             self._load_lines()
+        self.indent_level = indent_level
 
     @classmethod
     def from_exception(cls, exc, *args, **kwargs):
@@ -638,38 +639,45 @@ class TracebackException:
 class TracebackExceptionGroup:
     """An exception or exception group ready for rendering.
 
-    We capture enough attributes from the original exception
-    group to this intermediary form to ensure that no references are held, while
-    still being able to fully print or format it.
+    We capture enough attributes from the original exception group to this
+    intermediary form to ensure that no references are held, while still being
+    able to fully print or format it.
 
     Use `from_exception()` to create TracebackExceptionGroup instances from exception
     objects, or the constructor to create TracebackExceptionGroup instances from
     individual components.
 
-    - :attr:`summary` A tuple of (indentation level, TracebackException) pairs
+    - :attr:`summary` A list of TracebackException objects. For a single exception
+    the list has length 1, and for an ExceptionGroup it has an item for each exception
+    in the group (recursively), in DFS pre-order sequence: The first item represents
+    the given EG, the second represents the first exception in this EG's list, and
+    so on.
     """
+
     SEPARATOR_LINE = '-'*60+'\n'
 
-    def __init__(self, exc_type, exc_value, exc_traceback, **kwargs):
+    def __init__(self, exc_type, exc_value, exc_traceback,
+                 indent_level=0, **kwargs):
         self.indent_size = 4
         self.summary = list(
             self._gen_summary(
-                exc_type, exc_value, exc_traceback, **kwargs))
+                exc_type, exc_value, exc_traceback,
+                indent_level = indent_level, **kwargs))
         self._str = _some_str(exc_value)
 
     def _gen_summary(self, exc_type, exc_value, exc_traceback,
-                     indent=0, **kwargs):
+                     indent_level, **kwargs):
         # recursively extract the sequence of (indent, TracebackException)
         # pairs. If exc_value is a single exception, there is only one pair
         # (with indent 0). If it is an exception group, we get one pair
         # for each exception in it, showing the whole tree
-        te = TracebackException(
-            exc_type, exc_value, exc_traceback, **kwargs)
-        yield tuple((indent, te))
+        yield TracebackException(
+            exc_type, exc_value, exc_traceback,
+            indent_level=indent_level, **kwargs)
         if isinstance(exc_value, exception_group.ExceptionGroup):
             for e in exc_value.excs:
                 yield from self._gen_summary(
-                    type(e), e, e.__traceback__, indent=indent+1, **kwargs)
+                    type(e), e, e.__traceback__, indent_level+1, **kwargs)
 
     @classmethod
     def from_exception(cls, exc, *args, **kwargs):
@@ -691,29 +699,31 @@ class TracebackExceptionGroup:
         """
         # TODO: Add two args to bound (1) the depth of exceptions reported, and
         # (2) the number of exceptions reported per level
-        for indent, te in self.summary:
-            if indent == 0:
-                yield from te.format(chain=chain)
+        for te in self.summary:
+            line_gen = te.format(chain=chain)
+            if te.indent_level == 0:
+                yield from line_gen
             else:
-                indent_str = ' '*self.indent_size*indent
-                yield indent_str + self.SEPARATOR_LINE
-                yield self._indent(
-                    ''.join(list(te.format(chain=chain))), indent_str)
+                yield from self._format(
+                    line_gen, te.indent_level, sep = self.SEPARATOR_LINE)
 
     def format_exception_only(self):
-        for indent, te in self.summary:
-            if indent == 0:
-                yield from te.format_exception_only()
+        for te in self.summary:
+            line_gen = te.format_exception_only()
+            if te.indent_level == 0:
+                yield from line_gen
             else:
-                indent_str = ' '*self.indent_size*indent
-                yield self._indent(
-                    ''.join(list(te.format_exception_only())), indent_str)
+                yield from self._format(line_gen, te.indent_level)
 
-    def _indent(self, line, indent_str):
+    def _format(self, line_gen, indent_level, sep=None):
+        line = ''.join(list(line_gen))
+        indent_str = ' ' * self.indent_size * indent_level
         if '\n' not in line:
             return indent_str + line
         else:
-            return textwrap.indent(line, indent_str)
+            if sep is not None:
+                yield indent_str + sep
+            yield textwrap.indent(line, indent_str)
 
     def __eq__(self, other):
         if isinstance(other, TracebackExceptionGroup):

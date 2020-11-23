@@ -209,10 +209,9 @@ class ExceptionGroupRenderTests(ExceptionGroupTestUtils):
 
         summary = traceback.TracebackExceptionGroup.from_exception(eg).summary
         self.assertEqual(len(expected), len(summary))
-        self.assertEqual([e[0] for e in summary],
-                         [e[0] for e in expected])
-        self.assertEqual([e[1] for e in summary],
-                         [makeTE(e) for e in [e[1] for e in expected]])
+        self.assertEqual([e.indent_level for e in summary], [e[0] for e in expected])
+        self.assertEqual([e for e in summary],
+                         [makeTE(e[1], indent_level=e[0]) for e in expected])
 
         # smoke test for traceback.TracebackExceptionGroup.format
         format_output = list(traceback.TracebackExceptionGroup.from_exception(eg).format())

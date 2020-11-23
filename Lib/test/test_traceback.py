@@ -1278,7 +1278,7 @@ class TestTracebackGroupException(unittest.TestCase):
             exc_info = sys.exc_info()
             teg = traceback.TracebackExceptionGroup(*exc_info)
             exc = traceback.TracebackException(*exc_info)
-        self.assertEqual(teg.summary, [(0, exc)])
+        self.assertEqual(teg.summary, [exc])
 
         try:
             foo()
@@ -1288,7 +1288,7 @@ class TestTracebackGroupException(unittest.TestCase):
                     e, limit=1, lookup_lines=False, capture_locals=True),
                 traceback.TracebackException.from_exception(
                     e, limit=1, lookup_lines=False, capture_locals=True))
-        self.assertEqual(teg.summary, [(0, exc)])
+        self.assertEqual(teg.summary, [exc])
 
     def test_exception_group(self):
         def f():
@@ -1323,11 +1323,11 @@ class TestTracebackGroupException(unittest.TestCase):
             expected_stack = traceback.StackSummary.extract(
                 traceback.walk_tb(exc_info[2]))
         expected_summary = [
-            (0, traceback.TracebackException(*exc_info)),
-            (1, traceback.TracebackException.from_exception(exc3)),
-            (2, traceback.TracebackException.from_exception(exc1)),
-            (2, traceback.TracebackException.from_exception(exc2)),
-            (1, traceback.TracebackException.from_exception(exc4)),
+            traceback.TracebackException(*exc_info, indent_level=0),
+            traceback.TracebackException.from_exception(exc3, indent_level=1),
+            traceback.TracebackException.from_exception(exc1, indent_level=2),
+            traceback.TracebackException.from_exception(exc2, indent_level=2),
+            traceback.TracebackException.from_exception(exc4, indent_level=1),
         ]
         self.assertEqual(exc.summary, expected_summary)
         formatted_exception_only = list(exc.format_exception_only())
@@ -1437,7 +1437,7 @@ class TestTracebackGroupException(unittest.TestCase):
             exc = traceback.TracebackExceptionGroup(*exc_info, limit=5)
             expected_stack = traceback.StackSummary.extract(
                 traceback.walk_tb(exc_info[2]), limit=5)
-        self.assertEqual(expected_stack, exc.summary[0][1].stack)
+        self.assertEqual(expected_stack, exc.summary[0].stack)
 
     def test_lookup_lines(self):
         linecache.clearcache()
@@ -1448,7 +1448,7 @@ class TestTracebackGroupException(unittest.TestCase):
         exc = traceback.TracebackExceptionGroup(Exception, e, tb, lookup_lines=False)
         self.assertEqual({}, linecache.cache)
         linecache.updatecache('/foo.py', globals())
-        self.assertEqual(exc.summary[0][1].stack[0].line, "import sys")
+        self.assertEqual(exc.summary[0].stack[0].line, "import sys")
 
     def test_locals(self):
         linecache.updatecache('/foo.py', globals())
@@ -1459,7 +1459,7 @@ class TestTracebackGroupException(unittest.TestCase):
         exc = traceback.TracebackExceptionGroup(
             Exception, e, tb, capture_locals=True)
         self.assertEqual(
-            exc.summary[0][1].stack[0].locals, {'something': '1', 'other': "'string'"})
+            exc.summary[0].stack[0].locals, {'something': '1', 'other': "'string'"})
 
     def test_no_locals(self):
         linecache.updatecache('/foo.py', globals())
@@ -1468,7 +1468,7 @@ class TestTracebackGroupException(unittest.TestCase):
         f = test_frame(c, globals(), {'something': 1})
         tb = test_tb(f, 6, None)
         exc = traceback.TracebackExceptionGroup(Exception, e, tb)
-        self.assertEqual(exc.summary[0][1].stack[0].locals, None)
+        self.assertEqual(exc.summary[0].stack[0].locals, None)
 
     def test_traceback_header(self):
         # do not print a traceback header if exc_traceback is None
