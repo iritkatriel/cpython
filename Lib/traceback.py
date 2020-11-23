@@ -648,6 +648,7 @@ class TracebackExceptionGroup:
 
     - :attr:`summary` A tuple of (indentation level, TracebackException) pairs
     """
+    SEPARATOR_LINE = '-'*60+'\n'
 
     def __init__(self, exc_type, exc_value, exc_traceback, **kwargs):
         self.indent_size = 4
@@ -688,15 +689,15 @@ class TracebackExceptionGroup:
         and some containing internal newlines. `print_exception` is a wrapper
         around this method which just prints the lines to a file.
         """
-        # TODO: should we add an arg to bound the number of exceptions printed?
-        # or should we use limit somehow for that?
+        # TODO: Add two args to bound (1) the depth of exceptions reported, and
+        # (2) the number of exceptions reported per level
         for indent, te in self.summary:
             if indent == 0:
                 yield from te.format(chain=chain)
             else:
                 indent_str = ' '*self.indent_size*indent
-                yield indent_str + '-'*(60-len(indent_str)) +'\n'
-                yield textwrap.indent(
+                yield indent_str + self.SEPARATOR_LINE
+                yield self._indent(
                     ''.join(list(te.format(chain=chain))), indent_str)
 
     def format_exception_only(self):
@@ -705,8 +706,14 @@ class TracebackExceptionGroup:
                 yield from te.format_exception_only()
             else:
                 indent_str = ' '*self.indent_size*indent
-                yield textwrap.indent(
+                yield self._indent(
                     ''.join(list(te.format_exception_only())), indent_str)
+
+    def _indent(self, line, indent_str):
+        if '\n' not in line:
+            return indent_str + line
+        else:
+            return textwrap.indent(line, indent_str)
 
     def __eq__(self, other):
         if isinstance(other, TracebackExceptionGroup):

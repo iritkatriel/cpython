@@ -28,8 +28,7 @@ class ExceptionGroup(BaseException):
         tb [optional]: the __traceback__ of this exception group.
         Typically set when this ExceptionGroup is derived from another.
         """
-        if message is not None and not isinstance(message, (str, bytes)):
-            raise ValueError("message must be a string or None")
+        assert message is None or isinstance(message, str)
         self.message = message
         self.excs = excs
         super().__init__(self.message)

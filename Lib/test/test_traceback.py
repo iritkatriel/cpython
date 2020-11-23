@@ -1352,13 +1352,13 @@ class TestTracebackGroupException(unittest.TestCase):
             f'line {lineno_g+21}, in test_exception_group',
             '    raise exception_group.ExceptionGroup(',
             'exception_group.ExceptionGroup: eg2',
-            '    --------------------------------------------------------',
+            '    ------------------------------------------------------------',
             '    Traceback (most recent call last):',
             f'      File "{__file__}", '
             f'line {lineno_g+13}, in test_exception_group',
             '        raise exception_group.ExceptionGroup(',
             '    exception_group.ExceptionGroup: eg1',
-            '        ----------------------------------------------------',
+            '        ------------------------------------------------------------',
             '        Traceback (most recent call last):',
             '          File '
             f'"{__file__}", line {lineno_g+6}, in '
@@ -1369,7 +1369,7 @@ class TestTracebackGroupException(unittest.TestCase):
             'f',
             '            1/0',
             '        ZeroDivisionError: division by zero',
-            '        ----------------------------------------------------',
+            '        ------------------------------------------------------------',
             '        Traceback (most recent call last):',
             '          File '
             f'"{__file__}", line {lineno_g+10}, in '
@@ -1380,7 +1380,7 @@ class TestTracebackGroupException(unittest.TestCase):
             'g',
             '            raise ValueError(v)',
             '        ValueError: 42',
-            '    --------------------------------------------------------',
+            '    ------------------------------------------------------------',
             '    Traceback (most recent call last):',
             f'      File "{__file__}", '
             f'line {lineno_g+18}, in test_exception_group',
