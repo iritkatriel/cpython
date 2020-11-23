@@ -21,7 +21,7 @@ class TracebackGroup:
 
 
 class ExceptionGroup(BaseException):
-    def __init__(self, message, *excs, tb=None):
+    def __init__(self, message, *excs):
         """ Construct a new ExceptionGroup
 
         excs: sequence of exceptions
@@ -29,15 +29,14 @@ class ExceptionGroup(BaseException):
         Typically set when this ExceptionGroup is derived from another.
         """
         assert message is None or isinstance(message, str)
-        for e in excs:
-            assert isinstance(e, BaseException)
+        assert all(isinstance(e, BaseException) for e in excs)
+
         self.message = message
         self.excs = excs
         super().__init__(self.message)
         # self.__traceback__ is updated as usual, but self.__traceback_group__
         # is set when the exception group is created.
         # __traceback_group__ and __traceback__ combine to give the full path.
-        self.__traceback__ = tb
         self.__traceback_group__ = TracebackGroup(self.excs)
 
     def project(self, condition, with_complement=False):
@@ -70,7 +69,8 @@ class ExceptionGroup(BaseException):
                 elif with_complement:
                     rest.append(e)
 
-        match_exc = ExceptionGroup(self.message, *match, tb=self.__traceback__)
+        match_exc = ExceptionGroup(
+            self.message, *match).with_traceback(self.__traceback__)
 
         def copy_metadata(src, target):
             target.__context__ = src.__context__
@@ -78,7 +78,7 @@ class ExceptionGroup(BaseException):
 
         copy_metadata(self, match_exc)
         if with_complement:
-            rest_exc = ExceptionGroup(self.message, *rest, tb=self.__traceback__)
+            rest_exc = ExceptionGroup(self.message, *rest).with_traceback(self.__traceback__)
             copy_metadata(self, rest_exc)
         else:
             rest_exc = None
