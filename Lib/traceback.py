@@ -654,11 +654,11 @@ class TracebackExceptionGroup:
     so on.
     """
 
-    SEPARATOR_LINE = '-'*60+'\n'
+    SEPARATOR_LINE = '-' * 60 + '\n'
+    INDENT_SIZE = 3
 
     def __init__(self, exc_type, exc_value, exc_traceback,
                  indent_level=0, **kwargs):
-        self.indent_size = 4
         self.summary = list(
             self._gen_summary(
                 exc_type, exc_value, exc_traceback,
@@ -677,7 +677,7 @@ class TracebackExceptionGroup:
         if isinstance(exc_value, exception_group.ExceptionGroup):
             for e in exc_value.excs:
                 yield from self._gen_summary(
-                    type(e), e, e.__traceback__, indent_level+1, **kwargs)
+                    type(e), e, e.__traceback__, indent_level + 1, **kwargs)
 
     @classmethod
     def from_exception(cls, exc, *args, **kwargs):
@@ -697,33 +697,33 @@ class TracebackExceptionGroup:
         and some containing internal newlines. `print_exception` is a wrapper
         around this method which just prints the lines to a file.
         """
-        # TODO: Add two args to bound (1) the depth of exceptions reported, and
+        # TODO: Add two args to bound -
+        # (1) the depth of exceptions reported, and
         # (2) the number of exceptions reported per level
         for te in self.summary:
-            line_gen = te.format(chain=chain)
-            if te.indent_level == 0:
-                yield from line_gen
-            else:
-                yield from self._format(
-                    line_gen, te.indent_level, sep = self.SEPARATOR_LINE)
+            yield from self._format(
+                te.format(chain=chain),
+                te.indent_level,
+                sep=self.SEPARATOR_LINE)
 
     def format_exception_only(self):
         for te in self.summary:
-            line_gen = te.format_exception_only()
-            if te.indent_level == 0:
-                yield from line_gen
-            else:
-                yield from self._format(line_gen, te.indent_level)
+            yield from self._format(
+                te.format_exception_only(),
+                te.indent_level)
 
-    def _format(self, line_gen, indent_level, sep=None):
-        line = ''.join(list(line_gen))
-        indent_str = ' ' * self.indent_size * indent_level
-        if '\n' not in line:
-            return indent_str + line
+    def _format(self, text_gen, indent_level, sep=None):
+        if indent_level == 0:
+            yield from text_gen
         else:
-            if sep is not None:
-                yield indent_str + sep
-            yield textwrap.indent(line, indent_str)
+            text = ''.join(list(text_gen))
+            indent_str = ' ' * self.INDENT_SIZE * indent_level
+            if '\n' not in text:
+                yield indent_str + text
+            else:
+                if sep is not None:
+                    yield indent_str + sep
+                yield textwrap.indent(text, indent_str)
 
     def __eq__(self, other):
         if isinstance(other, TracebackExceptionGroup):
