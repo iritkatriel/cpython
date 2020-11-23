@@ -43,7 +43,7 @@ class ExceptionGroupTestUtils(ExceptionGroupTestBase):
             except (Exception, ExceptionGroup) as e:
                 excs.append(e)
         try:
-            raise ExceptionGroup(message, excs)
+            raise ExceptionGroup(message, *excs)
         except ExceptionGroup as e:
             return e
 
@@ -434,10 +434,9 @@ class ExceptionGroupCatchTests(ExceptionGroupTestUtils):
             def handle(self, eg):
                 raise ExceptionGroup(
                       "msg1",
-                      [ValueError('foo'),
-                       ExceptionGroup(
-                           "msg2",
-                           [SyntaxError('bar'), ValueError('baz')])])
+                      ValueError('foo'),
+                      ExceptionGroup(
+                          "msg2",SyntaxError('bar'), ValueError('baz')))
 
         newErrors_template = [
             ValueError('foo'), [SyntaxError('bar'), ValueError('baz')]]
@@ -512,11 +511,10 @@ class ExceptionGroupCatchTests(ExceptionGroupTestUtils):
             def handle(self, eg):
                 raise ExceptionGroup(
                       "msg1",
-                      [eg,
-                       ValueError('foo'),
-                       ExceptionGroup(
-                           "msg2",
-                           [SyntaxError('bar'), ValueError('baz')])])
+                      eg,
+                      ValueError('foo'),
+                      ExceptionGroup(
+                          "msg2", SyntaxError('bar'), ValueError('baz')))
 
         newErrors_template = [
             ValueError('foo'), [SyntaxError('bar'), ValueError('baz')]]
@@ -541,11 +539,10 @@ class ExceptionGroupCatchTests(ExceptionGroupTestUtils):
             def handle(self, eg):
                 raise ExceptionGroup(
                     "msg1",
-                    [eg.excs[0],
-                     ValueError('foo'),
-                     ExceptionGroup(
-                         "msg2",
-                         [SyntaxError('bar'), ValueError('baz')])])
+                    eg.excs[0],
+                    ValueError('foo'),
+                    ExceptionGroup(
+                        "msg2", SyntaxError('bar'), ValueError('baz')))
 
         newErrors_template = [
             ValueError('foo'), [SyntaxError('bar'), ValueError('baz')]]
