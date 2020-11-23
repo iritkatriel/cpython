@@ -35,7 +35,7 @@ class ExceptionGroupTestBase(unittest.TestCase):
 
 
 class ExceptionGroupTestUtils(ExceptionGroupTestBase):
-    def newEG(self, raisers, message=None):
+    def newEG(self, message, raisers):
         excs = []
         for r in raisers:
             try:
@@ -43,7 +43,7 @@ class ExceptionGroupTestUtils(ExceptionGroupTestBase):
             except (Exception, ExceptionGroup) as e:
                 excs.append(e)
         try:
-            raise ExceptionGroup(excs, message=message)
+            raise ExceptionGroup(message, excs)
         except ExceptionGroup as e:
             return e
 
@@ -56,36 +56,39 @@ class ExceptionGroupTestUtils(ExceptionGroupTestBase):
     def newSimpleEG(self, message=None):
         bind = functools.partial
         return self.newEG(
+            message,
             [bind(self.newVE, 1),
              bind(self.newTE, int),
-             bind(self.newVE, 2), ],
-            message=message)
+             bind(self.newVE, 2), ])
 
     def newNestedEG(self, arg, message=None):
         bind = functools.partial
 
         def level1(i):
-            return self.newEG([
-                bind(self.newVE, i),
-                bind(self.newTE, int),
-                bind(self.newVE, i+1),
-            ])
+            return self.newEG(
+                'msg',
+                [bind(self.newVE, i),
+                 bind(self.newTE, int),
+                 bind(self.newVE, i+1),
+                ])
 
         def raiseExc(e):
             raise e
 
         def level2(i):
-            return self.newEG([
-                bind(raiseExc, level1(i)),
-                bind(raiseExc, level1(i+1)),
-                bind(self.newVE, i+2),
-            ])
+            return self.newEG(
+                'msg',
+                [bind(raiseExc, level1(i)),
+                 bind(raiseExc, level1(i+1)),
+                 bind(self.newVE, i+2),
+                ])
 
         def level3(i):
-            return self.newEG([
-                bind(raiseExc, level2(i+1)),
-                bind(self.newVE, i+2),
-            ])
+            return self.newEG(
+                'msg',
+                [bind(raiseExc, level2(i+1)),
+                 bind(self.newVE, i+2),
+                ])
 
         return level3(arg)
 
@@ -431,8 +434,10 @@ class ExceptionGroupCatchTests(ExceptionGroupTestUtils):
         class Handler(self.BaseHandler):
             def handle(self, eg):
                 raise ExceptionGroup(
+                      "msg1",
                       [ValueError('foo'),
                        ExceptionGroup(
+                           "msg2",
                            [SyntaxError('bar'), ValueError('baz')])])
 
         newErrors_template = [
@@ -507,9 +512,11 @@ class ExceptionGroupCatchTests(ExceptionGroupTestUtils):
         class Handler(self.BaseHandler):
             def handle(self, eg):
                 raise ExceptionGroup(
+                      "msg1",
                       [eg,
                        ValueError('foo'),
                        ExceptionGroup(
+                           "msg2",
                            [SyntaxError('bar'), ValueError('baz')])])
 
         newErrors_template = [
@@ -534,10 +541,12 @@ class ExceptionGroupCatchTests(ExceptionGroupTestUtils):
         class Handler(self.BaseHandler):
             def handle(self, eg):
                 raise ExceptionGroup(
+                    "msg1",
                     [eg.excs[0],
                      ValueError('foo'),
                      ExceptionGroup(
-                        [SyntaxError('bar'), ValueError('baz')])])
+                         "msg2",
+                         [SyntaxError('bar'), ValueError('baz')])])
 
         newErrors_template = [
             ValueError('foo'), [SyntaxError('bar'), ValueError('baz')]]

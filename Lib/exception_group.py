@@ -21,15 +21,17 @@ class TracebackGroup:
 
 
 class ExceptionGroup(BaseException):
-    def __init__(self, excs, message=None, *, tb=None):
+    def __init__(self, message, excs, *, tb=None):
         """ Construct a new ExceptionGroup
 
         excs: sequence of exceptions
         tb [optional]: the __traceback__ of this exception group.
         Typically set when this ExceptionGroup is derived from another.
         """
-        self.excs = excs
+        if message is not None and not isinstance(message, (str, bytes)):
+            raise ValueError("message must be a string or None")
         self.message = message
+        self.excs = excs
         super().__init__(self.message)
         # self.__traceback__ is updated as usual, but self.__traceback_group__
         # is set when the exception group is created.
@@ -67,16 +69,15 @@ class ExceptionGroup(BaseException):
                 elif with_complement:
                     rest.append(e)
 
-        match_exc = ExceptionGroup(match, tb=self.__traceback__)
+        match_exc = ExceptionGroup(self.message, match, tb=self.__traceback__)
 
         def copy_metadata(src, target):
-            target.message = src.message
             target.__context__ = src.__context__
             target.__cause__ = src.__cause__
 
         copy_metadata(self, match_exc)
         if with_complement:
-            rest_exc = ExceptionGroup(rest, tb=self.__traceback__)
+            rest_exc = ExceptionGroup(self.message, rest, tb=self.__traceback__)
             copy_metadata(self, rest_exc)
         else:
             rest_exc = None
@@ -112,7 +113,7 @@ class ExceptionGroup(BaseException):
         return not any(self)
 
     def __repr__(self):
-        return f"ExceptionGroup({self.excs})"
+        return f"ExceptionGroup({self.message}, {self.excs})"
 
     @staticmethod
     def catch(types, handler):
@@ -178,8 +179,7 @@ class ExceptionGroupCatcher:
                 to_add = handler_excs.subgroup(
                     [e for e in handler_excs if e not in match])
                 if not to_add.is_empty():
-                    to_raise = ExceptionGroup([to_keep, to_add])
-                    to_raise.message = exc.message
+                    to_raise = ExceptionGroup(exc.message, [to_keep, to_add])
                 else:
                     to_raise = to_keep
 

@@ -1308,7 +1308,7 @@ class TestTracebackGroupException(unittest.TestCase):
                 except Exception as e:
                     exc2 = e
                 raise exception_group.ExceptionGroup(
-                    [exc1, exc2], message="eg1")
+                    "eg1", [exc1, exc2])
             except exception_group.ExceptionGroup as e:
                 exc3 = e
             try:
@@ -1316,7 +1316,7 @@ class TestTracebackGroupException(unittest.TestCase):
             except Exception as e:
                 exc4 = e
             raise exception_group.ExceptionGroup(
-                [exc3, exc4], message="eg2")
+                "eg2", [exc3, exc4])
         except exception_group.ExceptionGroup as eg:
             exc_info = sys.exc_info()
             exc = traceback.TracebackExceptionGroup(*exc_info)
