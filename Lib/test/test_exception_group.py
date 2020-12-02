@@ -190,53 +190,6 @@ class ExceptionGroupConstructionTests(ExceptionGroupTestUtils):
         self.assertEqual(['newEG', 'newEG', 'newVE'], [f.name for f in tb])
 
 
-class ExceptionGroupRenderTests(ExceptionGroupTestUtils):
-    def test_simple(self):
-        bind = functools.partial
-        eg = self.newSimpleEG('hello world')
-
-        expected = [  # (indent, exception) pairs
-            (0, eg),
-            (1, eg.excs[0]),
-            (1, eg.excs[1]),
-            (1, eg.excs[2]),
-        ]
-
-        self.check_summary_format_and_render(eg, expected)
-
-    def check_summary_format_and_render(self, eg, expected):
-        makeTE = traceback.TracebackException.from_exception
-
-        summary = traceback.TracebackExceptionGroup.from_exception(eg).summary
-        self.assertEqual(len(expected), len(summary))
-        self.assertEqual([e.indent_level for e in summary], [e[0] for e in expected])
-        self.assertEqual([e for e in summary],
-                         [makeTE(e[1], indent_level=e[0]) for e in expected])
-
-        # smoke test for traceback.TracebackExceptionGroup.format
-        format_output = list(traceback.TracebackExceptionGroup.from_exception(eg).format())
-        self.assertIsInstance(format_output, list)
-
-    def test_stack_summary_nested(self):
-        eg = self.newNestedEG(15)
-
-        expected = [  # (indent, exception) pairs
-            (0, eg),
-            (1, eg.excs[0]),
-            (2, eg.excs[0].excs[0]),
-            (3, eg.excs[0].excs[0].excs[0]),
-            (3, eg.excs[0].excs[0].excs[1]),
-            (3, eg.excs[0].excs[0].excs[2]),
-            (2, eg.excs[0].excs[1]),
-            (3, eg.excs[0].excs[1].excs[0]),
-            (3, eg.excs[0].excs[1].excs[1]),
-            (3, eg.excs[0].excs[1].excs[2]),
-            (2, eg.excs[0].excs[2]),
-            (1, eg.excs[1]),
-        ]
-        self.check_summary_format_and_render(eg, expected)
-
-
 class ExceptionGroupSplitTests(ExceptionGroupTestUtils):
     def _split_exception_group(self, eg, types):
         """ Split an EG and do some sanity checks on the result """

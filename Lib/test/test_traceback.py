@@ -1266,21 +1266,47 @@ class TestTracebackException(unittest.TestCase):
         exc = traceback.TracebackException(Exception, Exception("haven"), None)
         self.assertEqual(list(exc.format()), ["Exception: haven\n"])
 
+    def test_ExceptionFormatter_factory(self):
+        def f():
+            x = 12
+            x/0
 
-class TestTracebackGroupException(unittest.TestCase):
+        try:
+            f()
+        except:
+            exc_info = sys.exc_info()
+
+        exc = exc_info[1]
+
+        factory = traceback.ExceptionFormatter
+        direct = traceback.TracebackException
+
+        self.assertEqual(factory.get(*exc_info), direct(*exc_info))
+        self.assertEqual(
+            factory.from_exception(exc), direct.from_exception(exc))
+
+        self.assertEqual(
+            factory.get(*exc_info, limit=1), direct(*exc_info, limit=1))
+        self.assertEqual(
+            factory.from_exception(exc, limit=2),
+            direct.from_exception(exc, limit=2))
+
+        self.assertNotEqual(
+            factory.get(*exc_info, limit=1), direct(*exc_info, limit=2))
+        self.assertNotEqual(
+            factory.from_exception(exc, limit=2),
+            direct.from_exception(exc, limit=1))
+
+        self.assertNotEqual(
+            factory.get(*exc_info, capture_locals=True), direct(*exc_info))
+        self.assertNotEqual(
+            factory.from_exception(exc, capture_locals=True),
+            direct.from_exception(exc))
+
+class TestTracebackExceptionGroup(unittest.TestCase):
     def setUp(self):
         super().setUp()
-        self.exc_info = self._get_exception()
         self.eg_info = self._get_exception_group()
-
-    def _get_exception(self):
-        def foo():
-            1/0
-        try:
-            foo()
-        except Exception as e:
-            return sys.exc_info()
-        self.assertFalse('Exception Not Raised')
 
     def _get_exception_group(self):
         def f():
@@ -1310,34 +1336,20 @@ class TestTracebackGroupException(unittest.TestCase):
             except Exception as e:
                 exc4 = e
             raise exception_group.ExceptionGroup("eg2", exc3, exc4)
-        except exception_group.ExceptionGroup as eg:
+        except exception_group.ExceptionGroup:
             return sys.exc_info()
-        self.assertFalse('Exception Not Raised')
+        self.fail('Exception Not Raised')
 
-    def test_single_exception_constructor(self):
-        exc_info = self.exc_info
-        teg1 = traceback.TracebackExceptionGroup(*exc_info)
-        exc1 = traceback.TracebackException(*exc_info)
-        self.assertEqual(teg1.summary, [exc1])
-
-        teg2 = traceback.TracebackExceptionGroup(*exc_info, indent_level=5)
-        exc2 = traceback.TracebackException(*exc_info, indent_level=5)
-        not_exc = traceback.TracebackException(*exc_info, indent_level=6)
-        self.assertEqual(teg2.summary, [exc2])
-        self.assertNotEqual(teg2.summary, [not_exc])
-
-    def test_single_exception_from_exception(self):
-        exc_info = self.exc_info
-        teg1 = traceback.TracebackExceptionGroup.from_exception(exc_info[1])
-        exc1 = traceback.TracebackException(*exc_info)
-        self.assertEqual(teg1.summary, [exc1])
-
-        teg2 = traceback.TracebackExceptionGroup.from_exception(
-            exc_info[1], indent_level=5)
-        exc2 = traceback.TracebackException(*exc_info, indent_level=5)
-        not_exc = traceback.TracebackException(*exc_info, indent_level=6)
-        self.assertEqual(teg2.summary, [exc2])
-        self.assertNotEqual(teg2.summary, [not_exc])
+    def test_single_exception_raises(self):
+        try:
+            1/0
+        except:
+            exc_info = sys.exc_info()
+        msg = "Expected an ExceptionGroup, got <class 'ZeroDivisionError'>"
+        with self.assertRaisesRegex(ValueError, msg):
+            traceback.TracebackExceptionGroup(*exc_info)
+        with self.assertRaisesRegex(ValueError, msg):
+            traceback.TracebackExceptionGroup.from_exception(exc_info[1])
 
     def test_exception_group_construction(self):
         eg_info = self.eg_info
@@ -1346,35 +1358,9 @@ class TestTracebackGroupException(unittest.TestCase):
         self.assertIsNot(teg1, teg2)
         self.assertEqual(teg1, teg2)
 
-    def test_exception_group_summary(self):
-        eg_info = self.eg_info
-        eg = eg_info[1]
-        teg1 = traceback.TracebackExceptionGroup(*eg_info)
-        teg2 = traceback.TracebackExceptionGroup.from_exception(eg)
-
-        excs = [
-            eg.excs[0],
-            eg.excs[0].excs[0],
-            eg.excs[0].excs[1],
-            eg.excs[1]
-        ]
-        expected_summary = [
-            traceback.TracebackException(*eg_info, indent_level=0),
-            traceback.TracebackException.from_exception(excs[0], indent_level=1),
-            traceback.TracebackException.from_exception(excs[1], indent_level=2),
-            traceback.TracebackException.from_exception(excs[2], indent_level=2),
-            traceback.TracebackException.from_exception(excs[3], indent_level=1),
-        ]
-        self.assertEqual(teg1.summary, expected_summary)
-        self.assertEqual(teg2.summary, expected_summary)
-
     def test_exception_group_format_exception_only(self):
-        eg_info = self.eg_info
-        eg = eg_info[1]
-        teg = traceback.TracebackExceptionGroup(*eg_info)
-
+        teg = traceback.TracebackExceptionGroup(*self.eg_info)
         formatted = ''.join(teg.format_exception_only()).split('\n')
-
         expected = textwrap.dedent(f"""\
             exception_group.ExceptionGroup: eg2
                exception_group.ExceptionGroup: eg1
@@ -1386,9 +1372,7 @@ class TestTracebackGroupException(unittest.TestCase):
         self.assertEqual(formatted, expected)
 
     def test_exception_group_format(self):
-        eg_info = self.eg_info
-        eg = eg_info[1]
-        teg = traceback.TracebackExceptionGroup(*eg_info)
+        teg = traceback.TracebackExceptionGroup(*self.eg_info)
 
         formatted = ''.join(teg.format()).split('\n')
         lno_f = self.lno_f
@@ -1431,8 +1415,8 @@ class TestTracebackGroupException(unittest.TestCase):
 
     def test_comparison(self):
         try:
-            1/0
-        except Exception:
+            raise self.eg_info[1]
+        except exception_group.ExceptionGroup:
             exc_info = sys.exc_info()
         for _ in range(5):
             try:
@@ -1442,15 +1426,36 @@ class TestTracebackGroupException(unittest.TestCase):
         exc = traceback.TracebackExceptionGroup(*exc_info)
         exc2 = traceback.TracebackExceptionGroup(*exc_info)
         exc3 = traceback.TracebackExceptionGroup(*exc_info, limit=300)
-        ne1 = traceback.TracebackExceptionGroup(*exc_info, indent_level=8)
-        ne2 = traceback.TracebackExceptionGroup(*exc_info, limit=3)
+        ne = traceback.TracebackExceptionGroup(*exc_info, limit=3)
         self.assertIsNot(exc, exc2)
         self.assertEqual(exc, exc2)
         self.assertEqual(exc, exc3)
-        self.assertNotEqual(exc, ne1)
-        self.assertNotEqual(exc, ne2)
+        self.assertNotEqual(exc, ne)
         self.assertNotEqual(exc, object())
         self.assertEqual(exc, ALWAYS_EQ)
+
+    def test_ExceptionFormatter_factory(self):
+        exc_info = self.eg_info
+
+        factory = traceback.ExceptionFormatter
+        direct = traceback.TracebackExceptionGroup
+
+        self.assertEqual(factory.get(*exc_info), direct(*exc_info))
+        self.assertEqual(
+            factory.from_exception(exc_info[1]),
+            direct.from_exception(exc_info[1]))
+
+        self.assertEqual(
+            factory.get(*exc_info, limit=10), direct(*exc_info, limit=20))
+        self.assertEqual(
+            factory.from_exception(exc_info[1], limit=10),
+            direct.from_exception(exc_info[1], limit=20))
+
+        self.assertNotEqual(
+            factory.get(*exc_info, capture_locals=True), direct(*exc_info))
+        self.assertNotEqual(
+            factory.from_exception(exc_info[1], capture_locals=True),
+            direct.from_exception(exc_info[1]))
 
 
 class MiscTest(unittest.TestCase):

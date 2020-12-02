@@ -11,8 +11,9 @@ __all__ = ['extract_stack', 'extract_tb', 'format_exception',
            'format_exception_only', 'format_list', 'format_stack',
            'format_tb', 'print_exc', 'format_exc', 'print_exception',
            'print_last', 'print_stack', 'print_tb', 'clear_frames',
-           'FrameSummary', 'StackSummary', 'TracebackException',
-           'TracebackExceptionGroup', 'walk_stack', 'walk_tb']
+           'ExceptionFormatter', 'FrameSummary', 'StackSummary',
+           'TracebackException', 'TracebackExceptionGroup',
+           'walk_stack', 'walk_tb']
 
 #
 # Formatting and printing lists of traceback lines.
@@ -73,6 +74,7 @@ def extract_tb(tb, limit=None):
     """
     return StackSummary.extract(walk_tb(tb), limit=limit)
 
+
 #
 # Exception formatting and output.
 #
@@ -112,7 +114,7 @@ def print_exception(exc, /, value=_sentinel, tb=_sentinel, limit=None, \
     value, tb = _parse_value_tb(exc, value, tb)
     if file is None:
         file = sys.stderr
-    for line in TracebackExceptionGroup(
+    for line in ExceptionFormatter.get(
             type(value), value, tb, limit=limit).format(chain=chain):
         print(line, file=file, end="")
 
@@ -128,7 +130,7 @@ def format_exception(exc, /, value=_sentinel, tb=_sentinel, limit=None, \
     printed as does print_exception().
     """
     value, tb = _parse_value_tb(exc, value, tb)
-    return list(TracebackExceptionGroup(
+    return list(ExceptionFormatter.get(
         type(value), value, tb, limit=limit).format(chain=chain))
 
 
@@ -148,7 +150,7 @@ def format_exception_only(exc, /, value=_sentinel):
     """
     if value is _sentinel:
         value = exc
-    return list(TracebackExceptionGroup(
+    return list(ExceptionFormatter.get(
         type(value), value, None).format_exception_only())
 
 
@@ -478,7 +480,7 @@ class TracebackException:
     """
 
     def __init__(self, exc_type, exc_value, exc_traceback, *, limit=None,
-            lookup_lines=True, capture_locals=False, _seen=None, indent_level=0):
+            lookup_lines=True, capture_locals=False, _seen=None):
         # NB: we need to accept exc_traceback, exc_value, exc_traceback to
         # permit backwards compat with the existing API, otherwise we
         # need stub thunk objects just to glue it together.
@@ -533,7 +535,6 @@ class TracebackException:
             self.msg = exc_value.msg
         if lookup_lines:
             self._load_lines()
-        self.indent_level = indent_level
 
     @classmethod
     def from_exception(cls, exc, *args, **kwargs):
@@ -616,8 +617,8 @@ class TracebackException:
 
         The return value is a generator of strings, each ending in a newline
         and some containing internal newlines. `print_exception(e)`, when `e`
-        is a single exception (rather than an ExceptionGroup), is essentially
-        a wrapper around this method which just prints the lines to a file.
+        is a single exception (rather than an ExceptionGroup), is a wrapper
+        around this method which just prints the lines to a file.
 
         The message indicating which exception occurred is always the last
         string in the output.
@@ -637,7 +638,7 @@ class TracebackException:
 
 
 class TracebackExceptionGroup:
-    """An exception or exception group ready for rendering.
+    """An exception group ready for rendering.
 
     We capture enough attributes from the original exception group to this
     intermediary form to ensure that no references are held, while still being
@@ -647,88 +648,88 @@ class TracebackExceptionGroup:
     objects, or the constructor to create TracebackExceptionGroup instances from
     individual components.
 
-    - :attr:`summary` A list of TracebackException objects. For a single exception
-    the list has length 1, and for an ExceptionGroup it has an item for each exception
-    in the group (recursively), in DFS pre-order sequence: The first item represents
-    the given EG, the second represents the first exception in this EG's list, and
-    so on.
+    - :attr:`excs` A list of TracebackException objects, one for each exception
+    in the group.
     """
 
     SEPARATOR_LINE = '-' * 60 + '\n'
     INDENT_SIZE = 3
 
-    def __init__(self, exc_type, exc_value, exc_traceback,
-                 indent_level=0, **kwargs):
-        self.summary = list(
-            self._gen_summary(
-                exc_type, exc_value, exc_traceback,
-                indent_level = indent_level, **kwargs))
-        self._str = _some_str(exc_value)
+    def __init__(self, exc_type, exc_value, exc_traceback, **kwargs):
+        if not isinstance(exc_value, exception_group.ExceptionGroup):
+            raise ValueError(f'Expected an ExceptionGroup, got {type(exc_value)}')
+        self.this = TracebackException(
+            exc_type, exc_value, exc_traceback, **kwargs)
+        self.excs = [
+            ExceptionFormatter.from_exception(e) for e in exc_value.excs]
 
-    def _gen_summary(self, exc_type, exc_value, exc_traceback,
-                     indent_level, **kwargs):
-        # recursively extract the sequence of (indent, TracebackException)
-        # pairs. If exc_value is a single exception, there is only one pair
-        # (with indent 0). If it is an exception group, we get one pair
-        # for each exception in it, showing the whole tree
-        yield TracebackException(
-            exc_type, exc_value, exc_traceback,
-            indent_level=indent_level, **kwargs)
-        if isinstance(exc_value, exception_group.ExceptionGroup):
-            for e in exc_value.excs:
-                yield from self._gen_summary(
-                    type(e), e, e.__traceback__, indent_level + 1, **kwargs)
-
-    @classmethod
-    def from_exception(cls, exc, *args, **kwargs):
-        """Create a TracebackExceptionGroup from an exception."""
-        return cls(type(exc), exc, exc.__traceback__, *args, **kwargs)
+    @staticmethod
+    def from_exception(exc, *args, **kwargs):
+        """Create a TracebackExceptionGroup from an exceptionGroup."""
+        return TracebackExceptionGroup(
+            type(exc), exc, exc.__traceback__, *args, **kwargs)
 
     def format(self, *, chain=True):
-        """Format the exception or exception group.
+        """Format the exception group.
 
-        For an exception group, the shared part of the traceback is printed,
-        followed by a printout of each exception in the group, which is
-        expanded recursively.
+        The shared part of the traceback is emitted, followed by each
+        exception in the group, which is expanded recursively.
 
         If chain is false(y), *__cause__* and *__context__* will not be formatted.
 
         This is a generator of strings, each ending in a newline
-        and some containing internal newlines. `print_exception` is a wrapper
-        around this method which just prints the lines to a file.
+        and some containing internal newlines. `print_exception`, when called on
+        an ExceptionGroup, is a wrapper around this method which just prints the
+        lines to a file.
         """
         # TODO: Add two args to bound -
         # (1) the depth of exceptions reported, and
         # (2) the number of exceptions reported per level
-        for te in self.summary:
-            yield from self._format(
-                te.format(chain=chain),
-                te.indent_level,
-                sep=self.SEPARATOR_LINE)
+        separator = self.SEPARATOR_LINE
+        yield from self.this.format(chain=chain)
+        for exc in self.excs:
+            yield from self._emit(
+                exc.format(chain=chain), sep=separator)
 
     def format_exception_only(self):
-        for te in self.summary:
-            yield from self._format(
-                te.format_exception_only(),
-                te.indent_level)
+        yield from self.this.format_exception_only()
+        for exc in self.excs:
+            yield from self._emit(exc.format_exception_only())
 
-    def _format(self, text_gen, indent_level, sep=None):
-        if indent_level == 0:
-            yield from text_gen
+    def _emit(self, text_gen, sep=None):
+        text = ''.join(list(text_gen))
+        indent_str = ' ' * self.INDENT_SIZE
+        if '\n' not in text:
+            yield indent_str + text
         else:
-            text = ''.join(list(text_gen))
-            indent_str = ' ' * self.INDENT_SIZE * indent_level
-            if '\n' not in text:
-                yield indent_str + text
-            else:
-                if sep is not None:
-                    yield indent_str + sep
-                yield textwrap.indent(text, indent_str)
+            if sep is not None:
+                yield indent_str + sep
+            yield textwrap.indent(text, indent_str)
 
     def __eq__(self, other):
         if isinstance(other, TracebackExceptionGroup):
             return self.__dict__ == other.__dict__
         return NotImplemented
 
-    def __str__(self):
-        return self._str
+
+class ExceptionFormatter:
+    '''Factory functions to get the correct formatter for an exception
+
+    Returns a TracebackException instance for a single exception, and a
+    TracebackExceptionGroup for an exception group.
+    '''
+
+    @staticmethod
+    def get(exc_type, exc_value, exc_traceback, **kwargs):
+        if isinstance(exc_value, exception_group.ExceptionGroup):
+            cls = TracebackExceptionGroup
+        else:
+            cls = TracebackException
+        return cls(exc_type, exc_value, exc_traceback, **kwargs)
+
+    @staticmethod
+    def from_exception(exc, **kwargs):
+        if isinstance(exc, exception_group.ExceptionGroup):
+            return TracebackExceptionGroup.from_exception(exc, **kwargs)
+        else:
+            return TracebackException.from_exception(exc, **kwargs)
