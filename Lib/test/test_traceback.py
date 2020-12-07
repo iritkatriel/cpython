@@ -338,16 +338,16 @@ class TracebackFormatTests(unittest.TestCase):
             else:
                 self.fail("no recursion occurred")
 
-        lno_f = f.__code__.co_firstlineno
+        lineno_f = f.__code__.co_firstlineno
         result_f = (
             'Traceback (most recent call last):\n'
-            f'  File "{__file__}", line {lno_f+5}, in _check_recursive_traceback_display\n'
+            f'  File "{__file__}", line {lineno_f+5}, in _check_recursive_traceback_display\n'
             '    f()\n'
-            f'  File "{__file__}", line {lno_f+1}, in f\n'
+            f'  File "{__file__}", line {lineno_f+1}, in f\n'
             '    f()\n'
-            f'  File "{__file__}", line {lno_f+1}, in f\n'
+            f'  File "{__file__}", line {lineno_f+1}, in f\n'
             '    f()\n'
-            f'  File "{__file__}", line {lno_f+1}, in f\n'
+            f'  File "{__file__}", line {lineno_f+1}, in f\n'
             '    f()\n'
             # XXX: The following line changes depending on whether the tests
             # are run through the interactive interpreter or with -m
@@ -385,22 +385,22 @@ class TracebackFormatTests(unittest.TestCase):
             else:
                 self.fail("no value error was raised")
 
-        lno_g = g.__code__.co_firstlineno
+        lineno_g = g.__code__.co_firstlineno
         result_g = (
-            f'  File "{__file__}", line {lno_g+2}, in g\n'
+            f'  File "{__file__}", line {lineno_g+2}, in g\n'
             '    return g(count-1)\n'
-            f'  File "{__file__}", line {lno_g+2}, in g\n'
+            f'  File "{__file__}", line {lineno_g+2}, in g\n'
             '    return g(count-1)\n'
-            f'  File "{__file__}", line {lno_g+2}, in g\n'
+            f'  File "{__file__}", line {lineno_g+2}, in g\n'
             '    return g(count-1)\n'
             '  [Previous line repeated 7 more times]\n'
-            f'  File "{__file__}", line {lno_g+3}, in g\n'
+            f'  File "{__file__}", line {lineno_g+3}, in g\n'
             '    raise ValueError\n'
             'ValueError\n'
         )
         tb_line = (
             'Traceback (most recent call last):\n'
-            f'  File "{__file__}", line {lno_g+7}, in _check_recursive_traceback_display\n'
+            f'  File "{__file__}", line {lineno_g+7}, in _check_recursive_traceback_display\n'
             '    g()\n'
         )
         expected = (tb_line + result_g).splitlines()
@@ -449,19 +449,19 @@ class TracebackFormatTests(unittest.TestCase):
             else:
                 self.fail("no error raised")
         result_g = (
-            f'  File "{__file__}", line {lno_g+2}, in g\n'
+            f'  File "{__file__}", line {lineno_g+2}, in g\n'
             '    return g(count-1)\n'
-            f'  File "{__file__}", line {lno_g+2}, in g\n'
+            f'  File "{__file__}", line {lineno_g+2}, in g\n'
             '    return g(count-1)\n'
-            f'  File "{__file__}", line {lno_g+2}, in g\n'
+            f'  File "{__file__}", line {lineno_g+2}, in g\n'
             '    return g(count-1)\n'
-            f'  File "{__file__}", line {lno_g+3}, in g\n'
+            f'  File "{__file__}", line {lineno_g+3}, in g\n'
             '    raise ValueError\n'
             'ValueError\n'
         )
         tb_line = (
             'Traceback (most recent call last):\n'
-            f'  File "{__file__}", line {lno_g+71}, in _check_recursive_traceback_display\n'
+            f'  File "{__file__}", line {lineno_g+71}, in _check_recursive_traceback_display\n'
             '    g(traceback._RECURSIVE_CUTOFF)\n'
         )
         expected = (tb_line + result_g).splitlines()
@@ -477,20 +477,20 @@ class TracebackFormatTests(unittest.TestCase):
             else:
                 self.fail("no error raised")
         result_g = (
-            f'  File "{__file__}", line {lno_g+2}, in g\n'
+            f'  File "{__file__}", line {lineno_g+2}, in g\n'
             '    return g(count-1)\n'
-            f'  File "{__file__}", line {lno_g+2}, in g\n'
+            f'  File "{__file__}", line {lineno_g+2}, in g\n'
             '    return g(count-1)\n'
-            f'  File "{__file__}", line {lno_g+2}, in g\n'
+            f'  File "{__file__}", line {lineno_g+2}, in g\n'
             '    return g(count-1)\n'
             '  [Previous line repeated 1 more time]\n'
-            f'  File "{__file__}", line {lno_g+3}, in g\n'
+            f'  File "{__file__}", line {lineno_g+3}, in g\n'
             '    raise ValueError\n'
             'ValueError\n'
         )
         tb_line = (
             'Traceback (most recent call last):\n'
-            f'  File "{__file__}", line {lno_g+99}, in _check_recursive_traceback_display\n'
+            f'  File "{__file__}", line {lineno_g+99}, in _check_recursive_traceback_display\n'
             '    g(traceback._RECURSIVE_CUTOFF + 1)\n'
         )
         expected = (tb_line + result_g).splitlines()
