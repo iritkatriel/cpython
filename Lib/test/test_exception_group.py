@@ -33,8 +33,6 @@ class ExceptionGroupTestBase(unittest.TestCase):
         for e in exc.excs:
             self.tracebackGroupSanityCheck(e)
 
-
-class ExceptionGroupTestUtils(ExceptionGroupTestBase):
     def newEG(self, message, raisers):
         excs = []
         for r in raisers:
@@ -117,19 +115,14 @@ class ExceptionGroupTestUtils(ExceptionGroupTestBase):
         return result
 
 
-class ExceptionGroupConstructionTests(ExceptionGroupTestUtils):
-    def test_construction_simple(self):
-        # create a simple exception group and check that
-        # it is constructed as expected
-        bind = functools.partial
+class ExceptionGroupBasicsTests(ExceptionGroupTestBase):
+    def test_simple_group(self):
         eg = self.newSimpleEG('simple EG')
 
-        self.assertEqual(len(eg.excs), 3)
         self.assertMatchesTemplate(
             eg, [ValueError(1), TypeError(int), ValueError(2)])
 
-        # check iteration
-        self.assertEqual(list(eg), list(eg.excs))
+        self.assertEqual(list(eg), list(eg.excs))  # check iteration
 
         # check message
         self.assertEqual(eg.message, 'simple EG')
@@ -137,15 +130,12 @@ class ExceptionGroupConstructionTests(ExceptionGroupTestUtils):
 
         # check tracebacks
         for e in eg:
-            expected = [
-                'newEG',
-                'newEG',
-                'new' + ''.join(filter(str.isupper, type(e).__name__)),
-            ]
-            etb = self.extract_traceback(e, eg)
-            self.assertEqual(expected, [f.name for f in etb])
+            fname = 'new' + ''.join(filter(str.isupper, type(e).__name__))
+            self.assertEqual(
+                ['newEG', 'newEG', fname],
+                [f.name for f in self.extract_traceback(e, eg)])
 
-    def test_construction_nested(self):
+    def test_nested_group(self):
         eg = self.newNestedEG(5)
 
         self.assertMatchesTemplate(
@@ -159,28 +149,21 @@ class ExceptionGroupConstructionTests(ExceptionGroupTestUtils):
                 ValueError(7)
             ])
 
-        # check iteration
-        self.assertEqual(len(list(eg)), 8)
-
-        # check tracebacks
+        self.assertEqual(len(list(eg)), 8)  # check iteration
 
         self.tracebackGroupSanityCheck(eg)
 
+        # check tracebacks
         all_excs = list(eg)
         for e in all_excs[0:6]:
-            expected = [
-                'newEG',
-                'newEG',
-                'raiseExc',
-                'newEG',
-                'newEG',
-                'raiseExc',
-                'newEG',
-                'newEG',
-                'new' + ''.join(filter(str.isupper, type(e).__name__)),
-            ]
-            etb = self.extract_traceback(e, eg)
-            self.assertEqual(expected, [f.name for f in etb])
+            fname = 'new' + ''.join(filter(str.isupper, type(e).__name__))
+            self.assertEqual(
+                [
+                    'newEG', 'newEG', 'raiseExc',
+                    'newEG', 'newEG', 'raiseExc',
+                    'newEG', 'newEG', fname,
+                ],
+                [f.name for f in self.extract_traceback(e, eg)])
 
         tb = self.extract_traceback(all_excs[6], eg)
         self.assertEqual([
@@ -190,7 +173,7 @@ class ExceptionGroupConstructionTests(ExceptionGroupTestUtils):
         self.assertEqual(['newEG', 'newEG', 'newVE'], [f.name for f in tb])
 
 
-class ExceptionGroupSplitTests(ExceptionGroupTestUtils):
+class ExceptionGroupSplitTests(ExceptionGroupTestBase):
     def _split_exception_group(self, eg, types):
         """ Split an EG and do some sanity checks on the result """
         self.assertIsInstance(eg, ExceptionGroup)
@@ -280,7 +263,7 @@ class ExceptionGroupSplitTests(ExceptionGroupTestUtils):
         self.assertMatchesTemplate(rest, valueErrors_template)
 
 
-class ExceptionGroupCatchTests(ExceptionGroupTestUtils):
+class ExceptionGroupCatchTests(ExceptionGroupTestBase):
     def setUp(self):
         super().setUp()
 
