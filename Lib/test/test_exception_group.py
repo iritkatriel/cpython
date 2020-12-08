@@ -7,6 +7,82 @@ from exception_group import ExceptionGroup, TracebackGroup
 from io import StringIO
 
 
+def newEG(message, raisers, cls=ExceptionGroup):
+    excs = []
+    for r in raisers:
+        try:
+            r()
+        except (Exception, ExceptionGroup) as e:
+            excs.append(e)
+    try:
+        raise cls(message, *excs)
+    except ExceptionGroup as e:
+        return e
+
+def newVE(v):
+    raise ValueError(v)
+
+def newTE(t):
+    raise TypeError(t)
+
+def newSimpleEG(msg=None):
+    bind = functools.partial
+    return newEG(msg, [bind(newVE, 1), bind(newTE, int), bind(newVE, 2)])
+
+class MyExceptionGroup(ExceptionGroup):
+    pass
+
+def newNestedEG(arg, message=None):
+    bind = functools.partial
+
+    def level1(i):
+        return newEG(
+            'msg1',
+            [bind(newVE, i), bind(newTE, int), bind(newVE, i+1)])
+
+    def raiseExc(e):
+        raise e
+
+    def level2(i):
+        return newEG(
+            'msg2',
+            [bind(raiseExc, level1(i)),
+                bind(raiseExc, level1(i+1)),
+                bind(newVE, i+2),
+            ],
+            cls=MyExceptionGroup)
+
+    def level3(i):
+        return newEG(
+            'msg3',
+            [bind(raiseExc, level2(i+1)), bind(newVE, i+2)])
+
+    return level3(arg)
+
+def extract_traceback(exc, eg):
+    """ returns the traceback of a single exception
+
+    If exc is in the exception group, return its
+    traceback as the concatenation of the outputs
+    of traceback.extract_tb() on each segment of
+    it traceback (one per each ExceptionGroup that
+    it belongs to).
+    """
+    if exc not in eg:
+        return None
+    e = eg.subgroup([exc])
+    result = None
+    while e is not None:
+        if isinstance(e, ExceptionGroup):
+            assert len(e.excs) == 1 and exc in e
+        r = traceback.extract_tb(e.__traceback__)
+        if result is not None:
+            result.extend(r)
+        else:
+            result = r
+        e = e.excs[0] if isinstance(e, ExceptionGroup) else None
+    return result
+
 class ExceptionGroupTestBase(unittest.TestCase):
     def assertMatchesTemplate(self, exc, template):
         """ Assert that the exception matches the template """
@@ -33,91 +109,10 @@ class ExceptionGroupTestBase(unittest.TestCase):
         for e in exc.excs:
             self.tracebackGroupSanityCheck(e)
 
-    def newEG(self, message, raisers):
-        excs = []
-        for r in raisers:
-            try:
-                r()
-            except (Exception, ExceptionGroup) as e:
-                excs.append(e)
-        try:
-            raise ExceptionGroup(message, *excs)
-        except ExceptionGroup as e:
-            return e
-
-    def newVE(self, v):
-        raise ValueError(v)
-
-    def newTE(self, t):
-        raise TypeError(t)
-
-    def newSimpleEG(self, message=None):
-        bind = functools.partial
-        return self.newEG(
-            message,
-            [bind(self.newVE, 1),
-             bind(self.newTE, int),
-             bind(self.newVE, 2), ])
-
-    def newNestedEG(self, arg, message=None):
-        bind = functools.partial
-
-        def level1(i):
-            return self.newEG(
-                'msg',
-                [bind(self.newVE, i),
-                 bind(self.newTE, int),
-                 bind(self.newVE, i+1),
-                ])
-
-        def raiseExc(e):
-            raise e
-
-        def level2(i):
-            return self.newEG(
-                'msg',
-                [bind(raiseExc, level1(i)),
-                 bind(raiseExc, level1(i+1)),
-                 bind(self.newVE, i+2),
-                ])
-
-        def level3(i):
-            return self.newEG(
-                'msg',
-                [bind(raiseExc, level2(i+1)),
-                 bind(self.newVE, i+2),
-                ])
-
-        return level3(arg)
-
-    def extract_traceback(self, exc, eg):
-        """ returns the traceback of a single exception
-
-        If exc is in the exception group, return its
-        traceback as the concatenation of the outputs
-        of traceback.extract_tb() on each segment of
-        it traceback (one per each ExceptionGroup that
-        it belongs to).
-        """
-        if exc not in eg:
-            return None
-        e = eg.subgroup([exc])
-        result = None
-        while e is not None:
-            if isinstance(e, ExceptionGroup):
-                assert len(e.excs) == 1 and exc in e
-            r = traceback.extract_tb(e.__traceback__)
-            if result is not None:
-                result.extend(r)
-            else:
-                result = r
-            e = e.excs[0] if isinstance(e, ExceptionGroup) else None
-        return result
-
 
 class ExceptionGroupBasicsTests(ExceptionGroupTestBase):
     def test_simple_group(self):
-        eg = self.newSimpleEG('simple EG')
+        eg = newSimpleEG('simple EG')
 
         self.assertMatchesTemplate(
             eg, [ValueError(1), TypeError(int), ValueError(2)])
@@ -133,10 +128,10 @@ class ExceptionGroupBasicsTests(ExceptionGroupTestBase):
             fname = 'new' + ''.join(filter(str.isupper, type(e).__name__))
             self.assertEqual(
                 ['newEG', 'newEG', fname],
-                [f.name for f in self.extract_traceback(e, eg)])
+                [f.name for f in extract_traceback(e, eg)])
 
     def test_nested_group(self):
-        eg = self.newNestedEG(5)
+        eg = newNestedEG(5)
 
         self.assertMatchesTemplate(
             eg,
@@ -163,14 +158,15 @@ class ExceptionGroupBasicsTests(ExceptionGroupTestBase):
                     'newEG', 'newEG', 'raiseExc',
                     'newEG', 'newEG', fname,
                 ],
-                [f.name for f in self.extract_traceback(e, eg)])
+                [f.name for f in extract_traceback(e, eg)])
 
-        tb = self.extract_traceback(all_excs[6], eg)
         self.assertEqual([
             'newEG', 'newEG', 'raiseExc', 'newEG', 'newEG', 'newVE'],
-            [f.name for f in tb])
-        tb = self.extract_traceback(all_excs[7], eg)
-        self.assertEqual(['newEG', 'newEG', 'newVE'], [f.name for f in tb])
+            [f.name for f in extract_traceback(all_excs[6], eg)])
+
+        self.assertEqual(
+            ['newEG', 'newEG', 'newVE'],
+            [f.name for f in extract_traceback(all_excs[7], eg)])
 
 
 class ExceptionGroupSplitTests(ExceptionGroupTestBase):
@@ -182,35 +178,38 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
 
         match, rest = eg.split(types)
 
-        self.assertIsInstance(match, ExceptionGroup)
-        self.assertIsInstance(rest, ExceptionGroup)
-        self.assertEqual(len(list(all_excs)),
-                         len(list(match)) + len(list(rest)))
+        if match is not None:
+            self.assertIsInstance(match, ExceptionGroup)
+            for e in match:
+                self.assertIsInstance(e, types)
+
+        if rest is not None:
+            self.assertIsInstance(rest, ExceptionGroup)
+            for e in rest:
+                self.assertNotIsInstance(e, types)
+
+        match_len = len(list(match)) if match is not None else 0
+        rest_len = len(list(rest)) if rest is not None else 0
+        self.assertEqual(len(list(all_excs)), match_len + rest_len)
 
         for e in all_excs:
+            # each exception is in eg and exactly one of match and rest
             self.assertIn(e, eg)
-            # every exception in all_excs is in eg and
-            # in exactly one of match and rest
-            self.assertNotEqual(e in match, e in rest)
-
-        for e in match:
-            self.assertIsInstance(e, types)
-        for e in rest:
-            self.assertNotIsInstance(e, types)
+            self.assertNotEqual(match and e in match, rest and e in rest)
 
         for part in [match, rest]:
-            self.assertEqual(eg.message, part.message)
-            # check tracebacks
-            for e in part:
-                self.assertEqual(
-                    self.extract_traceback(e, eg),
-                    self.extract_traceback(e, part))
+            if part is not None:
+                self.assertEqual(eg.message, part.message)                
+                for e in part:
+                    self.assertEqual(
+                        extract_traceback(e, eg),
+                        extract_traceback(e, part))
 
         return match, rest
 
     def test_split_nested(self):
         try:
-            raise self.newNestedEG(25)
+            raise newNestedEG(25)
         except ExceptionGroup as e:
             eg = e
 
@@ -241,16 +240,16 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
 
         # Match Nothing
         match, rest = self._split_exception_group(eg, SyntaxError)
-        self.assertTrue(match.is_empty())
+        self.assertTrue(match is None)
         self.assertMatchesTemplate(rest, eg_template)
 
         # Match Everything
         match, rest = self._split_exception_group(eg, BaseException)
         self.assertMatchesTemplate(match, eg_template)
-        self.assertTrue(rest.is_empty())
+        self.assertTrue(rest is None)
         match, rest = self._split_exception_group(eg, (ValueError, TypeError))
         self.assertMatchesTemplate(match, eg_template)
-        self.assertTrue(rest.is_empty())
+        self.assertTrue(rest is None)
 
         # Match ValueErrors
         match, rest = self._split_exception_group(eg, ValueError)
@@ -262,13 +261,22 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
         self.assertMatchesTemplate(match, typeErrors_template)
         self.assertMatchesTemplate(rest, valueErrors_template)
 
+        # Match ExceptionGroup
+        match, rest = eg.split(ExceptionGroup)
+        self.assertIs(match, eg)
+        self.assertIsNone(rest)
+
+        # Match MyExceptionGroup (ExceptionGroup subclass)
+        match, rest = eg.split(MyExceptionGroup)
+        self.assertMatchesTemplate(match, [eg_template[0]])
+        self.assertMatchesTemplate(rest, [eg_template[1]])
 
 class ExceptionGroupCatchTests(ExceptionGroupTestBase):
     def setUp(self):
         super().setUp()
 
         try:
-            raise self.newNestedEG(35)
+            raise newNestedEG(35)
         except ExceptionGroup as e:
             self.eg = e
 
@@ -304,9 +312,9 @@ class ExceptionGroupCatchTests(ExceptionGroupTestBase):
             def f_data(f):
                 return [f.name, f.lineno]
 
-            new = list(map(f_data, self.extract_traceback(e, exc)))
+            new = list(map(f_data, extract_traceback(e, exc)))
             if e in orig_eg:
-                old = list(map(f_data, self.extract_traceback(e, orig_eg)))
+                old = list(map(f_data, extract_traceback(e, orig_eg)))
                 self.assertSequenceEqual(old, new[-len(old):])
 
     class BaseHandler:

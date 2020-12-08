@@ -39,50 +39,55 @@ class ExceptionGroup(BaseException):
         # __traceback_group__ and __traceback__ combine to give the full path.
         self.__traceback_group__ = TracebackGroup(self.excs)
 
-    def project(self, condition, with_complement=False):
+    @staticmethod
+    def project(exc, condition, with_complement=False):
         """ Split an ExceptionGroup based on an exception predicate
 
-        returns a new ExceptionGroup, match, of the exceptions of self
-        for which condition returns True. If with_complement is True,
+        returns a new ExceptionGroup, match, of the exceptions of exc
+        for which condition returns true. If with_complement is true,
         returns another ExceptionGroup for the exception for which
-        condition returns False.
-        match and rest have the same nested structure as self, but empty
+        condition returns false.  Note that condition is checked for
+        exc and nested ExceptionGroups as well, and if it returns true
+        then the whole ExceptionGroup is considered to be matched.
+
+        match and rest have the same nested structure as exc, but empty
         sub-exceptions are not included. They have the same message,
-        __traceback__, __cause__ and __context__ fields as self.
+        __traceback__, __cause__ and __context__ fields as exc.
 
         condition: BaseException --> Boolean
         with_complement: Bool  If True, construct also an EG of the non-matches
         """
-        match = []
-        rest = [] if with_complement else None
-        for e in self.excs:
-            if isinstance(e, ExceptionGroup):  # recurse
-                e_match, e_rest = e.project(
-                    condition, with_complement=with_complement)
-                if not e_match.is_empty():
-                    match.append(e_match)
-                if with_complement and not e_rest.is_empty():
-                    rest.append(e_rest)
-            else:
-                if condition(e):
-                    match.append(e)
-                elif with_complement:
-                    rest.append(e)
 
-        match_exc = ExceptionGroup(
-            self.message, *match).with_traceback(self.__traceback__)
-
-        def copy_metadata(src, target):
-            target.__context__ = src.__context__
-            target.__cause__ = src.__cause__
-
-        copy_metadata(self, match_exc)
-        if with_complement:
-            rest_exc = ExceptionGroup(self.message, *rest).with_traceback(self.__traceback__)
-            copy_metadata(self, rest_exc)
+        if condition(exc):
+            return exc, None
+        elif not isinstance(exc, ExceptionGroup):
+            return None, exc if with_complement else None
         else:
-            rest_exc = None
-        return match_exc, rest_exc
+            # recurse into ExceptionGroup
+            match_exc = rest_exc = None
+            match = []
+            rest = [] if with_complement else None
+            for e in exc.excs:
+                e_match, e_rest = ExceptionGroup.project(
+                    e, condition, with_complement=with_complement)
+
+                if e_match is not None:
+                    match.append(e_match)
+                if with_complement and e_rest is not None:
+                    rest.append(e_rest)
+
+            def copy_metadata(src, target):
+                target.__traceback__ = src.__traceback__
+                target.__context__ = src.__context__
+                target.__cause__ = src.__cause__
+
+            if match:
+                match_exc = ExceptionGroup(exc.message, *match)
+                copy_metadata(exc, match_exc)
+            if with_complement and rest:
+                rest_exc = ExceptionGroup(exc.message, *rest)
+                copy_metadata(exc, rest_exc)
+            return match_exc, rest_exc
 
     def split(self, type):
         """ Split an ExceptionGroup to extract exceptions of type E
@@ -90,15 +95,14 @@ class ExceptionGroup(BaseException):
         type: An exception type
         """
         return self.project(
-            lambda e: isinstance(e, type),
-            with_complement=True)
+            self, lambda e: isinstance(e, type), with_complement=True)
 
     def subgroup(self, keep):
         """ Split an ExceptionGroup to extract only exceptions in keep
 
         keep: List[BaseException]
         """
-        match, _ = self.project(lambda e: e in keep)
+        match, _ = self.project(self, lambda e: e in keep)
         return match
 
     def __iter__(self):
@@ -109,9 +113,6 @@ class ExceptionGroup(BaseException):
                     yield e_
             else:
                 yield e
-
-    def is_empty(self):
-        return not any(self)
 
     def __repr__(self):
         return f"ExceptionGroup({self.message}, {self.excs})"
@@ -144,7 +145,7 @@ class ExceptionGroupCatcher:
         if exc is not None and isinstance(exc, ExceptionGroup):
             match, rest = exc.split(self.types)
 
-            if match.is_empty():
+            if match is None:
                 # Let the interpreter reraise the exception
                 return False
 
@@ -160,15 +161,15 @@ class ExceptionGroupCatcher:
                 # reraise exc as is.
                 return False
 
-            if handler_excs is None or handler_excs.is_empty():
-                if rest.is_empty():
+            if handler_excs is None:
+                if rest is None:
                     # handled and swallowed all exceptions
                     # do not raise anything.
                     return True
                 else:
                     # raise the rest exceptions
                     to_raise = rest
-            elif rest.is_empty():
+            elif rest is None:
                 to_raise = handler_excs  # raise what handler returned
             else:
                 # Merge handler's exceptions with rest
@@ -179,7 +180,7 @@ class ExceptionGroupCatcher:
                 # to_add: new exceptions raised by handler
                 to_add = handler_excs.subgroup(
                     [e for e in handler_excs if e not in match])
-                if not to_add.is_empty():
+                if to_add is not None:
                     to_raise = ExceptionGroup(exc.message, to_keep, to_add)
                 else:
                     to_raise = to_keep
