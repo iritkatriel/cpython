@@ -96,19 +96,6 @@ class ExceptionGroupTestBase(unittest.TestCase):
             self.assertEqual(type(exc), type(template))
             self.assertEqual(exc.args, template.args)
 
-    def tracebackGroupSanityCheck(self, exc):
-        if not isinstance(exc, ExceptionGroup):
-            return
-
-        tbg = exc.__traceback_group__
-        all_excs = list(exc)
-        self.assertEqual(len(tbg.tb_next_map), len(all_excs))
-        self.assertEqual([i for i in tbg.tb_next_map],
-                         [id(e) for e in exc])
-
-        for e in exc.excs:
-            self.tracebackGroupSanityCheck(e)
-
 
 class ExceptionGroupBasicsTests(ExceptionGroupTestBase):
     def test_simple_group(self):
@@ -145,8 +132,6 @@ class ExceptionGroupBasicsTests(ExceptionGroupTestBase):
             ])
 
         self.assertEqual(len(list(eg)), 8)  # check iteration
-
-        self.tracebackGroupSanityCheck(eg)
 
         # check tracebacks
         all_excs = list(eg)

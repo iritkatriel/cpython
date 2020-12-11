@@ -4,29 +4,12 @@ import textwrap
 import traceback
 
 
-class TracebackGroup:
-    def __init__(self, excs):
-        self.tb_next_map = {}  # exception id to tb
-        for e in excs:
-            if isinstance(e, ExceptionGroup):
-                for e_ in e.excs:
-                    if isinstance(e_, ExceptionGroup):
-                        ks = list(e_)
-                    else:
-                        ks = (e_,)
-                    for k in ks:
-                        self.tb_next_map[id(k)] = e_.__traceback__
-            else:
-                self.tb_next_map[id(e)] = e.__traceback__
-
-
 class ExceptionGroup(BaseException):
     def __init__(self, message, *excs):
         """ Construct a new ExceptionGroup
 
+        message: The exception Group's error message
         excs: sequence of exceptions
-        tb [optional]: the __traceback__ of this exception group.
-        Typically set when this ExceptionGroup is derived from another.
         """
         assert message is None or isinstance(message, str)
         assert all(isinstance(e, BaseException) for e in excs)
@@ -34,10 +17,6 @@ class ExceptionGroup(BaseException):
         self.message = message
         self.excs = excs
         super().__init__(self.message)
-        # self.__traceback__ is updated as usual, but self.__traceback_group__
-        # is set when the exception group is created.
-        # __traceback_group__ and __traceback__ combine to give the full path.
-        self.__traceback_group__ = TracebackGroup(self.excs)
 
     @staticmethod
     def project(exc, condition, with_complement=False):
