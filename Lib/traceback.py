@@ -656,7 +656,7 @@ class TracebackExceptionGroup:
     INDENT_SIZE = 3
 
     def __init__(self, exc_type, exc_value, exc_traceback, **kwargs):
-        if not isinstance(exc_value, exception_group.ExceptionGroup):
+        if not isinstance(exc_value, ExceptionGroup):
             raise ValueError(f'Expected an ExceptionGroup, got {type(exc_value)}')
         self.this = TracebackException(
             exc_type, exc_value, exc_traceback, **kwargs)
@@ -721,7 +721,7 @@ class ExceptionFormatter:
 
     @staticmethod
     def get(exc_type, exc_value, exc_traceback, **kwargs):
-        if isinstance(exc_value, exception_group.ExceptionGroup):
+        if isinstance(exc_value, ExceptionGroup):
             cls = TracebackExceptionGroup
         else:
             cls = TracebackException
@@ -729,7 +729,7 @@ class ExceptionFormatter:
 
     @staticmethod
     def from_exception(exc, **kwargs):
-        if isinstance(exc, exception_group.ExceptionGroup):
+        if isinstance(exc, ExceptionGroup):
             return TracebackExceptionGroup.from_exception(exc, **kwargs)
         else:
             return TracebackException.from_exception(exc, **kwargs)

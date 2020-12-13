@@ -12,7 +12,6 @@ from test.support.os_helper import TESTFN, unlink
 from test.support.script_helper import assert_python_ok
 import textwrap
 
-import exception_group
 import traceback
 
 
@@ -1328,15 +1327,15 @@ class TestTracebackExceptionGroup(unittest.TestCase):
                     g(42)
                 except Exception as e:
                     exc2 = e
-                raise exception_group.ExceptionGroup("eg1", exc1, exc2)
-            except exception_group.ExceptionGroup as e:
+                raise ExceptionGroup("eg1", exc1, exc2)
+            except ExceptionGroup as e:
                 exc3 = e
             try:
                 g(24)
             except Exception as e:
                 exc4 = e
-            raise exception_group.ExceptionGroup("eg2", exc3, exc4)
-        except exception_group.ExceptionGroup:
+            raise ExceptionGroup("eg2", exc3, exc4)
+        except ExceptionGroup:
             return sys.exc_info()
         self.fail('Exception Not Raised')
 
@@ -1362,8 +1361,8 @@ class TestTracebackExceptionGroup(unittest.TestCase):
         teg = traceback.TracebackExceptionGroup(*self.eg_info)
         formatted = ''.join(teg.format_exception_only()).split('\n')
         expected = textwrap.dedent(f"""\
-            exception_group.ExceptionGroup: eg2
-               exception_group.ExceptionGroup: eg1
+            ExceptionGroup: eg2
+               ExceptionGroup: eg1
                   ZeroDivisionError: division by zero
                   ValueError: 42
                ValueError: 24
@@ -1381,13 +1380,13 @@ class TestTracebackExceptionGroup(unittest.TestCase):
         expected = textwrap.dedent(f"""\
             Traceback (most recent call last):
               File "{__file__}", line {lno_g+23}, in _get_exception_group
-                raise exception_group.ExceptionGroup("eg2", exc3, exc4)
-            exception_group.ExceptionGroup: eg2
+                raise ExceptionGroup("eg2", exc3, exc4)
+            ExceptionGroup: eg2
                ------------------------------------------------------------
                Traceback (most recent call last):
                  File "{__file__}", line {lno_g+16}, in _get_exception_group
-                   raise exception_group.ExceptionGroup("eg1", exc1, exc2)
-               exception_group.ExceptionGroup: eg1
+                   raise ExceptionGroup("eg1", exc1, exc2)
+               ExceptionGroup: eg1
                   ------------------------------------------------------------
                   Traceback (most recent call last):
                     File "{__file__}", line {lno_g+9}, in _get_exception_group
@@ -1416,7 +1415,7 @@ class TestTracebackExceptionGroup(unittest.TestCase):
     def test_comparison(self):
         try:
             raise self.eg_info[1]
-        except exception_group.ExceptionGroup:
+        except ExceptionGroup:
             exc_info = sys.exc_info()
         for _ in range(5):
             try:
