@@ -3,7 +3,7 @@ import collections.abc
 import functools
 import traceback
 import unittest
-from exception_group import ExceptionGroup, TracebackGroup
+from exception_group import ExceptionGroup
 from io import StringIO
 
 
