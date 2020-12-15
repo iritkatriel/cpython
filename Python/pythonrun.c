@@ -901,7 +901,7 @@ static const char context_message[] =
     "another exception occurred:\n\n";
 
 static void
-print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen)
+print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen, int group)
 {
     int err = 0, res;
     PyObject *cause, *context;
@@ -927,7 +927,7 @@ print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen)
                     PyErr_Clear();
                 if (res == 0) {
                     print_exception_recursive(
-                        f, cause, seen);
+                        f, cause, seen, group);
                     err |= PyFile_WriteString(
                         cause_message, f);
                 }
@@ -945,7 +945,7 @@ print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen)
                     PyErr_Clear();
                 if (res == 0) {
                     print_exception_recursive(
-                        f, context, seen);
+                        f, context, seen, group);
                     err |= PyFile_WriteString(
                         context_message, f);
                 }
@@ -955,7 +955,31 @@ print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen)
         }
         Py_XDECREF(value_id);
     }
-    print_exception(f, value);
+    if (!PyObject_TypeCheck(value, (PyTypeObject *)PyExc_ExceptionGroup)) {
+        print_exception(f, value);
+    }
+    else {
+        PyObject *line = PyUnicode_FromFormat(
+            "=================  <<%d>> =================\n", group + 1);
+        err |= PyFile_WriteObject(line, f, Py_PRINT_RAW);
+
+        print_exception(f, value);
+
+        PyObject *excs = ((PyExceptionGroupObject *)value)->excs;
+        if (excs && PyTuple_Check(excs)) {
+            Py_ssize_t i, num_excs = PyTuple_GET_SIZE(excs);
+            for (i = 0; i < num_excs; i++) {
+                PyObject *line = PyUnicode_FromFormat(
+                    "<<%d>> ------------------------------ - \n", group+1);
+                err |= PyFile_WriteObject(line, f, Py_PRINT_RAW);
+                print_exception_recursive(
+                    f, PyTuple_GET_ITEM(excs, i), seen, group+1);
+            }
+        }
+        line = PyUnicode_FromFormat(
+            "=================  (%d) =================\n", group + 1);
+        err |= PyFile_WriteObject(line, f, Py_PRINT_RAW);
+    }
     if (err != 0)
         PyErr_Clear();
 }
@@ -984,7 +1008,7 @@ _PyErr_Display(PyObject *file, PyObject *exception, PyObject *value, PyObject *t
     if (seen == NULL) {
         PyErr_Clear();
     }
-    print_exception_recursive(file, value, seen);
+    print_exception_recursive(file, value, seen, 0);
     Py_XDECREF(seen);
 
     /* Call file.flush() */
