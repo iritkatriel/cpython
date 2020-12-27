@@ -3,8 +3,28 @@ import collections.abc
 import functools
 import traceback
 import unittest
-from exception_group import ExceptionGroupHelper
 from io import StringIO
+
+
+class ExceptionGroupHelper:
+    @staticmethod
+    def subgroup(exc, keep):
+        """ Split an ExceptionGroup to extract only exceptions in keep
+
+        keep: List[BaseException]
+        """
+        match, _ = exc.project(lambda e: e in keep, False)
+        return match
+
+    @staticmethod
+    def flatten(exc):
+        ''' iterate over the individual exceptions (flattens the tree) '''
+        if isinstance(exc, ExceptionGroup):
+            for e in exc.excs:
+                for e_ in ExceptionGroupHelper.flatten(e):
+                    yield e_
+        else:
+            yield exc
 
 
 def newEG(msg, raisers, cls=ExceptionGroup):
@@ -15,15 +35,18 @@ def newEG(msg, raisers, cls=ExceptionGroup):
         except (Exception, ExceptionGroup) as e:
             excs.append(e)
     try:
-        raise cls(msg, *excs)
+        raise cls(msg, excs)
     except ExceptionGroup as e:
         return e
+
 
 def newVE(v):
     raise ValueError(v)
 
+
 def newTE(t):
     raise TypeError(t)
+
 
 def newSimpleEG(msg=None):
     bind = functools.partial
@@ -31,6 +54,7 @@ def newSimpleEG(msg=None):
 
 class MyExceptionGroup(ExceptionGroup):
     pass
+
 
 def newNestedEG(arg, msg=None):
     bind = functools.partial
@@ -59,6 +83,7 @@ def newNestedEG(arg, msg=None):
 
     return level3(arg)
 
+
 def extract_traceback(exc, eg):
     """ returns the traceback of a single exception
 
@@ -70,28 +95,32 @@ def extract_traceback(exc, eg):
     """
     if exc not in ExceptionGroupHelper.flatten(eg):
         return None
-    e = ExceptionGroupHelper.subgroup(eg, [exc])
     result = None
+    e = ExceptionGroupHelper.subgroup(eg, [exc])
     while e is not None:
         if isinstance(e, ExceptionGroup):
             assert len(e.excs) == 1 and exc in ExceptionGroupHelper.flatten(e)
         r = traceback.extract_tb(e.__traceback__)
-        if result is not None:
-            result.extend(r)
-        else:
-            result = r
+        if result is None:
+            result = []
+        result.extend(r)
         e = e.excs[0] if isinstance(e, ExceptionGroup) else None
     return result
 
 
 class ExceptionGroupTestBadInputs(unittest.TestCase):
     def test_simple_group_bad_constructor_args(self):
-        msg = 'Expected msg followed by the nested exceptions'
-        with self.assertRaisesRegex(TypeError, msg):
+        not_seq = 'Expected msg followed by a sequence of the nested exceptions'
+        not_exc = 'Nested exception must derive from BaseException'
+        with self.assertRaisesRegex(TypeError, not_seq):
             _ = ExceptionGroup('no errors')
-        with self.assertRaisesRegex(TypeError, msg):
+        with self.assertRaisesRegex(TypeError, not_seq):
+            _ = ExceptionGroup('errors not sequence', {ValueError(42)})
+        with self.assertRaisesRegex(TypeError, not_exc):
+            _ = ExceptionGroup('bad error', ["not an exception"])
+        with self.assertRaisesRegex(TypeError, not_seq):
             _ = ExceptionGroup(ValueError(12))
-        with self.assertRaisesRegex(TypeError, msg):
+        with self.assertRaisesRegex(TypeError, not_seq):
             _ = ExceptionGroup(ValueError(12), SyntaxError('bad syntax'))
 
 
@@ -173,7 +202,7 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
         fnames = [t.name for t in traceback.extract_tb(eg.__traceback__)]
         all_excs = list(ExceptionGroupHelper.flatten(eg))
 
-        match, rest = ExceptionGroupHelper.split(eg, types)
+        match, rest = eg.project(types)
 
         if match is not None:
             self.assertIsInstance(match, ExceptionGroup)
@@ -205,13 +234,13 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
 
         return match, rest
 
-    def test_split_nested(self):
+    def test_split_by_type(self):
         try:
             raise newNestedEG(25)
         except ExceptionGroup as e:
             eg = e
 
-        fnames = ['test_split_nested', 'newEG']
+        fnames = ['test_split_by_type', 'newEG']
         tb = traceback.extract_tb(eg.__traceback__)
         self.assertEqual(fnames, [t.name for t in tb])
 
@@ -260,244 +289,15 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
         self.assertMatchesTemplate(rest, valueErrors_template)
 
         # Match ExceptionGroup
-        match, rest = ExceptionGroupHelper.split(eg, ExceptionGroup)
+        match, rest = eg.project(ExceptionGroup)
         self.assertIs(match, eg)
         self.assertIsNone(rest)
 
         # Match MyExceptionGroup (ExceptionGroup subclass)
-        match, rest = ExceptionGroupHelper.split(eg, MyExceptionGroup)
+        match, rest = eg.project(MyExceptionGroup)
         self.assertMatchesTemplate(match, [eg_template[0]])
         self.assertMatchesTemplate(rest, [eg_template[1]])
 
-class ExceptionGroupCatchTests(ExceptionGroupTestBase):
-    def setUp(self):
-        super().setUp()
-
-        try:
-            raise newNestedEG(35)
-        except ExceptionGroup as e:
-            self.eg = e
-
-        fnames = ['setUp', 'newEG']
-        tb = traceback.extract_tb(self.eg.__traceback__)
-        self.assertEqual(fnames, [t.name for t in tb])
-
-        # templates
-        self.eg_template = [
-            [
-                [ValueError(36), TypeError(int), ValueError(37)],
-                [ValueError(37), TypeError(int), ValueError(38)],
-                ValueError(38),
-            ],
-            ValueError(37)
-        ]
-
-        self.valueErrors_template = [
-            [
-                [ValueError(36), ValueError(37)],
-                [ValueError(37), ValueError(38)],
-                ValueError(38),
-            ],
-            ValueError(37)
-        ]
-
-        self.typeErrors_template = [[[TypeError(int)], [TypeError(int)]]]
-
-    def checkMatch(self, exc, template, orig_eg):
-        self.assertMatchesTemplate(exc, template)
-        for e in ExceptionGroupHelper.flatten(exc):
-            def f_data(f):
-                return [f.name, f.lineno]
-
-            new = list(map(f_data, extract_traceback(e, exc)))
-            if e in ExceptionGroupHelper.flatten(orig_eg):
-                old = list(map(f_data, extract_traceback(e, orig_eg)))
-                self.assertSequenceEqual(old, new[-len(old):])
-
-    class BaseHandler:
-        def __init__(self):
-            self.caught = None
-
-        def __call__(self, eg):
-            self.caught = eg
-            return self.handle(eg)
-
-    def apply_catcher(self, catch, handler_cls, eg):
-        try:
-            raised = None
-            handler = handler_cls()
-            with ExceptionGroupHelper.catch(catch, handler):
-                raise eg
-        except ExceptionGroup as e:
-            raised = e
-        return handler.caught, raised
-
-    def test_catch_handler_raises_nothing(self):
-        eg = self.eg
-        eg_template = self.eg_template
-        valueErrors_template = self.valueErrors_template
-        typeErrors_template = self.typeErrors_template
-
-        class Handler(self.BaseHandler):
-            def handle(self, eg):
-                pass
-
-        # ######## Catch nothing:
-        caught, raised = self.apply_catcher(SyntaxError, Handler, eg)
-        self.checkMatch(raised, eg_template, eg)
-        self.assertIsNone(caught)
-
-        # ######## Catch everything:
-        error_types = (ValueError, TypeError)
-        caught, raised = self.apply_catcher(error_types, Handler, eg)
-        self.assertIsNone(raised)
-        self.checkMatch(caught, eg_template, eg)
-
-        # ######## Catch TypeErrors:
-        caught, raised = self.apply_catcher(TypeError, Handler, eg)
-        self.checkMatch(raised, valueErrors_template, eg)
-        self.checkMatch(caught, typeErrors_template, eg)
-
-        # ######## Catch ValueErrors:
-        error_types = (ValueError, SyntaxError)
-        caught, raised = self.apply_catcher(error_types, Handler, eg)
-        self.checkMatch(raised, typeErrors_template, eg)
-        self.checkMatch(caught, valueErrors_template, eg)
-
-    def test_catch_handler_adds_new_exceptions(self):
-        # create a nested exception group
-        eg = self.eg
-        eg_template = self.eg_template
-        valueErrors_template = self.valueErrors_template
-        typeErrors_template = self.typeErrors_template
-
-        class Handler(self.BaseHandler):
-            def handle(self, eg):
-                raise ExceptionGroup(
-                      "msg1",
-                      ValueError('foo'),
-                      ExceptionGroup(
-                          "msg2",SyntaxError('bar'), ValueError('baz')))
-
-        newErrors_template = [
-            ValueError('foo'), [SyntaxError('bar'), ValueError('baz')]]
-
-        # ######## Catch nothing:
-        caught, raised = self.apply_catcher(SyntaxError, Handler, eg)
-        self.checkMatch(raised, eg_template, eg)
-        self.assertIsNone(caught)
-
-        # ######## Catch everything:
-        error_types = (ValueError, TypeError)
-        caught, raised = self.apply_catcher(error_types, Handler, eg)
-        self.checkMatch(raised, newErrors_template, eg)
-        self.checkMatch(caught, eg_template, eg)
-
-        # ######## Catch TypeErrors:
-        caught, raised = self.apply_catcher(TypeError, Handler, eg)
-        self.checkMatch(raised, [valueErrors_template, newErrors_template], eg)
-        self.checkMatch(caught, typeErrors_template, eg)
-
-        # ######## Catch ValueErrors:
-        caught, raised = self.apply_catcher((ValueError, OSError), Handler, eg)
-        self.checkMatch(raised, [typeErrors_template, newErrors_template], eg)
-        self.checkMatch(caught, valueErrors_template, eg)
-
-    def test_catch_handler_reraise_all_matched(self):
-        eg = self.eg
-        eg_template = self.eg_template
-        valueErrors_template = self.valueErrors_template
-        typeErrors_template = self.typeErrors_template
-
-        # There are two ways to do this
-        class Handler1(self.BaseHandler):
-            def handle(self, eg):
-                return True
-
-        class Handler2(self.BaseHandler):
-            def handle(self, eg):
-                raise eg
-
-        for handler in [Handler1, Handler2]:
-            # ######## Catch nothing:
-            caught, raised = self.apply_catcher(SyntaxError, handler, eg)
-            # handler is never called
-            self.checkMatch(raised, eg_template, eg)
-            self.assertIsNone(caught)
-
-            # ######## Catch everything:
-            error_types = (ValueError, TypeError)
-            caught, raised = self.apply_catcher(error_types, handler, eg)
-            self.checkMatch(raised, eg_template, eg)
-            self.checkMatch(caught, eg_template, eg)
-
-            # ######## Catch TypeErrors:
-            caught, raised = self.apply_catcher(TypeError, handler, eg)
-            self.checkMatch(raised, eg_template, eg)
-            self.checkMatch(caught, typeErrors_template, eg)
-
-            # ######## Catch ValueErrors:
-            catch = (ValueError, SyntaxError)
-            caught, raised = self.apply_catcher(catch, handler, eg)
-            self.checkMatch(raised, eg_template, eg)
-            self.checkMatch(caught, valueErrors_template, eg)
-
-    def test_catch_handler_reraise_new_and_all_old(self):
-        eg = self.eg
-        eg_template = self.eg_template
-        valueErrors_template = self.valueErrors_template
-        typeErrors_template = self.typeErrors_template
-
-        class Handler(self.BaseHandler):
-            def handle(self, eg):
-                raise ExceptionGroup(
-                      "msg1",
-                      eg,
-                      ValueError('foo'),
-                      ExceptionGroup(
-                          "msg2", SyntaxError('bar'), ValueError('baz')))
-
-        newErrors_template = [
-            ValueError('foo'), [SyntaxError('bar'), ValueError('baz')]]
-
-        # ######## Catch TypeErrors:
-        caught, raised = self.apply_catcher(TypeError, Handler, eg)
-        self.checkMatch(raised, [eg_template, newErrors_template], eg)
-        self.checkMatch(caught, typeErrors_template, eg)
-
-        # ######## Catch ValueErrors:
-        caught, raised = self.apply_catcher(ValueError, Handler, eg)
-        self.checkMatch(raised, [eg_template, newErrors_template], eg)
-        self.checkMatch(caught, valueErrors_template, eg)
-
-    def test_catch_handler_reraise_new_and_some_old(self):
-        eg = self.eg
-        eg_template = self.eg_template
-        valueErrors_template = self.valueErrors_template
-        typeErrors_template = self.typeErrors_template
-
-        class Handler(self.BaseHandler):
-            def handle(self, eg):
-                raise ExceptionGroup(
-                    "msg1",
-                    eg.excs[0],
-                    ValueError('foo'),
-                    ExceptionGroup(
-                        "msg2", SyntaxError('bar'), ValueError('baz')))
-
-        newErrors_template = [
-            ValueError('foo'), [SyntaxError('bar'), ValueError('baz')]]
-
-        # ######## Catch TypeErrors:
-        caught, raised = self.apply_catcher(TypeError, Handler, eg)
-        self.checkMatch(raised, [eg_template, newErrors_template], eg)
-        self.checkMatch(caught, typeErrors_template, eg)
-
-        # ######## Catch ValueErrors:
-        caught, raised = self.apply_catcher(ValueError, Handler, eg)
-        # eg.excs[0] is reraised and eg.excs[1] is consumed
-        self.checkMatch(raised, [[eg_template[0]], newErrors_template], eg)
-        self.checkMatch(caught, valueErrors_template, eg)
 
 if __name__ == '__main__':
     unittest.main()

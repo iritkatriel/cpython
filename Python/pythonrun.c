@@ -783,7 +783,7 @@ print_exception(PyObject *f, PyObject *value, int indent)
     _Py_IDENTIFIER(print_file_and_line);
 
     if (!PyExceptionInstance_Check(value)) {
-        err += write_indent(indent, f);
+        err += _Py_WriteIndent(indent, f);
         err += PyFile_WriteString("TypeError: print_exception(): Exception expected for value, ", f);
         err += PyFile_WriteString(Py_TYPE(value)->tp_name, f);
         err += PyFile_WriteString(" found\n", f);
@@ -818,7 +818,7 @@ print_exception(PyObject *f, PyObject *value, int indent)
                                           filename, lineno);
             Py_DECREF(filename);
             if (line != NULL) {
-                err += write_indent(indent, f);
+                err += _Py_WriteIndent(indent, f);
                 PyFile_WriteObject(line, f, Py_PRINT_RAW);
                 Py_DECREF(line);
             }
@@ -848,7 +848,7 @@ print_exception(PyObject *f, PyObject *value, int indent)
             if (dot != NULL)
                 className = dot+1;
         }
-        err += write_indent(indent, f);
+        err += _Py_WriteIndent(indent, f);
         moduleName = _PyObject_GetAttrId(type, &PyId___module__);
         if (moduleName == NULL || !PyUnicode_Check(moduleName))
         {
@@ -936,7 +936,7 @@ print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen, struct r
                 if (res == 0) {
                     print_exception_recursive(
                         f, cause, seen, ctx);
-                    err |= write_indent(ctx->depth, f);
+                    err |= _Py_WriteIndent(ctx->depth, f);
                     err |= PyFile_WriteString(
                         cause_message, f);
                 }
@@ -981,7 +981,7 @@ print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen, struct r
             PyObject *parent_label = ctx->parent_label;
             line = PyUnicode_FromFormat(
                 "This exception has %d sub-exceptions:\n", num_excs);
-            err |= write_indent(ctx->depth, f);
+            err |= _Py_WriteIndent(ctx->depth, f);
             err |= PyFile_WriteObject(line, f, Py_PRINT_RAW);
             Py_XDECREF(line);
 
@@ -996,7 +996,7 @@ print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen, struct r
                 }
                 line = PyUnicode_FromFormat(
                     "----------------- %U/%d -----------------\n", label, num_excs);
-                err |= write_indent(ctx->depth+1, f);
+                err |= _Py_WriteIndent(ctx->depth+1, f);
                 err |= PyFile_WriteObject(line, f, Py_PRINT_RAW);
                 Py_XDECREF(line);
 
@@ -1011,7 +1011,7 @@ print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen, struct r
 
                 line = PyUnicode_FromFormat(
                     "----------------- end of %U -----------------\n", label);
-                err |= write_indent(ctx->depth+1, f);
+                err |= _Py_WriteIndent(ctx->depth+1, f);
                 err |= PyFile_WriteObject(line, f, Py_PRINT_RAW);
                 Py_XDECREF(line);
             }

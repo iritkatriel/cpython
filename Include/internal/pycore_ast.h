@@ -209,6 +209,7 @@ struct ast_state {
     PyObject *right;
     PyObject *simple;
     PyObject *slice;
+    PyObject *star;
     PyObject *step;
     PyObject *stmt_type;
     PyObject *tag;

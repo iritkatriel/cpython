@@ -1,7 +1,6 @@
 """Extract, format and print information about Python stack traces."""
 
 import collections
-import exception_group
 import itertools
 import linecache
 import sys

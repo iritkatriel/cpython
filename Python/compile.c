@@ -1022,6 +1022,8 @@ stack_effect(int opcode, int oparg, int jump)
         case IS_OP:
         case CONTAINS_OP:
             return -1;
+        case JUMP_IF_NOT_EG_MATCH:
+            return jump > 0 ? -2 : 1;
         case JUMP_IF_NOT_EXC_MATCH:
             return -2;
         case IMPORT_NAME:
@@ -3028,11 +3030,50 @@ compiler_try_finally(struct compiler *c, stmt_ty s)
 
    Of course, parts are not generated if Vi or Ei is not present.
 */
+/*
+   Code generated for "try: S except* E1 as V1: S1 except* E2 as V2: S2 ...":
+   (The contents of the value stack is shown in [], with the top
+   at the right; 'tb' is trace-back info, 'val' the exception's
+   associated value, and 'exc' the exception.)
+
+   Value stack          Label       Instruction     Argument
+   []                               SETUP_FINALLY   L1
+   []                               <code for S>
+   []                               POP_BLOCK
+   []                               JUMP_FORWARD    L0
+
+   [tb, val, exc]       L1:         DUP                             )
+   [tb, val, exc, exc]              <evaluate E1>                   )
+   [tb, val, exc, exc, E1]          JUMP_IF_NOT_EG_MATCH L2         ) only if E1
+   [tb, rest, exc, tb, match, exc]  POP
+   [tb, rest, exc, tb, match]       <assign to V1>  (or POP if no V1)
+   [tb, rest, exc, tb]              POP
+   [tb, rest, exc]                  <code for S1>
+   [tb, rest, exc]                  JUMP_FORWARD    C1
+
+   [tb, rest, exc]      C1:         DUP_TOP                         ) check if done
+   [tb, rest, exc, exc]             POP_JUMP_IF_TRUE    L2
+   [tb, rest, exc]                  POP
+   [tb, rest]                       POP
+   [tb]                             POP
+   []                               JUMP_FORWARD        L0
+
+   [tb, val, exc]       L2:         DUP
+   .............................etc.......................
+
+   [tb, val, exc]       Ln+1:       RERAISE     # re-raise exception (if not None)
+
+   []                   L0:         <next statement>
+
+   Of course, parts are not generated if Vi or Ei is not present.
+*/
+
 static int
 compiler_try_except(struct compiler *c, stmt_ty s)
 {
-    basicblock *body, *orelse, *except, *end;
+    basicblock *body, *orelse, *check_if_done, *except, *end;
     Py_ssize_t i, n;
+    int is_except_star = s->v.Try.star;
 
     body = compiler_new_block(c);
     except = compiler_new_block(c);
@@ -3040,6 +3081,11 @@ compiler_try_except(struct compiler *c, stmt_ty s)
     end = compiler_new_block(c);
     if (body == NULL || except == NULL || orelse == NULL || end == NULL)
         return 0;
+    if (is_except_star) {
+        check_if_done = compiler_new_block(c);
+        if (check_if_done == NULL)
+            return 0;
+    }
     ADDOP_JUMP(c, SETUP_FINALLY, except);
     compiler_use_next_block(c, body);
     if (!compiler_push_fblock(c, TRY_EXCEPT, body, NULL, NULL))
@@ -3062,10 +3108,20 @@ compiler_try_except(struct compiler *c, stmt_ty s)
         except = compiler_new_block(c);
         if (except == NULL)
             return 0;
+        if (is_except_star) {
+            check_if_done = compiler_new_block(c);
+            if (check_if_done == NULL)
+                return 0;
+        }
         if (handler->v.ExceptHandler.type) {
             ADDOP(c, DUP_TOP);
             VISIT(c, expr, handler->v.ExceptHandler.type);
-            ADDOP_JUMP(c, JUMP_IF_NOT_EXC_MATCH, except);
+            if (!is_except_star) {
+                ADDOP_JUMP(c, JUMP_IF_NOT_EXC_MATCH, except);
+            }
+            else {
+                ADDOP_JUMP(c, JUMP_IF_NOT_EG_MATCH, except);
+            }
             NEXT_BLOCK(c);
         }
         ADDOP(c, POP_TOP);
@@ -3102,13 +3158,21 @@ compiler_try_except(struct compiler *c, stmt_ty s)
             VISIT_SEQ(c, stmt, handler->v.ExceptHandler.body);
             compiler_pop_fblock(c, HANDLER_CLEANUP, cleanup_body);
             ADDOP(c, POP_BLOCK);
-            ADDOP(c, POP_EXCEPT);
+            if (!is_except_star) {
+                ADDOP(c, POP_EXCEPT);
+            }
+
             /* name = None; del name; # Mark as artificial */
             c->u->u_lineno = -1;
             ADDOP_LOAD_CONST(c, Py_None);
             compiler_nameop(c, handler->v.ExceptHandler.name, Store);
             compiler_nameop(c, handler->v.ExceptHandler.name, Del);
-            ADDOP_JUMP(c, JUMP_FORWARD, end);
+            if (!is_except_star) {
+                ADDOP_JUMP(c, JUMP_FORWARD, end);
+            }
+            else {
+                ADDOP_JUMP(c, JUMP_ABSOLUTE, check_if_done);
+            }
 
             /* except: */
             compiler_use_next_block(c, cleanup_end);
@@ -3135,6 +3199,24 @@ compiler_try_except(struct compiler *c, stmt_ty s)
                 return 0;
             VISIT_SEQ(c, stmt, handler->v.ExceptHandler.body);
             compiler_pop_fblock(c, HANDLER_CLEANUP, cleanup_body);
+            if (!is_except_star) {
+                ADDOP(c, POP_EXCEPT);
+                ADDOP_JUMP(c, JUMP_FORWARD, end);
+            }
+            else {
+                ADDOP_JUMP(c, JUMP_ABSOLUTE, check_if_done);
+            }
+        }
+        if (is_except_star) {
+            compiler_use_next_block(c, check_if_done);
+            ADDOP(c, DUP_TOP);
+            ADDOP_JUMP(c, POP_JUMP_IF_TRUE, except);
+            NEXT_BLOCK(c);
+            if (handler->v.ExceptHandler.type) {
+                ADDOP(c, POP_TOP);
+                ADDOP(c, POP_TOP);
+                ADDOP(c, POP_TOP);
+            }
             ADDOP(c, POP_EXCEPT);
             ADDOP_JUMP(c, JUMP_FORWARD, end);
         }

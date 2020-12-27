@@ -268,6 +268,7 @@ struct _stmt {
             asdl_excepthandler_seq *handlers;
             asdl_stmt_seq *orelse;
             asdl_stmt_seq *finalbody;
+            int star;
         } Try;
 
         struct {
@@ -610,11 +611,11 @@ stmt_ty _Py_AsyncWith(asdl_withitem_seq * items, asdl_stmt_seq * body, string
 #define Raise(a0, a1, a2, a3, a4, a5, a6) _Py_Raise(a0, a1, a2, a3, a4, a5, a6)
 stmt_ty _Py_Raise(expr_ty exc, expr_ty cause, int lineno, int col_offset, int
                   end_lineno, int end_col_offset, PyArena *arena);
-#define Try(a0, a1, a2, a3, a4, a5, a6, a7, a8) _Py_Try(a0, a1, a2, a3, a4, a5, a6, a7, a8)
+#define Try(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) _Py_Try(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9)
 stmt_ty _Py_Try(asdl_stmt_seq * body, asdl_excepthandler_seq * handlers,
-                asdl_stmt_seq * orelse, asdl_stmt_seq * finalbody, int lineno,
-                int col_offset, int end_lineno, int end_col_offset, PyArena
-                *arena);
+                asdl_stmt_seq * orelse, asdl_stmt_seq * finalbody, int star,
+                int lineno, int col_offset, int end_lineno, int end_col_offset,
+                PyArena *arena);
 #define Assert(a0, a1, a2, a3, a4, a5, a6) _Py_Assert(a0, a1, a2, a3, a4, a5, a6)
 stmt_ty _Py_Assert(expr_ty test, expr_ty msg, int lineno, int col_offset, int
                    end_lineno, int end_col_offset, PyArena *arena);

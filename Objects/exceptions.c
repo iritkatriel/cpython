@@ -639,8 +639,9 @@ static int
 ExceptionGroup_init(PyExceptionGroupObject *self, PyObject *args, PyObject *kwds)
 {
     PyObject *excs = NULL;
+    PyObject *msg = NULL;
     Py_ssize_t lenargs = PyTuple_GET_SIZE(args);
-    Py_ssize_t i;
+    Py_ssize_t i, numexcs;
 
     if (!_PyArg_NoKeywords(Py_TYPE(self)->tp_name, kwds)) {
         return -1;
@@ -650,32 +651,33 @@ ExceptionGroup_init(PyExceptionGroupObject *self, PyObject *args, PyObject *kwds
         return -1;
     }
 
-    if (lenargs <= 1) {
+    if (lenargs != 2) {
         PyErr_SetString(PyExc_TypeError,
-            "Expected msg followed by the nested exceptions");
+            "Expected msg followed by a sequence of the nested exceptions");
         return -1;
     }
-    if (!PyUnicode_CheckExact(PyTuple_GET_ITEM(args, 0))) {
+    msg = PyTuple_GET_ITEM(args, 0);
+    excs = PyTuple_GET_ITEM(args, 1);
+    if (!PyUnicode_CheckExact(msg)) {
         PyErr_SetString(PyExc_TypeError,
-            "Expected msg followed by the nested exceptions");
+            "Expected msg followed by a sequence of the nested exceptions");
         return -1;
     }
-    for (i = 1; i < lenargs; i++) {
-        if (!PyExceptionInstance_Check(PyTuple_GET_ITEM(args, i))) {
+    if (!PySequence_Check(excs)) {
+        PyErr_SetString(PyExc_TypeError,
+            "Expected msg followed by a sequence of the nested exceptions");
+        return -1;
+    }
+    numexcs = PySequence_Length(excs);
+    for (i = 0; i < numexcs; i++) {
+        if (!PyExceptionInstance_Check(PySequence_GetItem(excs, i))) {
             PyErr_SetString(PyExc_TypeError,
-                "nested exception must derive from BaseException");
+                "Nested exception must derive from BaseException");
             return -1;
         }
     }
-    excs = PyTuple_GetSlice(args, 1, lenargs);
-    if (!excs) {
-        return -1;
-    }
-    for (i = 0; i < lenargs-1; i++) {
-        Py_INCREF(PyTuple_GET_ITEM(excs, i));
-    }
-    self->excs = excs;
-    self->msg = Py_NewRef(PyTuple_GET_ITEM(args, 0));
+    self->msg = Py_NewRef(msg);
+    self->excs = Py_NewRef(excs);
     return 0;
 }
 
@@ -736,10 +738,7 @@ static PyObject* exceptiongroup_subset(PyExceptionGroupObject *orig,
         return Py_NewRef(Py_None);
     }
 
-    args = PySequence_Tuple(
-        PySequence_Concat(
-            PyTuple_Pack(1, Py_NewRef(orig->msg)), PySequence_Tuple(excs)));
-
+    args = PyTuple_Pack(2, Py_NewRef(orig->msg), Py_NewRef(excs));
     if (!args) {
         goto error;
     }
@@ -769,16 +768,35 @@ error:
     return NULL;
 }
 
-static PyObject *
-exceptiongroup_project_recursive(PyObject *exc, PyObject *func, int complement)
-{
-    int is_match;
+/* check whether exc matches the matcher. Matcher can be:
 
-    PyObject *exc_matches = PyObject_CallOneArg(func, exc);
-    if (!exc_matches) {
-        return NULL;
+* - a function, then exc matches if function(exc) returns true
+* - an exception type (or tuple thereof) then exc matches if
+*   PyErr_GivenExceptionMatches(exc, matcher)
+* - (LATER:) a collection of exception instances, then exc
+*   matches if it belongs to the collection (TODO: determine
+*   collection type and implement)
+*
+* TODO: create a matcher struct that has the PyObject + a code
+* specifying its type. Then we don't need the type checks here.
+*/
+static int exceptiongroup_project_check_match(PyObject *exc, PyObject *matcher)
+{
+    if (PyFunction_Check(matcher)) {
+        /* case 1: function matcher */
+        PyObject *exc_matches = PyObject_CallOneArg(matcher, exc);
+        return exc_matches != NULL && PyObject_IsTrue(exc_matches);
     }
-    is_match = PyObject_IsTrue(exc_matches);
+    else {
+        /* case 2: exception type matcher */
+        return PyErr_GivenExceptionMatches(exc, matcher);
+    }
+}
+
+static PyObject *
+exceptiongroup_project_recursive(PyObject *exc, PyObject *matcher, int complement)
+{
+    int is_match = exceptiongroup_project_check_match(exc, matcher);
     if (is_match == -1) {
         return NULL;
     }
@@ -800,7 +818,7 @@ exceptiongroup_project_recursive(PyObject *exc, PyObject *func, int complement)
         Py_ssize_t i;
         Py_ssize_t num_excs;
 
-        num_excs = PyTuple_Size(eg->excs);
+        num_excs = PySequence_Length(eg->excs);
         if (num_excs < 0) {
             goto done;
         }
@@ -817,7 +835,7 @@ exceptiongroup_project_recursive(PyObject *exc, PyObject *func, int complement)
         /* recursive calls */
         for (i = 0; i < num_excs; i++) {
             PyObject *rec = exceptiongroup_project_recursive(
-                        PyTuple_GetItem(eg->excs, i), func, complement);
+                PySequence_GetItem(eg->excs, i), matcher, complement);
 
             if (!rec) {
                 goto done;
@@ -876,12 +894,12 @@ ExceptionGroup_project(PyExceptionGroupObject *self,
                        PyObject *kwds)
 {
     static char *kwlist[] = {"with_complement", 0 };
-    PyObject *func= NULL;
+    PyObject *matcher = NULL;
     PyObject *with_complement = NULL;
     int is_with_complement;
 
     if (!PyArg_UnpackTuple(args, "project", 0, 2,
-                           &func, &with_complement)) {
+                           &matcher, &with_complement)) {
         return NULL;
     }
 
@@ -896,7 +914,7 @@ ExceptionGroup_project(PyExceptionGroupObject *self,
     }
 
     return exceptiongroup_project_recursive(
-        (PyObject*)self, func, is_with_complement);
+        (PyObject*)self, matcher, is_with_complement);
 }
 
 static PyMemberDef ExceptionGroup_members[] = {
