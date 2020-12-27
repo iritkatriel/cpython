@@ -209,6 +209,7 @@ struct ast_state {
     PyObject *right;
     PyObject *simple;
     PyObject *slice;
+    PyObject *star;
     PyObject *step;
     PyObject *stmt_type;
     PyObject *tag;
@@ -466,6 +467,7 @@ void _PyAST_Fini(PyInterpreterState *interp)
     Py_CLEAR(state->right);
     Py_CLEAR(state->simple);
     Py_CLEAR(state->slice);
+    Py_CLEAR(state->star);
     Py_CLEAR(state->step);
     Py_CLEAR(state->stmt_type);
     Py_CLEAR(state->tag);
@@ -554,6 +556,7 @@ static int init_identifiers(struct ast_state *state)
     if ((state->right = PyUnicode_InternFromString("right")) == NULL) return 0;
     if ((state->simple = PyUnicode_InternFromString("simple")) == NULL) return 0;
     if ((state->slice = PyUnicode_InternFromString("slice")) == NULL) return 0;
+    if ((state->star = PyUnicode_InternFromString("star")) == NULL) return 0;
     if ((state->step = PyUnicode_InternFromString("step")) == NULL) return 0;
     if ((state->tag = PyUnicode_InternFromString("tag")) == NULL) return 0;
     if ((state->target = PyUnicode_InternFromString("target")) == NULL) return 0;
@@ -855,6 +858,7 @@ static const char * const ExceptHandler_fields[]={
     "type",
     "name",
     "body",
+    "star",
 };
 static PyObject* ast2obj_arguments(struct ast_state *state, void*);
 static const char * const arguments_fields[]={
@@ -1842,7 +1846,7 @@ init_types(struct ast_state *state)
     if (!add_attributes(state, state->comprehension_type, NULL, 0)) return 0;
     state->excepthandler_type = make_type(state, "excepthandler",
                                           state->AST_type, NULL, 0,
-        "excepthandler = ExceptHandler(expr? type, identifier? name, stmt* body)");
+        "excepthandler = ExceptHandler(expr? type, identifier? name, stmt* body, int star)");
     if (!state->excepthandler_type) return 0;
     if (!add_attributes(state, state->excepthandler_type,
         excepthandler_attributes, 4)) return 0;
@@ -1854,8 +1858,8 @@ init_types(struct ast_state *state)
         return 0;
     state->ExceptHandler_type = make_type(state, "ExceptHandler",
                                           state->excepthandler_type,
-                                          ExceptHandler_fields, 3,
-        "ExceptHandler(expr? type, identifier? name, stmt* body)");
+                                          ExceptHandler_fields, 4,
+        "ExceptHandler(expr? type, identifier? name, stmt* body, int star)");
     if (!state->ExceptHandler_type) return 0;
     if (PyObject_SetAttr(state->ExceptHandler_type, state->type, Py_None) == -1)
         return 0;
@@ -3289,9 +3293,9 @@ comprehension(expr_ty target, expr_ty iter, asdl_expr_seq * ifs, int is_async,
 }
 
 excepthandler_ty
-ExceptHandler(expr_ty type, identifier name, asdl_stmt_seq * body, int lineno,
-              int col_offset, int end_lineno, int end_col_offset, PyArena
-              *arena)
+ExceptHandler(expr_ty type, identifier name, asdl_stmt_seq * body, int star,
+              int lineno, int col_offset, int end_lineno, int end_col_offset,
+              PyArena *arena)
 {
     excepthandler_ty p;
     p = (excepthandler_ty)PyArena_Malloc(arena, sizeof(*p));
@@ -3301,6 +3305,7 @@ ExceptHandler(expr_ty type, identifier name, asdl_stmt_seq * body, int lineno,
     p->v.ExceptHandler.type = type;
     p->v.ExceptHandler.name = name;
     p->v.ExceptHandler.body = body;
+    p->v.ExceptHandler.star = star;
     p->lineno = lineno;
     p->col_offset = col_offset;
     p->end_lineno = end_lineno;
@@ -4681,6 +4686,11 @@ ast2obj_excepthandler(struct ast_state *state, void* _o)
                              ast2obj_stmt);
         if (!value) goto failed;
         if (PyObject_SetAttr(result, state->body, value) == -1)
+            goto failed;
+        Py_DECREF(value);
+        value = ast2obj_int(state, o->v.ExceptHandler.star);
+        if (!value) goto failed;
+        if (PyObject_SetAttr(result, state->star, value) == -1)
             goto failed;
         Py_DECREF(value);
         break;
@@ -9076,6 +9086,7 @@ obj2ast_excepthandler(struct ast_state *state, PyObject* obj, excepthandler_ty*
         expr_ty type;
         identifier name;
         asdl_stmt_seq* body;
+        int star;
 
         if (_PyObject_LookupAttr(obj, state->type, &tmp) < 0) {
             return 1;
@@ -9136,8 +9147,21 @@ obj2ast_excepthandler(struct ast_state *state, PyObject* obj, excepthandler_ty*
             }
             Py_CLEAR(tmp);
         }
-        *out = ExceptHandler(type, name, body, lineno, col_offset, end_lineno,
-                             end_col_offset, arena);
+        if (_PyObject_LookupAttr(obj, state->star, &tmp) < 0) {
+            return 1;
+        }
+        if (tmp == NULL) {
+            PyErr_SetString(PyExc_TypeError, "required field \"star\" missing from ExceptHandler");
+            return 1;
+        }
+        else {
+            int res;
+            res = obj2ast_int(state, tmp, &star, arena);
+            if (res != 0) goto failed;
+            Py_CLEAR(tmp);
+        }
+        *out = ExceptHandler(type, name, body, star, lineno, col_offset,
+                             end_lineno, end_col_offset, arena);
         if (*out == NULL) goto failed;
         return 0;
     }

@@ -103,7 +103,7 @@ module Python
 
     comprehension = (expr target, expr iter, expr* ifs, int is_async)
 
-    excepthandler = ExceptHandler(expr? type, identifier? name, stmt* body)
+    excepthandler = ExceptHandler(expr? type, identifier? name, stmt* body, int star)
                     attributes (int lineno, int col_offset, int? end_lineno, int? end_col_offset)
 
     arguments = (arg* posonlyargs, arg* args, arg? vararg, arg* kwonlyargs,

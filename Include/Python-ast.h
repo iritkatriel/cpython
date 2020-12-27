@@ -476,6 +476,7 @@ struct _excepthandler {
             expr_ty type;
             identifier name;
             asdl_stmt_seq *body;
+            int star;
         } ExceptHandler;
 
     } v;
@@ -746,11 +747,11 @@ expr_ty _Py_Slice(expr_ty lower, expr_ty upper, expr_ty step, int lineno, int
 #define comprehension(a0, a1, a2, a3, a4) _Py_comprehension(a0, a1, a2, a3, a4)
 comprehension_ty _Py_comprehension(expr_ty target, expr_ty iter, asdl_expr_seq
                                    * ifs, int is_async, PyArena *arena);
-#define ExceptHandler(a0, a1, a2, a3, a4, a5, a6, a7) _Py_ExceptHandler(a0, a1, a2, a3, a4, a5, a6, a7)
+#define ExceptHandler(a0, a1, a2, a3, a4, a5, a6, a7, a8) _Py_ExceptHandler(a0, a1, a2, a3, a4, a5, a6, a7, a8)
 excepthandler_ty _Py_ExceptHandler(expr_ty type, identifier name, asdl_stmt_seq
-                                   * body, int lineno, int col_offset, int
-                                   end_lineno, int end_col_offset, PyArena
-                                   *arena);
+                                   * body, int star, int lineno, int
+                                   col_offset, int end_lineno, int
+                                   end_col_offset, PyArena *arena);
 #define arguments(a0, a1, a2, a3, a4, a5, a6, a7) _Py_arguments(a0, a1, a2, a3, a4, a5, a6, a7)
 arguments_ty _Py_arguments(asdl_arg_seq * posonlyargs, asdl_arg_seq * args,
                            arg_ty vararg, asdl_arg_seq * kwonlyargs,
