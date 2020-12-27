@@ -625,6 +625,10 @@ new_threadstate(PyInterpreterState *interp, int init)
     tstate->exc_state.previous_item = NULL;
     tstate->exc_info = &tstate->exc_state;
 
+    tstate->exc_group_state.exc_group = NULL;
+    tstate->exc_group_state.exc_group_raised = NULL;
+    tstate->exc_group_state.exc_group_reraised = NULL;
+
     tstate->c_profilefunc = NULL;
     tstate->c_tracefunc = NULL;
     tstate->c_profileobj = NULL;

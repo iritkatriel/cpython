@@ -81,6 +81,8 @@ static PyObject * unicode_concatenate(PyThreadState *, PyObject *, PyObject *,
                                       PyFrameObject *, const _Py_CODEUNIT *);
 static PyObject * special_lookup(PyThreadState *, PyObject *, _Py_Identifier *);
 static int check_args_iterable(PyThreadState *, PyObject *func, PyObject *vararg);
+static int check_except_type_valid(PyThreadState *tstate, PyObject* right);
+static int check_except_star_type_valid(PyThreadState *tstate, PyObject* right);
 static void format_kwargs_error(PyThreadState *, PyObject *func, PyObject *kwargs);
 static void format_awaitable_error(PyThreadState *, PyTypeObject *, int, int);
 
@@ -3320,34 +3322,139 @@ main_loop:
             FAST_DISPATCH();
         }
 
-#define CANNOT_CATCH_MSG "catching classes that do not inherit from "\
-                         "BaseException is not allowed"
-
-        case TARGET(JUMP_IF_NOT_EXC_MATCH): {
+        case TARGET(JUMP_IF_NOT_EG_MATCH): {
             PyObject *right = POP();
             PyObject *left = POP();
-            if (PyTuple_Check(right)) {
-                Py_ssize_t i, length;
-                length = PyTuple_GET_SIZE(right);
-                for (i = 0; i < length; i++) {
-                    PyObject *exc = PyTuple_GET_ITEM(right, i);
-                    if (!PyExceptionClass_Check(exc)) {
-                        _PyErr_SetString(tstate, PyExc_TypeError,
-                                        CANNOT_CATCH_MSG);
-                        Py_DECREF(left);
-                        Py_DECREF(right);
+
+            if (!check_except_star_type_valid(tstate, right)) {
+                Py_DECREF(left);
+                Py_DECREF(right);
+                goto error;
+            }
+
+            PyObject *pair = NULL;
+
+            int res = PyErr_GivenExceptionMatches(left, right);
+            if (res > 0) {
+                // Exception matches exactly -- Wrap it in an ExceptionGroup
+                Py_DECREF(left);
+                Py_DECREF(right);
+                PyObject *e = PEEK(2);
+                PyObject *args = PyTuple_Pack(
+                    2, PyUnicode_FromString(""), Py_NewRef(e));
+                if (!args) {
+                    goto error;
+                }
+                PyObject *match = PyObject_CallObject(
+                    PyExc_ExceptionGroup, args);
+                if (!match) {
+                    goto error;
+                }
+                pair = PyTuple_Pack(2, match, Py_NewRef(Py_None));
+                if (!pair) {
+                    goto error;
+                }
+            }
+            else if (res == 0) {
+                // check if left is an ExceptionGroup
+                int res1 = PyErr_GivenExceptionMatches(left, PyExc_ExceptionGroup);
+                if (res1 == 0) {
+                    Py_DECREF(left);
+                    Py_DECREF(right);
+                    JUMPTO(oparg);
+                }
+                else if (res1 > 0) {
+                    // We're catching an ExceptionGroup, check for match
+                    // TODO: DUP val on the stack like the exc?
+                    PyObject *eg = PEEK(2);
+                    pair = PyObject_CallMethod(
+                        eg, "project", "OO", right, Py_True);
+                    Py_DECREF(left);
+                    Py_DECREF(right);
+                    if (!pair) {
+                        goto error;
+                    }
+                    else if (!PyTuple_CheckExact(pair) || PyTuple_GET_SIZE(pair) != 2) {
+                        PyErr_SetString(PyExc_RuntimeError,
+                            "Internal error: invalid value");
+                        Py_DECREF(pair);
                         goto error;
                     }
                 }
-            }
-            else {
-                if (!PyExceptionClass_Check(right)) {
-                    _PyErr_SetString(tstate, PyExc_TypeError,
-                                    CANNOT_CATCH_MSG);
+                else {
                     Py_DECREF(left);
                     Py_DECREF(right);
                     goto error;
                 }
+            }
+            else {
+                Py_DECREF(left);
+                Py_DECREF(right);
+                goto error;
+            }
+
+            if (pair) {
+                PyObject *match = PyTuple_GET_ITEM(pair, 0);
+                PyObject *rest = NULL;
+                if (!match) {
+                    Py_DECREF(pair);
+                    goto error;
+                }
+                if (match == Py_None) {
+                    // no matches - jump to target
+                    Py_DECREF(pair);
+                    JUMPTO(oparg);
+                }
+                else {
+                    rest = PyTuple_GET_ITEM(pair, 1);
+                    if (!rest) {
+                        Py_XDECREF(pair);
+                        goto error;
+                    }
+
+                    // Total or partial match - update the stack from
+                    // [tb, val, exc]
+                    // to
+                    // [tb, rest, exc, tb, match, exc]
+                    // (rest can be Py_None)
+                    PyObject *exc = Py_NewRef(TOP());
+                    PyObject *val = SECOND();
+                    PyObject *tb = Py_NewRef(THIRD());
+
+                    if (rest != Py_None) {
+                        Py_DECREF(val);
+                        SET_SECOND(Py_NewRef(rest));
+                    }
+                    else {
+                        SET_TOP(Py_NewRef(Py_None));
+                        SET_SECOND(Py_NewRef(Py_None));
+                        SET_THIRD(Py_NewRef(Py_None));
+                        Py_DECREF(exc);
+                        Py_DECREF(val);
+                        Py_DECREF(tb);
+                    }
+
+                    PUSH(tb);
+                    PUSH(Py_NewRef(match));
+                    PUSH(exc);
+
+                    // set exc_info to the current match
+                    PyErr_SetExcInfo(
+                        Py_NewRef(exc), Py_NewRef(match), Py_NewRef(tb));
+                    Py_XDECREF(pair);
+                }
+            }
+
+            DISPATCH();
+        }
+
+        case TARGET(JUMP_IF_NOT_EXC_MATCH): {
+            PyObject *right = POP();
+            PyObject *left = POP();
+            if (!check_except_type_valid(tstate, right)) {
+                Py_DECREF(left);
+                Py_DECREF(right);
+                goto error;
             }
             int res = PyErr_GivenExceptionMatches(left, right);
             Py_DECREF(left);
@@ -3602,6 +3709,7 @@ main_loop:
         }
 
         case TARGET(SETUP_FINALLY): {
+            tstate->exc_group_state.exc_group = tstate->exc_info; // save the original EG
             PyFrame_BlockSetup(f, SETUP_FINALLY, INSTR_OFFSET() + oparg,
                                STACK_LEVEL());
             DISPATCH();
@@ -5677,6 +5785,54 @@ check_args_iterable(PyThreadState *tstate, PyObject *func, PyObject *args)
         return -1;
     }
     return 0;
+}
+
+#define CANNOT_CATCH_MSG "catching classes that do not inherit from "\
+                         "BaseException is not allowed"
+
+#define CANNOT_EXCEPT_STAR_EG "catching ExceptionGroup with except* "\
+                              "is not allowed. Use except instead."
+
+static int
+check_except_type_valid(PyThreadState *tstate, PyObject* right) {
+    if (PyTuple_Check(right)) {
+        Py_ssize_t i, length;
+        length = PyTuple_GET_SIZE(right);
+        for (i = 0; i < length; i++) {
+            PyObject *exc = PyTuple_GET_ITEM(right, i);
+            if (!PyExceptionClass_Check(exc)) {
+                _PyErr_SetString(tstate, PyExc_TypeError,
+                    CANNOT_CATCH_MSG);
+                return 0;
+            }
+        }
+    }
+    else {
+        if (!PyExceptionClass_Check(right)) {
+            _PyErr_SetString(tstate, PyExc_TypeError,
+                CANNOT_CATCH_MSG);
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static int
+check_except_star_type_valid(PyThreadState *tstate, PyObject* right) {
+    if (!check_except_type_valid(tstate, right)) {
+        return 0;
+    }
+    // reject except *ExceptionGroup
+    int res = PyObject_IsSubclass(PyExc_ExceptionGroup, right);
+    if (res == -1) {
+        return 0;
+    }
+    if (res == 1) {
+        _PyErr_SetString(tstate, PyExc_TypeError,
+            CANNOT_EXCEPT_STAR_EG);
+        return 0;
+    }
+    return 1;
 }
 
 static void

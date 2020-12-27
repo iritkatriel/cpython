@@ -1042,6 +1042,7 @@ class TestStack(unittest.TestCase):
              '    v = 4\n' % (__file__, some_inner.__code__.co_firstlineno + 3)
             ], s.format())
 
+
 class TestTracebackException(unittest.TestCase):
 
     def test_smoke(self):
@@ -1280,27 +1281,34 @@ class TestTracebackException(unittest.TestCase):
         factory = traceback.ExceptionFormatter
         direct = traceback.TracebackException
 
-        self.assertEqual(factory.get(*exc_info), direct(*exc_info))
         self.assertEqual(
-            factory.from_exception(exc), direct.from_exception(exc))
+            factory.get(*exc_info),
+            direct(*exc_info))
+        self.assertEqual(
+            factory.from_exception(exc),
+            direct.from_exception(exc))
 
         self.assertEqual(
-            factory.get(*exc_info, limit=1), direct(*exc_info, limit=1))
+            factory.get(*exc_info, limit=1),
+            direct(*exc_info, limit=1))
         self.assertEqual(
             factory.from_exception(exc, limit=2),
             direct.from_exception(exc, limit=2))
 
         self.assertNotEqual(
-            factory.get(*exc_info, limit=1), direct(*exc_info, limit=2))
+            factory.get(*exc_info, limit=1),
+            direct(*exc_info, limit=2))
         self.assertNotEqual(
             factory.from_exception(exc, limit=2),
             direct.from_exception(exc, limit=1))
 
         self.assertNotEqual(
-            factory.get(*exc_info, capture_locals=True), direct(*exc_info))
+            factory.get(*exc_info, capture_locals=True),
+            direct(*exc_info))
         self.assertNotEqual(
             factory.from_exception(exc, capture_locals=True),
             direct.from_exception(exc))
+
 
 class TestTracebackExceptionGroup(unittest.TestCase):
     def setUp(self):
@@ -1439,19 +1447,23 @@ class TestTracebackExceptionGroup(unittest.TestCase):
         factory = traceback.ExceptionFormatter
         direct = traceback.TracebackExceptionGroup
 
-        self.assertEqual(factory.get(*exc_info), direct(*exc_info))
+        self.assertEqual(
+            factory.get(*exc_info),
+            direct(*exc_info))
         self.assertEqual(
             factory.from_exception(exc_info[1]),
             direct.from_exception(exc_info[1]))
 
         self.assertEqual(
-            factory.get(*exc_info, limit=10), direct(*exc_info, limit=20))
+            factory.get(*exc_info, limit=10),
+            direct(*exc_info, limit=20))
         self.assertEqual(
             factory.from_exception(exc_info[1], limit=10),
             direct.from_exception(exc_info[1], limit=20))
 
         self.assertNotEqual(
-            factory.get(*exc_info, capture_locals=True), direct(*exc_info))
+            factory.get(*exc_info, capture_locals=True),
+            direct(*exc_info))
         self.assertNotEqual(
             factory.from_exception(exc_info[1], capture_locals=True),
             direct.from_exception(exc_info[1]))

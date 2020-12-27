@@ -2,6 +2,7 @@ BaseException
  +-- SystemExit
  +-- KeyboardInterrupt
  +-- GeneratorExit
+ +-- ExceptionGroup
  +-- Exception
       +-- StopIteration
       +-- StopAsyncIteration
