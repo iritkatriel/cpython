@@ -749,8 +749,9 @@ static PyObject* exceptiongroup_subset(PyExceptionGroupObject *orig,
     }
     tb = PyException_GetTraceback((PyObject*)orig);
     if (tb) {
-        if (PyException_SetTraceback(eg, tb) == -1) {
-            Py_XDECREF(tb);
+        int res = PyException_SetTraceback(eg, tb);
+        Py_XDECREF(tb);
+        if (res == -1) {
             goto error;
         }
     }
