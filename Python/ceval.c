@@ -3323,6 +3323,9 @@ main_loop:
 #define CANNOT_CATCH_MSG "catching classes that do not inherit from "\
                          "BaseException is not allowed"
 
+        case TARGET(JUMP_IF_NOT_EG_MATCH): {
+        }
+
         case TARGET(JUMP_IF_NOT_EXC_MATCH): {
             PyObject *right = POP();
             PyObject *left = POP();

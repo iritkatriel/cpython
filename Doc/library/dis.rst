@@ -953,6 +953,10 @@ All of the following opcodes use their arguments.
 
    .. versionadded:: 3.1
 
+.. opcode:: JUMP_IF_NOT_EG_MATCH (target)
+
+   TODO: add doc
+
 .. opcode:: JUMP_IF_NOT_EXC_MATCH (target)
 
    Tests whether the second value on the stack is an exception matching TOS,

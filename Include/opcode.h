@@ -96,6 +96,7 @@ extern "C" {
 #define LOAD_GLOBAL             116
 #define IS_OP                   117
 #define CONTAINS_OP             118
+#define JUMP_IF_NOT_EG_MATCH    120
 #define JUMP_IF_NOT_EXC_MATCH   121
 #define SETUP_FINALLY           122
 #define LOAD_FAST               124
@@ -142,7 +143,7 @@ static uint32_t _PyOpcode_Jump[8] = {
     0U,
     0U,
     536870912U,
-    101695488U,
+    118472704U,
     67141632U,
     0U,
     0U,

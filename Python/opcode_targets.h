@@ -119,7 +119,7 @@ static void *opcode_targets[256] = {
     &&TARGET_IS_OP,
     &&TARGET_CONTAINS_OP,
     &&_unknown_opcode,
-    &&_unknown_opcode,
+    &&TARGET_JUMP_IF_NOT_EG_MATCH,
     &&TARGET_JUMP_IF_NOT_EXC_MATCH,
     &&TARGET_SETUP_FINALLY,
     &&_unknown_opcode,
