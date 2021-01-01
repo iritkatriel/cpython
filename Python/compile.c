@@ -1022,6 +1022,8 @@ stack_effect(int opcode, int oparg, int jump)
         case IS_OP:
         case CONTAINS_OP:
             return -1;
+        case JUMP_IF_NOT_EG_MATCH:
+            return jump ? -2 : 1;
         case JUMP_IF_NOT_EXC_MATCH:
             return -2;
         case IMPORT_NAME:
@@ -3033,6 +3035,7 @@ compiler_try_except(struct compiler *c, stmt_ty s)
 {
     basicblock *body, *orelse, *except, *end;
     Py_ssize_t i, n;
+    int is_except_star = 0;
 
     body = compiler_new_block(c);
     except = compiler_new_block(c);
@@ -3056,6 +3059,7 @@ compiler_try_except(struct compiler *c, stmt_ty s)
     for (i = 0; i < n; i++) {
         excepthandler_ty handler = (excepthandler_ty)asdl_seq_GET(
             s->v.Try.handlers, i);
+        is_except_star = handler->v.ExceptHandler.star;
         if (!handler->v.ExceptHandler.type && i < n-1)
             return compiler_error(c, "default 'except:' must be last");
         SET_LOC(c, handler);
@@ -3065,7 +3069,12 @@ compiler_try_except(struct compiler *c, stmt_ty s)
         if (handler->v.ExceptHandler.type) {
             ADDOP(c, DUP_TOP);
             VISIT(c, expr, handler->v.ExceptHandler.type);
-            ADDOP_JUMP(c, JUMP_IF_NOT_EXC_MATCH, except);
+            if (!is_except_star) {
+                ADDOP_JUMP(c, JUMP_IF_NOT_EXC_MATCH, except);
+            }
+            else {
+                ADDOP_JUMP(c, JUMP_IF_NOT_EG_MATCH, except);
+            }
             NEXT_BLOCK(c);
         }
         ADDOP(c, POP_TOP);
@@ -3102,13 +3111,21 @@ compiler_try_except(struct compiler *c, stmt_ty s)
             VISIT_SEQ(c, stmt, handler->v.ExceptHandler.body);
             compiler_pop_fblock(c, HANDLER_CLEANUP, cleanup_body);
             ADDOP(c, POP_BLOCK);
-            ADDOP(c, POP_EXCEPT);
+            if (!is_except_star) {
+                ADDOP(c, POP_EXCEPT);
+            }
+
             /* name = None; del name; # Mark as artificial */
             c->u->u_lineno = -1;
             ADDOP_LOAD_CONST(c, Py_None);
             compiler_nameop(c, handler->v.ExceptHandler.name, Store);
             compiler_nameop(c, handler->v.ExceptHandler.name, Del);
-            ADDOP_JUMP(c, JUMP_FORWARD, end);
+            if (!is_except_star) {
+                ADDOP_JUMP(c, JUMP_FORWARD, end);
+            }
+            else {
+                ADDOP_JUMP(c, JUMP_ABSOLUTE, except);
+            }
 
             /* except: */
             compiler_use_next_block(c, cleanup_end);
@@ -3135,12 +3152,22 @@ compiler_try_except(struct compiler *c, stmt_ty s)
                 return 0;
             VISIT_SEQ(c, stmt, handler->v.ExceptHandler.body);
             compiler_pop_fblock(c, HANDLER_CLEANUP, cleanup_body);
-            ADDOP(c, POP_EXCEPT);
-            ADDOP_JUMP(c, JUMP_FORWARD, end);
+            if (!is_except_star) {
+                ADDOP(c, POP_EXCEPT);
+                ADDOP_JUMP(c, JUMP_FORWARD, end);
+            }
+            else {
+                ADDOP_JUMP(c, JUMP_ABSOLUTE, except);
+            }
         }
         compiler_use_next_block(c, except);
     }
     compiler_pop_fblock(c, EXCEPTION_HANDLER, NULL);
+    if (is_except_star) {
+        ADDOP(c, DUP_TOP);
+        ADDOP_JUMP(c, POP_JUMP_IF_FALSE, orelse);
+        NEXT_BLOCK(c);
+    }
     ADDOP(c, RERAISE);
     compiler_use_next_block(c, orelse);
     VISIT_SEQ(c, stmt, s->v.Try.orelse);

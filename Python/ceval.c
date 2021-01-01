@@ -3324,6 +3324,121 @@ main_loop:
                          "BaseException is not allowed"
 
         case TARGET(JUMP_IF_NOT_EG_MATCH): {
+            PyObject *right = POP();
+            PyObject *left = POP();
+            if (PyTuple_Check(right)) {
+                Py_ssize_t i, length;
+                length = PyTuple_GET_SIZE(right);
+                for (i = 0; i < length; i++) {
+                    PyObject *exc = PyTuple_GET_ITEM(right, i);
+                    if (!PyExceptionClass_Check(exc)) {
+                        _PyErr_SetString(tstate, PyExc_TypeError,
+                            CANNOT_CATCH_MSG);
+                        Py_DECREF(left);
+                        Py_DECREF(right);
+                        goto error;
+                    }
+                }
+            }
+            else {
+                if (!PyExceptionClass_Check(right)) {
+                    _PyErr_SetString(tstate, PyExc_TypeError,
+                        CANNOT_CATCH_MSG);
+                    Py_DECREF(left);
+                    Py_DECREF(right);
+                    goto error;
+                }
+            }
+            int res = left == Py_None ? 0 : PyErr_GivenExceptionMatches(left, right);
+            if (res > 0) {
+                // Exception matches exactly -- Do nothing
+                Py_DECREF(left);
+                Py_DECREF(right);
+            }
+            else if (res == 0) {
+                // check if left is an ExceptionGroup
+                int res1 = left == Py_None ?
+                    0 : PyErr_GivenExceptionMatches(left, PyExc_ExceptionGroup);
+                if (res1 == 0) {
+                    Py_DECREF(left);
+                    Py_DECREF(right);
+                    JUMPTO(oparg);
+                }
+                else if (res1 > 0) {
+                    // We're catching an ExceptionGroup, check for match
+                    // TODO: DUP val on the stack like the exc?
+                    PyObject *eg = PEEK(2);
+                    PyObject *pair = eg == Py_None ? Py_None : PyObject_CallMethod(
+                            eg, "project", "OO", right, Py_True);
+                    Py_DECREF(left);
+                    Py_DECREF(right);
+                    if (!pair) {
+                        goto error;
+                    }
+                    else if (pair == Py_None) {
+                        /* not a match - we're done with this EG */
+                        /* TODO: shortcircuit this instead of propagating Nones */
+                        JUMPTO(oparg);
+                    }
+                    else if (!PyTuple_CheckExact(pair) || PyTuple_GET_SIZE(pair) != 2) {
+                        PyErr_SetString(PyExc_RuntimeError,
+                            "Internal error: invalid value");
+                        Py_DECREF(pair);
+                        goto error;
+                    }
+                    else {
+                        PyObject * match = PyTuple_GET_ITEM(pair, 0);
+                        if (!match) {
+                            Py_DECREF(pair);
+                            goto error;
+                        }
+                        if (match == Py_None) {
+                            // no matches - jump to target
+                            Py_DECREF(pair);
+                            JUMPTO(oparg);
+                        }
+                        else {
+                            // total or partial match - update stack and continue
+                            PyObject *rest = PyTuple_GET_ITEM(pair, 1);
+                            if (!rest) {
+                                Py_XDECREF(pair);
+                                goto error;
+                            }
+                            else {
+                                // Total or partial match - update the stack to be
+                                // [tb, rest, exc, tb, match, exc]
+                                // (rest can be Py_None)
+                                PyObject *exc = Py_NewRef(TOP());
+                                PyObject *val = SECOND();
+                                PyObject *tb = Py_NewRef(THIRD());
+
+                                Py_DECREF(val);
+                                SET_SECOND(Py_NewRef(rest));
+                                if (rest == Py_None) {
+                                    Py_DECREF(exc);
+                                    SET_TOP(Py_NewRef(Py_None));
+                                }
+
+                                PUSH(tb);
+                                PUSH(Py_NewRef(match));
+                                PUSH(exc);
+                                Py_XDECREF(pair);
+                            }
+                        }
+                    }
+                }
+                else {
+                    Py_DECREF(left);
+                    Py_DECREF(right);
+                    goto error;
+                }
+            }
+            else {
+                Py_DECREF(left);
+                Py_DECREF(right);
+                goto error;
+            }
+            DISPATCH();
         }
 
         case TARGET(JUMP_IF_NOT_EXC_MATCH): {
