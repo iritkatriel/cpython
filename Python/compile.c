@@ -3165,7 +3165,7 @@ compiler_try_except(struct compiler *c, stmt_ty s)
     compiler_pop_fblock(c, EXCEPTION_HANDLER, NULL);
     if (is_except_star) {
         ADDOP(c, DUP_TOP);
-        ADDOP_JUMP(c, POP_JUMP_IF_FALSE, orelse);
+        ADDOP_JUMP(c, POP_JUMP_IF_FALSE, end);
         NEXT_BLOCK(c);
     }
     ADDOP(c, RERAISE);
