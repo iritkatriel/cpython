@@ -3030,6 +3030,37 @@ compiler_try_finally(struct compiler *c, stmt_ty s)
 
    Of course, parts are not generated if Vi or Ei is not present.
 */
+/*
+   Code generated for "try: S except* E1 as V1: S1 except* E2 as V2: S2 ...":
+   (The contents of the value stack is shown in [], with the top
+   at the right; 'tb' is trace-back info, 'val' the exception's
+   associated value, and 'exc' the exception.)
+
+   Value stack          Label       Instruction     Argument
+   []                               SETUP_FINALLY   L1
+   []                               <code for S>
+   []                               POP_BLOCK
+   []                               JUMP_FORWARD    L0
+
+   [tb, val, exc]       L1:         DUP                             )
+   [tb, val, exc, exc]              <evaluate E1>                   )
+   [tb, val, exc, exc, E1]          JUMP_IF_NOT_EG_MATCH L2         ) only if E1
+   [tb, rest, exc, tb, match, exc]  POP
+   [tb, rest, exc, tb, match]       <assign to V1>  (or POP if no V1)
+   [tb, rest, exc, tb]              POP
+   [tb, rest, exc]                  <code for S1>
+                                    JUMP_FORWARD    L2
+
+   [tb, val, exc]       L2:         DUP
+   .............................etc.......................
+
+   [tb, val, exc]       Ln+1:       RERAISE     # re-raise exception (if not None)
+
+   []                   L0:         <next statement>
+
+   Of course, parts are not generated if Vi or Ei is not present.
+*/
+
 static int
 compiler_try_except(struct compiler *c, stmt_ty s)
 {
