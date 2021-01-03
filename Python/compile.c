@@ -3035,7 +3035,7 @@ compiler_try_except(struct compiler *c, stmt_ty s)
 {
     basicblock *body, *orelse, *except, *end;
     Py_ssize_t i, n;
-    int is_except_star = 0;
+    int is_except_star = s->v.Try.star;
 
     body = compiler_new_block(c);
     except = compiler_new_block(c);
@@ -3059,7 +3059,6 @@ compiler_try_except(struct compiler *c, stmt_ty s)
     for (i = 0; i < n; i++) {
         excepthandler_ty handler = (excepthandler_ty)asdl_seq_GET(
             s->v.Try.handlers, i);
-        is_except_star = handler->v.ExceptHandler.star;
         if (!handler->v.ExceptHandler.type && i < n-1)
             return compiler_error(c, "default 'except:' must be last");
         SET_LOC(c, handler);

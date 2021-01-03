@@ -37,7 +37,7 @@ module Python
           | AsyncWith(withitem* items, stmt* body, string? type_comment)
 
           | Raise(expr? exc, expr? cause)
-          | Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)
+          | Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody, int star)
           | Assert(expr test, expr? msg)
 
           | Import(alias* names)
@@ -103,7 +103,7 @@ module Python
 
     comprehension = (expr target, expr iter, expr* ifs, int is_async)
 
-    excepthandler = ExceptHandler(expr? type, identifier? name, stmt* body, int star)
+    excepthandler = ExceptHandler(expr? type, identifier? name, stmt* body)
                     attributes (int lineno, int col_offset, int? end_lineno, int? end_col_offset)
 
     arguments = (arg* posonlyargs, arg* args, arg? vararg, arg* kwonlyargs,
