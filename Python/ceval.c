@@ -3349,7 +3349,7 @@ main_loop:
                     goto error;
                 }
             }
-            int res = left == Py_None ? 0 : PyErr_GivenExceptionMatches(left, right);
+            int res = PyErr_GivenExceptionMatches(left, right);
             if (res > 0) {
                 // Exception matches exactly -- Do nothing
                 Py_DECREF(left);
@@ -3357,8 +3357,7 @@ main_loop:
             }
             else if (res == 0) {
                 // check if left is an ExceptionGroup
-                int res1 = left == Py_None ?
-                    0 : PyErr_GivenExceptionMatches(left, PyExc_ExceptionGroup);
+                int res1 = PyErr_GivenExceptionMatches(left, PyExc_ExceptionGroup);
                 if (res1 == 0) {
                     Py_DECREF(left);
                     Py_DECREF(right);
@@ -3368,17 +3367,12 @@ main_loop:
                     // We're catching an ExceptionGroup, check for match
                     // TODO: DUP val on the stack like the exc?
                     PyObject *eg = PEEK(2);
-                    PyObject *pair = eg == Py_None ? Py_None : PyObject_CallMethod(
+                    PyObject *pair = PyObject_CallMethod(
                             eg, "project", "OO", right, Py_True);
                     Py_DECREF(left);
                     Py_DECREF(right);
                     if (!pair) {
                         goto error;
-                    }
-                    else if (pair == Py_None) {
-                        /* not a match - we're done with this EG */
-                        /* TODO: shortcircuit this instead of propagating Nones */
-                        JUMPTO(oparg);
                     }
                     else if (!PyTuple_CheckExact(pair) || PyTuple_GET_SIZE(pair) != 2) {
                         PyErr_SetString(PyExc_RuntimeError,

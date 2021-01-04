@@ -3064,7 +3064,7 @@ compiler_try_finally(struct compiler *c, stmt_ty s)
 static int
 compiler_try_except(struct compiler *c, stmt_ty s)
 {
-    basicblock *body, *orelse, *except, *end;
+    basicblock *body, *orelse, *check_if_done, *except, *end;
     Py_ssize_t i, n;
     int is_except_star = s->v.Try.star;
 
@@ -3074,6 +3074,11 @@ compiler_try_except(struct compiler *c, stmt_ty s)
     end = compiler_new_block(c);
     if (body == NULL || except == NULL || orelse == NULL || end == NULL)
         return 0;
+    if (is_except_star) {
+        check_if_done = compiler_new_block(c);
+        if (check_if_done == NULL)
+            return 0;
+    }
     ADDOP_JUMP(c, SETUP_FINALLY, except);
     compiler_use_next_block(c, body);
     if (!compiler_push_fblock(c, TRY_EXCEPT, body, NULL, NULL))
@@ -3096,6 +3101,11 @@ compiler_try_except(struct compiler *c, stmt_ty s)
         except = compiler_new_block(c);
         if (except == NULL)
             return 0;
+        if (is_except_star) {
+            check_if_done = compiler_new_block(c);
+            if (check_if_done == NULL)
+                return 0;
+        }
         if (handler->v.ExceptHandler.type) {
             ADDOP(c, DUP_TOP);
             VISIT(c, expr, handler->v.ExceptHandler.type);
@@ -3154,7 +3164,7 @@ compiler_try_except(struct compiler *c, stmt_ty s)
                 ADDOP_JUMP(c, JUMP_FORWARD, end);
             }
             else {
-                ADDOP_JUMP(c, JUMP_ABSOLUTE, except);
+                ADDOP_JUMP(c, JUMP_ABSOLUTE, check_if_done);
             }
 
             /* except: */
@@ -3187,17 +3197,20 @@ compiler_try_except(struct compiler *c, stmt_ty s)
                 ADDOP_JUMP(c, JUMP_FORWARD, end);
             }
             else {
-                ADDOP_JUMP(c, JUMP_ABSOLUTE, except);
+                ADDOP_JUMP(c, JUMP_ABSOLUTE, check_if_done);
             }
+        }
+        if (is_except_star) {
+            compiler_use_next_block(c, check_if_done);
+            ADDOP(c, DUP_TOP);
+            ADDOP_JUMP(c, POP_JUMP_IF_TRUE, except);
+            NEXT_BLOCK(c);
+            ADDOP(c, POP_EXCEPT);
+            ADDOP_JUMP(c, JUMP_FORWARD, end);
         }
         compiler_use_next_block(c, except);
     }
     compiler_pop_fblock(c, EXCEPTION_HANDLER, NULL);
-    if (is_except_star) {
-        ADDOP(c, DUP_TOP);
-        ADDOP_JUMP(c, POP_JUMP_IF_FALSE, end);
-        NEXT_BLOCK(c);
-    }
     ADDOP(c, RERAISE);
     compiler_use_next_block(c, orelse);
     VISIT_SEQ(c, stmt, s->v.Try.orelse);
