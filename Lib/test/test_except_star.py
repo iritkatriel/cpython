@@ -18,6 +18,14 @@ class TestInvalidExceptStar(unittest.TestCase):
             with self.assertRaises(SyntaxError):
                 compile(err, "<string>", "exec")
 
+    @unittest.skip("not implemented yet")
+    def test_except_star_ExceptionGroup_is_runtime_error(self):
+        with self.assertRaises(TypeError):
+            try:
+                pass
+            except *ExceptionGroup:
+                pass
+
 
 class TestExceptStarSplitSemantics(unittest.TestCase):
 
