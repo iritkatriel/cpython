@@ -3406,16 +3406,28 @@ main_loop:
                                 PyObject *val = SECOND();
                                 PyObject *tb = Py_NewRef(THIRD());
 
-                                Py_DECREF(val);
-                                SET_SECOND(Py_NewRef(rest));
-                                if (rest == Py_None) {
-                                    Py_DECREF(exc);
+                                if (rest != Py_None) {
+                                    Py_DECREF(val);
+                                    SET_SECOND(Py_NewRef(rest));
+                                }
+                                else {
                                     SET_TOP(Py_NewRef(Py_None));
+                                    SET_SECOND(Py_NewRef(Py_None));
+                                    SET_THIRD(Py_NewRef(Py_None));
+                                    Py_DECREF(exc);
+                                    Py_DECREF(val);
+                                    Py_DECREF(tb);
                                 }
 
                                 PUSH(tb);
                                 PUSH(Py_NewRef(match));
                                 PUSH(exc);
+
+                                // set exc_info to the current match
+                                PyErr_SetExcInfo(
+                                    Py_NewRef(exc),
+                                    Py_NewRef(match),
+                                    Py_NewRef(tb));
                                 Py_XDECREF(pair);
                             }
                         }
@@ -3714,6 +3726,7 @@ main_loop:
         }
 
         case TARGET(SETUP_FINALLY): {
+            tstate->exc_group_state.exc_group = tstate->exc_info; // save the original EG
             PyFrame_BlockSetup(f, SETUP_FINALLY, INSTR_OFFSET() + oparg,
                                STACK_LEVEL());
             DISPATCH();

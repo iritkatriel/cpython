@@ -42,6 +42,21 @@ typedef struct _err_stackitem {
 
 } _PyErr_StackItem;
 
+typedef struct _err_exception_group_state {
+    /* This struct represents that state information required while
+     * processing a try-except* construct
+    */
+
+    /* The original exception or exception group raised in the try block */
+    _PyErr_StackItem *exc_group;
+
+    /* List of exceptions raised explicitely in except* blocks */
+    PyObject *exc_group_raised;
+
+    /* List of exceptions raised though naked raise in except* blocks */
+    PyObject *exc_group_reraised;
+
+} _PyErr_ExceptionGroupState;
 
 // The PyThreadState typedef is in Include/pystate.h.
 struct _ts {
@@ -82,6 +97,11 @@ struct _ts {
     /* Pointer to the top of the stack of the exceptions currently
      * being handled */
     _PyErr_StackItem *exc_info;
+
+    /* Pointer to state information required while processing a
+     * try-except* construct.
+     */
+    _PyErr_ExceptionGroupState exc_group_state;
 
     PyObject *dict;  /* Stores per-thread state */
 

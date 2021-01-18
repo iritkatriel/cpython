@@ -64,16 +64,15 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
 
         self.assertExceptionIsLike(match, match_template)
         self.assertExceptionIsLike(rest, rest_template)
+        self.assertEqual(sys.exc_info(), (None, None, None))
 
     def doSplitTestUnnamed(self, exc, T, match_template, rest_template):
-        return # TODO: sys.exc_info in an except* block is not working yet
-
         match = rest = None
         try:
             try:
                 raise exc
             except *T:
-                match = sys.exc_info()
+                match = sys.exc_info()[1]
             else:
                 if rest_template:
                     self.fail("Exception not raised")
@@ -82,6 +81,7 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
 
         self.assertExceptionIsLike(match, match_template)
         self.assertExceptionIsLike(rest, rest_template)
+        self.assertEqual(sys.exc_info(), (None, None, None))
 
     def doSplitTest(self, exc, T, match_template, rest_template):
         self.doSplitTestNamed(exc, T, match_template, rest_template)
@@ -231,6 +231,7 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
                 self.fail("Should have been matched as OSError")
             else:
                 self.fail("Exception not raised")
+
 
 class TestExceptStarReraise(unittest.TestCase):
     pass
