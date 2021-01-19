@@ -3323,6 +3323,9 @@ main_loop:
 #define CANNOT_CATCH_MSG "catching classes that do not inherit from "\
                          "BaseException is not allowed"
 
+#define CANNOT_EXCEPT_STAR_EG "catching ExceptionGroup with except* "\
+                              "is not allowed. Use except instead."
+
         case TARGET(JUMP_IF_NOT_EG_MATCH): {
             PyObject *right = POP();
             PyObject *left = POP();
@@ -3349,7 +3352,23 @@ main_loop:
                     goto error;
                 }
             }
-            int res = PyErr_GivenExceptionMatches(left, right);
+
+            // reject except *ExceptionGroup
+            int res = PyObject_IsSubclass(PyExc_ExceptionGroup, right);
+            if (res == -1) {
+                Py_DECREF(left);
+                Py_DECREF(right);
+                goto error;
+            }
+            if (res == 1) {
+                _PyErr_SetString(tstate, PyExc_TypeError,
+                    CANNOT_EXCEPT_STAR_EG);
+                Py_DECREF(left);
+                Py_DECREF(right);
+                goto error;
+            }
+
+            res = PyErr_GivenExceptionMatches(left, right);
             if (res > 0) {
                 // Exception matches exactly -- Do nothing
                 Py_DECREF(left);
