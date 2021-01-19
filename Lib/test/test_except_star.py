@@ -202,31 +202,34 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
             ExceptionGroup("eg", BlockingIOError("io")),
             ExceptionGroup("eg", TypeError("T")))
 
-    def test_first_match_wins(self):
-        return # TODO: There's a refcount issue with this test
-        excs = [
-            #  BlockingIOError("io"),  # TODO: wrapping plain exception is not implemented yet
-            ExceptionGroup("eg", BlockingIOError("io"))]
+    def test_first_match_wins_named(self):
+        try:
+            raise ExceptionGroup("eg", BlockingIOError("io"))
+        except *OSError as e:
+            self.assertExceptionIsLike(e,
+                ExceptionGroup("eg", BlockingIOError("io")))
+        except *BlockingIOError:
+            self.fail("Should have been matched as OSError")
+        else:
+            self.fail("Exception not raised")
 
-        for exc in excs:
-            try:
-                raise exc
-            except *OSError as e:
-                self.assertExceptionIsLike(e,
-                    ExceptionGroup("eg", BlockingIOError("io")))
-            except *BlockingIOError:
-                self.fail("Should have been matched as OSError")
-            else:
-                self.fail("Exception not raised")
+    def test_first_match_wins_unnamed(self):
+        try:
+            raise ExceptionGroup("eg", BlockingIOError("io"))
+        except *OSError:
+            e = sys.exc_info()[1]
+            self.assertExceptionIsLike(e,
+                ExceptionGroup("eg", BlockingIOError("io")))
+        except *BlockingIOError:
+            self.fail("Should have been matched as OSError")
+        else:
+            self.fail("Exception not raised")
 
-        return # TODO: sys.exc_info() in except* block is not implemented yet
-        for exc in excs:
+    @unittest.skip("This fails - something is trashing the stack")
+    def test_nested(self):
+        for _ in range(2):
             try:
-                raise exc
-            except *OSError:
-                e = sys.exc_info()
-                self.assertExceptionIsLike(e,
-                    ExceptionGroup("eg", BlockingIOError("io")))
+                raise ExceptionGroup("eg", BlockingIOError("io"))
             except *BlockingIOError:
                 self.fail("Should have been matched as OSError")
             else:
