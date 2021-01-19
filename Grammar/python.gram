@@ -196,12 +196,17 @@ with_item[withitem_ty]:
     | e=expression { _Py_withitem(e, NULL, p->arena) }
 
 try_stmt[stmt_ty]:
-    | 'try' ':' b=block f=finally_block { _Py_Try(b, NULL, NULL, f, EXTRA) }
-    | 'try' ':' b=block ex[asdl_excepthandler_seq*]=except_block+ el=[else_block] f=[finally_block] { _Py_Try(b, ex, el, f, EXTRA) }
+    | 'try' ':' b=block f=finally_block { _Py_Try(b, NULL, NULL, f, 0, EXTRA) }
+    | 'try' ':' b=block ex[asdl_excepthandler_seq*]=except_block+ el=[else_block] f=[finally_block] { _Py_Try(b, ex, el, f, 0, EXTRA) }
+    | 'try' ':' b=block ex[asdl_excepthandler_seq*]=except_star_block+ el=[else_block] f=[finally_block] { _Py_Try(b, ex, el, f, 1, EXTRA) }
 except_block[excepthandler_ty]:
     | 'except' e=expression t=['as' z=NAME { z }] ':' b=block {
         _Py_ExceptHandler(e, (t) ? ((expr_ty) t)->v.Name.id : NULL, b, EXTRA) }
     | 'except' ':' b=block { _Py_ExceptHandler(NULL, NULL, b, EXTRA) }
+except_star_block[excepthandler_ty]:
+    | 'except' '*' e=expression t=['as' z=NAME { z }] ':' b=block {
+        _Py_ExceptHandler(e, (t) ? ((expr_ty) t)->v.Name.id : NULL, b, EXTRA) }
+    | 'except' '*' ':' b=block { _Py_ExceptHandler(NULL, NULL, b, EXTRA) }
 finally_block[asdl_stmt_seq*]: 'finally' ':' a=block { a }
 
 return_stmt[stmt_ty]:

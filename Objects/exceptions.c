@@ -769,16 +769,35 @@ error:
     return NULL;
 }
 
-static PyObject *
-exceptiongroup_project_recursive(PyObject *exc, PyObject *func, int complement)
-{
-    int is_match;
+/* check whether exc matches the matcher. Matcher can be:
 
-    PyObject *exc_matches = PyObject_CallOneArg(func, exc);
-    if (!exc_matches) {
-        return NULL;
+* - a function, then exc matches if function(exc) returns true
+* - an exception type (or tuple thereof) then exc matches if
+*   PyErr_GivenExceptionMatches(exc, matcher)
+* - (LATER:) a collection of exception instances, then exc
+*   matches if it belongs to the collection (TODO: determine
+*   collection type and implement)
+*
+* TODO: create a matcher struct that has the PyObject + a code
+* specifying its type. Then we don't need the type checks here.
+*/
+static int exceptiongroup_project_check_match(PyObject *exc, PyObject *matcher)
+{
+    if (PyFunction_Check(matcher)) {
+        /* case 1: function matcher */
+        PyObject *exc_matches = PyObject_CallOneArg(matcher, exc);
+        return exc_matches != NULL && PyObject_IsTrue(exc_matches);
     }
-    is_match = PyObject_IsTrue(exc_matches);
+    else {
+        /* case 2: exception type matcher */
+        return PyErr_GivenExceptionMatches(exc, matcher);
+    }
+}
+
+static PyObject *
+exceptiongroup_project_recursive(PyObject *exc, PyObject *matcher, int complement)
+{
+    int is_match = exceptiongroup_project_check_match(exc, matcher);
     if (is_match == -1) {
         return NULL;
     }
@@ -817,7 +836,7 @@ exceptiongroup_project_recursive(PyObject *exc, PyObject *func, int complement)
         /* recursive calls */
         for (i = 0; i < num_excs; i++) {
             PyObject *rec = exceptiongroup_project_recursive(
-                        PyTuple_GetItem(eg->excs, i), func, complement);
+                        PyTuple_GetItem(eg->excs, i), matcher, complement);
 
             if (!rec) {
                 goto done;
@@ -876,12 +895,12 @@ ExceptionGroup_project(PyExceptionGroupObject *self,
                        PyObject *kwds)
 {
     static char *kwlist[] = {"with_complement", 0 };
-    PyObject *func= NULL;
+    PyObject *matcher = NULL;
     PyObject *with_complement = NULL;
     int is_with_complement;
 
     if (!PyArg_UnpackTuple(args, "project", 0, 2,
-                           &func, &with_complement)) {
+                           &matcher, &with_complement)) {
         return NULL;
     }
 
@@ -896,7 +915,7 @@ ExceptionGroup_project(PyExceptionGroupObject *self,
     }
 
     return exceptiongroup_project_recursive(
-        (PyObject*)self, func, is_with_complement);
+        (PyObject*)self, matcher, is_with_complement);
 }
 
 static PyMemberDef ExceptionGroup_members[] = {

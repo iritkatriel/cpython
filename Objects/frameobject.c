@@ -136,6 +136,7 @@ markblocks(PyCodeObject *code_obj, int len)
                 case JUMP_IF_TRUE_OR_POP:
                 case POP_JUMP_IF_FALSE:
                 case POP_JUMP_IF_TRUE:
+                case JUMP_IF_NOT_EG_MATCH:
                 case JUMP_IF_NOT_EXC_MATCH:
                     j = get_arg(code, i) / sizeof(_Py_CODEUNIT);
                     assert(j < len);

@@ -209,6 +209,7 @@ struct ast_state {
     PyObject *right;
     PyObject *simple;
     PyObject *slice;
+    PyObject *star;
     PyObject *step;
     PyObject *stmt_type;
     PyObject *tag;
@@ -466,6 +467,7 @@ void _PyAST_Fini(PyInterpreterState *interp)
     Py_CLEAR(state->right);
     Py_CLEAR(state->simple);
     Py_CLEAR(state->slice);
+    Py_CLEAR(state->star);
     Py_CLEAR(state->step);
     Py_CLEAR(state->stmt_type);
     Py_CLEAR(state->tag);
@@ -554,6 +556,7 @@ static int init_identifiers(struct ast_state *state)
     if ((state->right = PyUnicode_InternFromString("right")) == NULL) return 0;
     if ((state->simple = PyUnicode_InternFromString("simple")) == NULL) return 0;
     if ((state->slice = PyUnicode_InternFromString("slice")) == NULL) return 0;
+    if ((state->star = PyUnicode_InternFromString("star")) == NULL) return 0;
     if ((state->step = PyUnicode_InternFromString("step")) == NULL) return 0;
     if ((state->tag = PyUnicode_InternFromString("tag")) == NULL) return 0;
     if ((state->target = PyUnicode_InternFromString("target")) == NULL) return 0;
@@ -691,6 +694,7 @@ static const char * const Try_fields[]={
     "handlers",
     "orelse",
     "finalbody",
+    "star",
 };
 static const char * const Assert_fields[]={
     "test",
@@ -1292,7 +1296,7 @@ init_types(struct ast_state *state)
         "     | With(withitem* items, stmt* body, string? type_comment)\n"
         "     | AsyncWith(withitem* items, stmt* body, string? type_comment)\n"
         "     | Raise(expr? exc, expr? cause)\n"
-        "     | Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)\n"
+        "     | Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody, int star)\n"
         "     | Assert(expr test, expr? msg)\n"
         "     | Import(alias* names)\n"
         "     | ImportFrom(identifier? module, alias* names, int? level)\n"
@@ -1401,8 +1405,8 @@ init_types(struct ast_state *state)
         return 0;
     if (PyObject_SetAttr(state->Raise_type, state->cause, Py_None) == -1)
         return 0;
-    state->Try_type = make_type(state, "Try", state->stmt_type, Try_fields, 4,
-        "Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)");
+    state->Try_type = make_type(state, "Try", state->stmt_type, Try_fields, 5,
+        "Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody, int star)");
     if (!state->Try_type) return 0;
     state->Assert_type = make_type(state, "Assert", state->stmt_type,
                                    Assert_fields, 2,
@@ -2408,8 +2412,8 @@ Raise(expr_ty exc, expr_ty cause, int lineno, int col_offset, int end_lineno,
 
 stmt_ty
 Try(asdl_stmt_seq * body, asdl_excepthandler_seq * handlers, asdl_stmt_seq *
-    orelse, asdl_stmt_seq * finalbody, int lineno, int col_offset, int
-    end_lineno, int end_col_offset, PyArena *arena)
+    orelse, asdl_stmt_seq * finalbody, int star, int lineno, int col_offset,
+    int end_lineno, int end_col_offset, PyArena *arena)
 {
     stmt_ty p;
     p = (stmt_ty)PyArena_Malloc(arena, sizeof(*p));
@@ -2420,6 +2424,7 @@ Try(asdl_stmt_seq * body, asdl_excepthandler_seq * handlers, asdl_stmt_seq *
     p->v.Try.handlers = handlers;
     p->v.Try.orelse = orelse;
     p->v.Try.finalbody = finalbody;
+    p->v.Try.star = star;
     p->lineno = lineno;
     p->col_offset = col_offset;
     p->end_lineno = end_lineno;
@@ -3886,6 +3891,11 @@ ast2obj_stmt(struct ast_state *state, void* _o)
                              ast2obj_stmt);
         if (!value) goto failed;
         if (PyObject_SetAttr(result, state->finalbody, value) == -1)
+            goto failed;
+        Py_DECREF(value);
+        value = ast2obj_int(state, o->v.Try.star);
+        if (!value) goto failed;
+        if (PyObject_SetAttr(result, state->star, value) == -1)
             goto failed;
         Py_DECREF(value);
         break;
@@ -6631,6 +6641,7 @@ obj2ast_stmt(struct ast_state *state, PyObject* obj, stmt_ty* out, PyArena*
         asdl_excepthandler_seq* handlers;
         asdl_stmt_seq* orelse;
         asdl_stmt_seq* finalbody;
+        int star;
 
         if (_PyObject_LookupAttr(obj, state->body, &tmp) < 0) {
             return 1;
@@ -6764,7 +6775,20 @@ obj2ast_stmt(struct ast_state *state, PyObject* obj, stmt_ty* out, PyArena*
             }
             Py_CLEAR(tmp);
         }
-        *out = Try(body, handlers, orelse, finalbody, lineno, col_offset,
+        if (_PyObject_LookupAttr(obj, state->star, &tmp) < 0) {
+            return 1;
+        }
+        if (tmp == NULL) {
+            PyErr_SetString(PyExc_TypeError, "required field \"star\" missing from Try");
+            return 1;
+        }
+        else {
+            int res;
+            res = obj2ast_int(state, tmp, &star, arena);
+            if (res != 0) goto failed;
+            Py_CLEAR(tmp);
+        }
+        *out = Try(body, handlers, orelse, finalbody, star, lineno, col_offset,
                    end_lineno, end_col_offset, arena);
         if (*out == NULL) goto failed;
         return 0;

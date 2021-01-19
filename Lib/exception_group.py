@@ -67,8 +67,7 @@ class ExceptionGroupHelper:
 
         type: An exception type
         """
-        return exc.project(
-            lambda e: isinstance(e, type), True)
+        return exc.project(type, True)
 
     @staticmethod
     def subgroup(exc, keep):
