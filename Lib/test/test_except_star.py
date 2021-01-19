@@ -59,7 +59,7 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
             else:
                 if rest_template:
                     self.fail("Exception not raised")
-        except ExceptionGroup as e:
+        except BaseException as e:
             rest = e
 
         self.assertExceptionIsLike(match, match_template)
@@ -76,7 +76,7 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
             else:
                 if rest_template:
                     self.fail("Exception not raised")
-        except ExceptionGroup as e:
+        except BaseException as e:
             rest = e
 
         self.assertExceptionIsLike(match, match_template)
@@ -187,7 +187,6 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
             ExceptionGroup("", ValueError("V")),
             None)
 
-    @unittest.skip("not implemented yet")
     def test_plain_exceptions_not_matched(self):
         self.doSplitTest(
             ValueError("V"),
