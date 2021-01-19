@@ -3369,10 +3369,25 @@ main_loop:
             }
 
             res = PyErr_GivenExceptionMatches(left, right);
+            PyObject *match = NULL;
+            PyObject *rest = NULL;
+            PyObject *pair = NULL;
             if (res > 0) {
-                // Exception matches exactly -- Do nothing
+                // Exception matches exactly -- Wrap it in an ExceptionGroup
                 Py_DECREF(left);
                 Py_DECREF(right);
+                PyObject *e = PEEK(2);
+                PyObject *args = PyTuple_Pack(
+                    2, PyUnicode_FromString(""), Py_NewRef(e));
+                if (!args) {
+                    goto error;
+                }
+                match = PyObject_CallObject(PyExc_ExceptionGroup, args);
+                PyObject_Print(match, stderr, 0);
+                if (!match) {
+                    goto error;
+                }
+                rest = Py_NewRef(Py_None);
             }
             else if (res == 0) {
                 // check if left is an ExceptionGroup
@@ -3386,8 +3401,8 @@ main_loop:
                     // We're catching an ExceptionGroup, check for match
                     // TODO: DUP val on the stack like the exc?
                     PyObject *eg = PEEK(2);
-                    PyObject *pair = PyObject_CallMethod(
-                            eg, "project", "OO", right, Py_True);
+                    pair = PyObject_CallMethod(
+                        eg, "project", "OO", right, Py_True);
                     Py_DECREF(left);
                     Py_DECREF(right);
                     if (!pair) {
@@ -3400,7 +3415,7 @@ main_loop:
                         goto error;
                     }
                     else {
-                        PyObject * match = PyTuple_GET_ITEM(pair, 0);
+                        match = PyTuple_GET_ITEM(pair, 0);
                         if (!match) {
                             Py_DECREF(pair);
                             goto error;
@@ -3412,42 +3427,10 @@ main_loop:
                         }
                         else {
                             // total or partial match - update stack and continue
-                            PyObject *rest = PyTuple_GET_ITEM(pair, 1);
+                            rest = PyTuple_GET_ITEM(pair, 1);
                             if (!rest) {
                                 Py_XDECREF(pair);
                                 goto error;
-                            }
-                            else {
-                                // Total or partial match - update the stack to be
-                                // [tb, rest, exc, tb, match, exc]
-                                // (rest can be Py_None)
-                                PyObject *exc = Py_NewRef(TOP());
-                                PyObject *val = SECOND();
-                                PyObject *tb = Py_NewRef(THIRD());
-
-                                if (rest != Py_None) {
-                                    Py_DECREF(val);
-                                    SET_SECOND(Py_NewRef(rest));
-                                }
-                                else {
-                                    SET_TOP(Py_NewRef(Py_None));
-                                    SET_SECOND(Py_NewRef(Py_None));
-                                    SET_THIRD(Py_NewRef(Py_None));
-                                    Py_DECREF(exc);
-                                    Py_DECREF(val);
-                                    Py_DECREF(tb);
-                                }
-
-                                PUSH(tb);
-                                PUSH(Py_NewRef(match));
-                                PUSH(exc);
-
-                                // set exc_info to the current match
-                                PyErr_SetExcInfo(
-                                    Py_NewRef(exc),
-                                    Py_NewRef(match),
-                                    Py_NewRef(tb));
-                                Py_XDECREF(pair);
                             }
                         }
                     }
@@ -3463,6 +3446,40 @@ main_loop:
                 Py_DECREF(right);
                 goto error;
             }
+
+            if (match && match != Py_None) {
+                // Total or partial match - update the stack to be
+                // [tb, rest, exc, tb, match, exc]
+                // (rest can be Py_None)
+                PyObject *exc = Py_NewRef(TOP());
+                PyObject *val = SECOND();
+                PyObject *tb = Py_NewRef(THIRD());
+
+                if (rest != Py_None) {
+                    Py_DECREF(val);
+                    SET_SECOND(Py_NewRef(rest));
+                }
+                else {
+                    SET_TOP(Py_NewRef(Py_None));
+                    SET_SECOND(Py_NewRef(Py_None));
+                    SET_THIRD(Py_NewRef(Py_None));
+                    Py_DECREF(exc);
+                    Py_DECREF(val);
+                    Py_DECREF(tb);
+                }
+
+                PUSH(tb);
+                PUSH(Py_NewRef(match));
+                PUSH(exc);
+
+                // set exc_info to the current match
+                PyErr_SetExcInfo(
+                    Py_NewRef(exc),
+                    Py_NewRef(match),
+                    Py_NewRef(tb));
+                Py_XDECREF(pair);
+            }
+
             DISPATCH();
         }
 

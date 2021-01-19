@@ -44,7 +44,7 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
             self.fail(f"unexpected exception: {exc}")
 
         if exc is None:
-            self.fail(f"expected an exception like {template}, got None")
+            self.fail(f"expected an exception like {template!r}, got None")
 
         if not isinstance(exc, ExceptionGroup):
             self.assertEqual(exc.__class__, template.__class__)
@@ -185,7 +185,6 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
                 "g1",
                 ExceptionGroup("g2", ExceptionGroup("g3", ValueError("V1")))))
 
-    @unittest.skip("not implemented yet")
     def test_plain_exceptions_matched(self):
         self.doSplitTest(
             ValueError("V"),
