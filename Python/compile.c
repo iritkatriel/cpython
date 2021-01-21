@@ -3049,7 +3049,14 @@ compiler_try_finally(struct compiler *c, stmt_ty s)
    [tb, rest, exc, tb, match]       <assign to V1>  (or POP if no V1)
    [tb, rest, exc, tb]              POP
    [tb, rest, exc]                  <code for S1>
-   [tb, rest, exc]                  JUMP_FORWARD    L2
+   [tb, rest, exc]                  JUMP_FORWARD    C1
+
+   [tb, rest, exc]      C1:         DUP_TOP                         ) check if done
+   [tb, rest, exc, exc]             POP_JUMP_IF_TRUE    L2
+   [tb, rest, exc]                  POP
+   [tb, rest]                       POP
+   [tb]                             POP
+   []                               JUMP_FORWARD        L0
 
    [tb, val, exc]       L2:         DUP
    .............................etc.......................
