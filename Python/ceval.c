@@ -3417,7 +3417,7 @@ main_loop:
                     // to
                     // [tb, rest, exc, tb, match, exc]
                     // (rest can be Py_None)
-                    PyObject *exc = Py_NewRef(TOP());
+                    PyObject *exc = TOP();
                     PyObject *val = SECOND();
                     PyObject *tb = Py_NewRef(THIRD());
 
@@ -3436,11 +3436,13 @@ main_loop:
 
                     PUSH(tb);
                     PUSH(Py_NewRef(match));
-                    PUSH(exc);
+                    PUSH(Py_NewRef((PyObject*)match->ob_type));
 
                     // set exc_info to the current match
                     PyErr_SetExcInfo(
-                        Py_NewRef(exc), Py_NewRef(match), Py_NewRef(tb));
+                        Py_NewRef((PyObject*)match->ob_type),
+                        Py_NewRef(match),
+                        Py_NewRef(tb));
                     Py_XDECREF(pair);
                 }
             }

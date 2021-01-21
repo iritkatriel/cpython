@@ -56,11 +56,12 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
                 self.assertExceptionIsLike(e, t)
 
     def doSplitTestNamed(self, exc, T, match_template, rest_template):
-        match = rest = None
+        exc_info = match = rest = None
         try:
             try:
                 raise exc
             except *T as e:
+                exc_info = sys.exc_info()
                 match = e
             else:
                 if rest_template:
@@ -69,15 +70,18 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
             rest = e
 
         self.assertExceptionIsLike(match, match_template)
+        if match_template:
+            self.assertEqual(exc_info[0], type(match_template))
         self.assertExceptionIsLike(rest, rest_template)
         self.assertEqual(sys.exc_info(), (None, None, None))
 
     def doSplitTestUnnamed(self, exc, T, match_template, rest_template):
-        match = rest = None
+        exc_info = match = rest = None
         try:
             try:
                 raise exc
             except *T:
+                exc_info = sys.exc_info()
                 match = sys.exc_info()[1]
             else:
                 if rest_template:
@@ -86,6 +90,8 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
             rest = e
 
         self.assertExceptionIsLike(match, match_template)
+        if match_template:
+            self.assertEqual(exc_info[0], type(match_template))
         self.assertExceptionIsLike(rest, rest_template)
         self.assertEqual(sys.exc_info(), (None, None, None))
 
