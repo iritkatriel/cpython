@@ -3711,7 +3711,6 @@ main_loop:
         }
 
         case TARGET(SETUP_FINALLY): {
-            tstate->exc_group_state.exc_group = tstate->exc_info; // save the original EG
             PyFrame_BlockSetup(f, SETUP_FINALLY, INSTR_OFFSET() + oparg,
                                STACK_LEVEL());
             DISPATCH();

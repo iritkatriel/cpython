@@ -63,9 +63,6 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
             except *T as e:
                 exc_info = sys.exc_info()
                 match = e
-            else:
-                if rest_template:
-                    self.fail("Exception not raised")
         except BaseException as e:
             rest = e
 
