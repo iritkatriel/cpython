@@ -35,7 +35,7 @@ def newEG(msg, raisers, cls=ExceptionGroup):
         except (Exception, ExceptionGroup) as e:
             excs.append(e)
     try:
-        raise cls(msg, *excs)
+        raise cls(msg, excs)
     except ExceptionGroup as e:
         return e
 
@@ -110,12 +110,17 @@ def extract_traceback(exc, eg):
 
 class ExceptionGroupTestBadInputs(unittest.TestCase):
     def test_simple_group_bad_constructor_args(self):
-        msg = 'Expected msg followed by the nested exceptions'
-        with self.assertRaisesRegex(TypeError, msg):
+        not_seq = 'Expected msg followed by a sequence of the nested exceptions'
+        not_exc = 'Nested exception must derive from BaseException'
+        with self.assertRaisesRegex(TypeError, not_seq):
             _ = ExceptionGroup('no errors')
-        with self.assertRaisesRegex(TypeError, msg):
+        with self.assertRaisesRegex(TypeError, not_seq):
+            _ = ExceptionGroup('errors not sequence', {ValueError(42)})
+        with self.assertRaisesRegex(TypeError, not_exc):
+            _ = ExceptionGroup('bad error', ["not an exception"])
+        with self.assertRaisesRegex(TypeError, not_seq):
             _ = ExceptionGroup(ValueError(12))
-        with self.assertRaisesRegex(TypeError, msg):
+        with self.assertRaisesRegex(TypeError, not_seq):
             _ = ExceptionGroup(ValueError(12), SyntaxError('bad syntax'))
 
 

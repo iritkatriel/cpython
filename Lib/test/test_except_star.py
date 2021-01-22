@@ -29,7 +29,7 @@ class TestInvalidExceptStar(unittest.TestCase):
     def test_except_star_ExceptionGroup_is_runtime_error_tuple(self):
         with self.assertRaises(TypeError):
             try:
-                raise ExceptionGroup("eg", ValueError(42))
+                raise ExceptionGroup("eg", [ValueError(42)])
             except *(TypeError, ExceptionGroup):
                 pass
 
@@ -98,101 +98,100 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
 
     def test_no_match_single_type(self):
         self.doSplitTest(
-            ExceptionGroup("eg", ValueError("V"), TypeError("T")),
+            ExceptionGroup("eg", [ValueError("V"), TypeError("T")]),
             SyntaxError,
             None,
-            ExceptionGroup("eg", ValueError("V"), TypeError("T")))
+            ExceptionGroup("eg", [ValueError("V"), TypeError("T")]))
 
     def test_match_single_type(self):
         self.doSplitTest(
-            ExceptionGroup("eg", ValueError("V1"), ValueError("V2")),
+            ExceptionGroup("eg", [ValueError("V1"), ValueError("V2")]),
             ValueError,
-            ExceptionGroup("eg", ValueError("V1"), ValueError("V2")),
+            ExceptionGroup("eg", [ValueError("V1"), ValueError("V2")]),
             None)
 
     def test_match_single_type_partial_match(self):
         self.doSplitTest(
             ExceptionGroup(
                 "eg",
-                ValueError("V1"),
-                OSError("OS"),
-                ValueError("V2")),
+                [ValueError("V1"), OSError("OS"), ValueError("V2")]),
             ValueError,
-            ExceptionGroup("eg", ValueError("V1"), ValueError("V2")),
-            ExceptionGroup("eg", OSError("OS")))
+            ExceptionGroup("eg", [ValueError("V1"), ValueError("V2")]),
+            ExceptionGroup("eg", [OSError("OS")]))
 
     def test_match_single_type_nested(self):
         self.doSplitTest(
             ExceptionGroup(
-                "g1",
+                "g1", [
                 ValueError("V1"),
                 OSError("OS1"),
                 ExceptionGroup(
-                    "g2", OSError("OS2"), ValueError("V2"), TypeError("T"))),
+                    "g2", [
+                    OSError("OS2"),
+                    ValueError("V2"),
+                    TypeError("T")])]),
             ValueError,
             ExceptionGroup(
-                "g1",
+                "g1", [
                 ValueError("V1"),
-                ExceptionGroup("g2", ValueError("V2"))),
-            ExceptionGroup(
-                "g1",
+                ExceptionGroup("g2", [ValueError("V2")])]),
+            ExceptionGroup("g1", [
                 OSError("OS1"),
-                ExceptionGroup("g2", OSError("OS2"), TypeError("T"))))
+                ExceptionGroup("g2", [
+                    OSError("OS2"), TypeError("T")])]))
 
     def test_match_type_tuple_nested(self):
         self.doSplitTest(
             ExceptionGroup(
-                "g1",
+                "g1", [
                 ValueError("V1"),
                 OSError("OS1"),
                 ExceptionGroup(
-                    "g2", OSError("OS2"), ValueError("V2"), TypeError("T"))),
+                    "g2", [OSError("OS2"), ValueError("V2"), TypeError("T")])]),
             (ValueError, TypeError),
             ExceptionGroup(
-                "g1",
+                "g1", [
                 ValueError("V1"),
-                ExceptionGroup("g2", ValueError("V2"), TypeError("T"))),
+                ExceptionGroup("g2", [ValueError("V2"), TypeError("T")])]),
             ExceptionGroup(
-                "g1",
+                "g1", [
                 OSError("OS1"),
-                ExceptionGroup("g2", OSError("OS2"))))
+                ExceptionGroup("g2", [OSError("OS2")])]))
 
     def test_empty_groups_removed(self):
         self.doSplitTest(
             ExceptionGroup(
-                "eg",
-                ExceptionGroup("g1", ValueError("V1")),
-                ExceptionGroup("g2", ValueError("V2"), TypeError("T1")),
-                ExceptionGroup("g3", TypeError("T2"))),
+                "eg", [
+                ExceptionGroup("g1", [ValueError("V1")]),
+                ExceptionGroup("g2", [ValueError("V2"), TypeError("T1")]),
+                ExceptionGroup("g3", [TypeError("T2")])]),
             TypeError,
-            ExceptionGroup("eg",
-                ExceptionGroup("g2", TypeError("T1")),
-                ExceptionGroup("g3", TypeError("T2"))),
-            ExceptionGroup("eg",
-                    ExceptionGroup("g1", ValueError("V1")),
-                    ExceptionGroup("g2", ValueError("V2"))))
+            ExceptionGroup("eg", [
+                ExceptionGroup("g2", [TypeError("T1")]),
+                ExceptionGroup("g3", [TypeError("T2")])]),
+            ExceptionGroup("eg", [
+                    ExceptionGroup("g1", [ValueError("V1")]),
+                    ExceptionGroup("g2", [ValueError("V2")])]))
 
     def test_singleton_groups_are_kept(self):
         self.doSplitTest(
-            ExceptionGroup(
-            "g1",
-            ExceptionGroup(
-                "g2",
-                ExceptionGroup("g3", ValueError("V1")),
-                ExceptionGroup("g4", TypeError("T")))),
+            ExceptionGroup("g1", [
+                ExceptionGroup("g2", [
+                    ExceptionGroup("g3", [ValueError("V1")]),
+                    ExceptionGroup("g4", [TypeError("T")])])]),
             TypeError,
             ExceptionGroup(
                 "g1",
-                ExceptionGroup("g2", ExceptionGroup("g4", TypeError("T")))),
+                [ExceptionGroup("g2", [ExceptionGroup("g4", [TypeError("T")])])]),
             ExceptionGroup(
                 "g1",
-                ExceptionGroup("g2", ExceptionGroup("g3", ValueError("V1")))))
+                [ExceptionGroup("g2", [ExceptionGroup("g3", [ValueError("V1")])])]))
 
     def test_plain_exceptions_matched(self):
         self.doSplitTest(
             ValueError("V"),
             ValueError,
-            ExceptionGroup("", ValueError("V")),
+            ExceptionGroup("", [ValueError("V")]),
             None)
 
     def test_plain_exceptions_not_matched(self):
@@ -204,17 +203,17 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
 
     def test_match__supertype(self):
         self.doSplitTest(
-            ExceptionGroup("eg", BlockingIOError("io"), TypeError("T")),
+            ExceptionGroup("eg", [BlockingIOError("io"), TypeError("T")]),
             OSError,
-            ExceptionGroup("eg", BlockingIOError("io")),
-            ExceptionGroup("eg", TypeError("T")))
+            ExceptionGroup("eg", [BlockingIOError("io")]),
+            ExceptionGroup("eg", [TypeError("T")]))
 
     def test_first_match_wins_named(self):
         try:
-            raise ExceptionGroup("eg", BlockingIOError("io"))
+            raise ExceptionGroup("eg", [BlockingIOError("io")])
         except *OSError as e:
             self.assertExceptionIsLike(e,
-                ExceptionGroup("eg", BlockingIOError("io")))
+                ExceptionGroup("eg", [BlockingIOError("io")]))
         except *BlockingIOError:
             self.fail("Should have been matched as OSError")
         else:
@@ -222,11 +221,11 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
 
     def test_first_match_wins_unnamed(self):
         try:
-            raise ExceptionGroup("eg", BlockingIOError("io"))
+            raise ExceptionGroup("eg", [BlockingIOError("io")])
         except *OSError:
             e = sys.exc_info()[1]
             self.assertExceptionIsLike(e,
-                ExceptionGroup("eg", BlockingIOError("io")))
+                ExceptionGroup("eg", [BlockingIOError("io")]))
         except *BlockingIOError:
             pass
         else:
@@ -234,10 +233,10 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
 
     def test_nested_except_stars(self):
         try:
-            raise ExceptionGroup("eg", BlockingIOError("io"))
+            raise ExceptionGroup("eg", [BlockingIOError("io")])
         except *BlockingIOError:
             try:
-                raise ExceptionGroup("eg", ValueError("io"))
+                raise ExceptionGroup("eg", [ValueError("io")])
             except* ValueError:
                 pass
             else:
@@ -248,7 +247,7 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
     def test_nested_in_loop(self):
         for _ in range(2):
             try:
-                raise ExceptionGroup("eg", BlockingIOError("io"))
+                raise ExceptionGroup("eg", [BlockingIOError("io")])
             except *BlockingIOError:
                 pass
             else:

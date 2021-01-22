@@ -3341,7 +3341,7 @@ main_loop:
                 Py_DECREF(right);
                 PyObject *e = PEEK(2);
                 PyObject *args = PyTuple_Pack(
-                    2, PyUnicode_FromString(""), Py_NewRef(e));
+                    2, PyUnicode_FromString(""), PyTuple_Pack(1, Py_NewRef(e)));
                 if (!args) {
                     goto error;
                 }
