@@ -368,10 +368,8 @@ finally:
     return result;
 }
 
-/* TODO: where should this be? It is used here (in traceback.c) and in pythonrun.c
- * maybe we have a utility like this somewhere already?
-*/
-int write_indent(int indent, PyObject *f) {
+int
+_Py_WriteIndent(int indent, PyObject *f) {
     int err = 0;
     char buf[11];
       strcpy(buf, "          ");
@@ -499,7 +497,7 @@ _Py_DisplaySourceLine(PyObject *f, PyObject *filename, int lineno, int indent)
     }
 
     /* Write some spaces before the line */
-    err = write_indent(indent, f);
+    err = _Py_WriteIndent(indent, f);
 
     /* finally display the line */
     if (err == 0)
@@ -522,7 +520,7 @@ tb_displayline(PyObject *f, PyObject *filename, int lineno, PyObject *name, int 
                                 filename, lineno, name);
     if (line == NULL)
         return -1;
-    err = write_indent(indent, f);
+    err = _Py_WriteIndent(indent, f);
     err |= PyFile_WriteObject(line, f, Py_PRINT_RAW);
     Py_DECREF(line);
     if (err != 0)
@@ -627,7 +625,7 @@ PyTraceBack_Print_Indented(PyObject *v, PyObject *f, int indent)
             return 0;
         }
     }
-    err = write_indent(indent, f);
+    err = _Py_WriteIndent(indent, f);
     err |= PyFile_WriteString("Traceback (most recent call last):\n", f);
     if (!err)
         err = tb_printinternal((PyTracebackObject *)v, f, limit, indent);
