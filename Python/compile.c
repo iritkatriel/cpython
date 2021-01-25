@@ -1023,7 +1023,7 @@ stack_effect(int opcode, int oparg, int jump)
         case CONTAINS_OP:
             return -1;
         case JUMP_IF_NOT_EG_MATCH:
-            return jump ? -2 : 1;
+            return jump > 0 ? -2 : 1;
         case JUMP_IF_NOT_EXC_MATCH:
             return -2;
         case IMPORT_NAME:
