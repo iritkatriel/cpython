@@ -1335,14 +1335,14 @@ class TestTracebackExceptionGroup(unittest.TestCase):
                     g(42)
                 except Exception as e:
                     exc2 = e
-                raise ExceptionGroup("eg1", exc1, exc2)
+                raise ExceptionGroup("eg1", [exc1, exc2])
             except ExceptionGroup as e:
                 exc3 = e
             try:
                 g(24)
             except Exception as e:
                 exc4 = e
-            raise ExceptionGroup("eg2", exc3, exc4)
+            raise ExceptionGroup("eg2", [exc3, exc4])
         except ExceptionGroup:
             return sys.exc_info()
         self.fail('Exception Not Raised')
@@ -1388,12 +1388,12 @@ class TestTracebackExceptionGroup(unittest.TestCase):
         expected = textwrap.dedent(f"""\
             Traceback (most recent call last):
               File "{__file__}", line {lno_g+23}, in _get_exception_group
-                raise ExceptionGroup("eg2", exc3, exc4)
+                raise ExceptionGroup("eg2", [exc3, exc4])
             ExceptionGroup: eg2
                ------------------------------------------------------------
                Traceback (most recent call last):
                  File "{__file__}", line {lno_g+16}, in _get_exception_group
-                   raise ExceptionGroup("eg1", exc1, exc2)
+                   raise ExceptionGroup("eg1", [exc1, exc2])
                ExceptionGroup: eg1
                   ------------------------------------------------------------
                   Traceback (most recent call last):
