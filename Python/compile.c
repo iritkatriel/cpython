@@ -3059,9 +3059,9 @@ compiler_try_finally(struct compiler *c, stmt_ty s)
    [orig, res, tb, rest, exc]                  SETUP_FINALLY  R1
    [orig, res, tb, rest, exc]                  <code for S1>
    [orig, res, tb, rest, exc]                  JUMP_FORWARD    C1
-   [orig, res, tb, rest, exc, t, v, e]   R1:   BUILD_TUPLE 3                    ) append (t, v, e) to res
-   [orig, res, tb, rest, exc, (t, v, e)]       LIST_APPEND 4                    )
-   [orig, res, tb, rest, exc, (t, v, e)]       POP
+   [orig, res, tb, rest, exc, t, v, e]   R1:   POP
+   [orig, res, tb, rest, exc, t, v]            LIST_APPEND 8 ) add raised exc to res
+   [orig, res, tb, rest, exc, t]               POP
 
    [orig, res, tb, rest, exc]      C1:         DUP_TOP                         ) check if done
    [orig, res, tb, rest, exc, exc]             POP_JUMP_IF_TRUE    L2          )
@@ -3223,18 +3223,29 @@ compiler_try_except(struct compiler *c, stmt_ty s)
             }
         }
         else {
-            basicblock *cleanup_body;
+            basicblock *cleanup_end, *cleanup_body;
 
             cleanup_body = compiler_new_block(c);
             if (!cleanup_body)
                 return 0;
 
+            if (is_except_star) {
+                cleanup_end = compiler_new_block(c);
+                if (!cleanup_body)
+                    return 0;
+            }
+
             ADDOP(c, POP_TOP);
             ADDOP(c, POP_TOP);
+
+            if (is_except_star) {
+                ADDOP_JUMP(c, SETUP_FINALLY, cleanup_end);
+            }
 
             compiler_use_next_block(c, cleanup_body);
             if (!compiler_push_fblock(c, HANDLER_CLEANUP, cleanup_body, NULL, NULL))
                 return 0;
+
             VISIT_SEQ(c, stmt, handler->v.ExceptHandler.body);
             compiler_pop_fblock(c, HANDLER_CLEANUP, cleanup_body);
             if (!is_except_star) {
@@ -3242,6 +3253,21 @@ compiler_try_except(struct compiler *c, stmt_ty s)
                 ADDOP_JUMP(c, JUMP_FORWARD, end);
             }
             else {
+                ADDOP_JUMP(c, JUMP_ABSOLUTE, check_if_done);
+            }
+
+            if (is_except_star) {
+                /* except: */
+                compiler_use_next_block(c, cleanup_end);
+                /* add exception raised to the res list */
+                ADDOP(c, POP_TOP);
+                ADDOP_I(c, LIST_APPEND, 8);
+                ADDOP(c, POP_TOP);
+
+                /* remove (tb, match, exc) */
+                ADDOP(c, POP_TOP);
+                ADDOP(c, POP_TOP);
+                ADDOP(c, POP_TOP);
                 ADDOP_JUMP(c, JUMP_ABSOLUTE, check_if_done);
             }
         }
