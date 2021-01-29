@@ -30,6 +30,7 @@ extern "C" {
 #define BINARY_TRUE_DIVIDE       27
 #define INPLACE_FLOOR_DIVIDE     28
 #define INPLACE_TRUE_DIVIDE      29
+#define RERAISE_STAR             47
 #define RERAISE                  48
 #define WITH_EXCEPT_START        49
 #define GET_AITER                50

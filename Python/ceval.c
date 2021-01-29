@@ -42,6 +42,8 @@
 #  error "ceval.c must be build with Py_BUILD_CORE define for best performance"
 #endif
 
+// #define FPRINTF fprintf(stderr,"  >>  SL=%d  << :", STACK_LEVEL()); fprintf
+#define FPRINTF
 _Py_IDENTIFIER(__name__);
 
 /* Forward declarations */
@@ -2188,6 +2190,9 @@ main_loop:
 
         case TARGET(RETURN_VALUE): {
             retval = POP();
+            for (Py_ssize_t i = 0; i < STACK_LEVEL(); i++) {
+                fprintf(stderr, "PEEK(%d) = %s\n", (int)(i+1), PyUnicode_AsUTF8(PyObject_Repr(PEEK(i+1))));
+            }
             assert(f->f_iblock == 0);
             assert(EMPTY());
             f->f_state = FRAME_RETURNED;
@@ -2433,9 +2438,178 @@ main_loop:
             PyObject *exc = POP();
             PyObject *val = POP();
             PyObject *tb = POP();
-            assert(PyExceptionClass_Check(exc));
             _PyErr_Restore(tstate, exc, val, tb);
             goto exception_unwind;
+        }
+
+        case TARGET(RERAISE_STAR): {
+
+            PyObject *exc = POP();
+            assert(PyList_Check(exc));
+            PyObject *orig = POP();
+
+            PyObject *raised = PyList_New(0);
+            if (raised == NULL) {
+                Py_DECREF(exc);
+                Py_DECREF(orig);
+                goto error;
+            }
+
+            PyObject *swallowed = Py_NewRef(orig);
+
+            {
+                Py_ssize_t numexcs = PySequence_Length(exc);
+                PyObject *o_tb = PyException_GetTraceback(orig);
+                PyObject *o_ctx = PyException_GetContext(orig);
+                PyObject *o_cause = PyException_GetCause(orig);
+
+                for (Py_ssize_t i = 0; i < numexcs; i++) {
+                    PyObject *e = PyList_GetItem(exc, i);
+                    if (e == NULL) {
+                        Py_DECREF(exc);
+                        Py_DECREF(orig);
+                        Py_XDECREF(o_tb);
+                        Py_XDECREF(o_ctx);
+                        Py_XDECREF(o_cause);
+                        Py_XDECREF(swallowed);
+                        goto error;
+                    }
+                    PyObject *tb = PyException_GetTraceback(e);
+                    PyObject *ctx = PyException_GetContext(e);
+                    PyObject *cause = PyException_GetCause(e);
+                    if (e == swallowed) {
+                        /* raised exception was caught and raised - nothing swallowed */
+                        swallowed = Py_NewRef(Py_None);
+                    }
+                    else if (PyObject_TypeCheck(e, (PyTypeObject *)PyExc_ExceptionGroup) &&
+                        PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_ExceptionGroup) &&
+                        tb == o_tb && ctx == o_ctx && cause == o_cause) {
+                        /* same metadata - this is a reraise */
+                        PyObject *pair = PyObject_CallMethod(
+                            (PyObject*)swallowed, "split", "OO", e, Py_True);
+                        if (pair == NULL) {
+                            Py_DECREF(exc);
+                            Py_DECREF(orig);
+                            Py_XDECREF(o_tb);
+                            Py_XDECREF(o_ctx);
+                            Py_XDECREF(o_cause);
+                            Py_XDECREF(tb);
+                            Py_XDECREF(ctx);
+                            Py_XDECREF(cause);
+                            Py_XDECREF(swallowed);
+                            goto error;
+                        }
+                        swallowed = Py_NewRef(PyTuple_GET_ITEM(pair, 1));
+                        Py_DECREF(pair);
+                    }
+                    else {
+                        /* different metadata - this is a raise */
+                        PyList_Append(raised, e);
+                    }
+                    Py_XDECREF(tb);
+                    Py_XDECREF(ctx);
+                    Py_XDECREF(cause);
+                }
+
+                Py_XDECREF(o_tb);
+                Py_XDECREF(o_ctx);
+                Py_XDECREF(o_cause);
+            }
+
+            PyObject* reraised = NULL;
+            if (swallowed == orig) {
+                reraised = Py_NewRef(Py_None);
+            } else if (swallowed != Py_None) {
+                if (PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_ExceptionGroup)) {
+                    if (PySequence_Length(((PyExceptionGroupObject*)swallowed)->excs) > 0) {
+                        PyObject *pair = PyObject_CallMethod(
+                            orig, "split", "OO", swallowed, Py_True);
+                        if (pair == NULL) {
+                            Py_DECREF(exc);
+                            Py_DECREF(orig);
+                            goto error;
+                        }
+                        reraised = Py_NewRef(PyTuple_GET_ITEM(pair, 1));
+                        Py_DECREF(pair);
+                    }
+                }
+            }
+            if (reraised == NULL) {
+                reraised = Py_NewRef(orig);
+            }
+            else {
+                if (reraised != Py_None) {
+                    PyObject *tb = PyException_GetTraceback(orig);
+                    PyException_SetTraceback(reraised, tb);  /* does not steal ref */
+                    Py_XDECREF(tb);
+                    PyException_SetContext(  /* steals ref */
+                        reraised, PyException_GetContext(orig));
+                    PyException_SetCause(    /* steals ref */
+                        reraised, PyException_GetCause(orig));
+                }
+            }
+
+            Py_DECREF(swallowed);
+            swallowed = NULL;
+            Py_ssize_t num_raised = PySequence_Length(raised);
+            if (num_raised == -1) {
+                Py_DECREF(raised);
+                Py_DECREF(reraised);
+                Py_DECREF(exc);
+                Py_DECREF(orig);
+                goto error;
+            }
+            PyObject *val = NULL;
+            if (num_raised > 0) {
+                if (reraised != Py_None) {
+                    if (PyList_Append(raised, reraised) == -1) {
+                        Py_DECREF(raised);
+                        Py_DECREF(reraised);
+                        Py_DECREF(exc);
+                        Py_DECREF(orig);
+                        goto error;
+                    }
+                }
+                PyObject *args = PyTuple_Pack(
+                    2, PyUnicode_FromString(""), raised);
+                if (args == NULL) {
+                    Py_DECREF(raised);
+                    Py_DECREF(reraised);
+                    Py_DECREF(exc);
+                    Py_DECREF(orig);
+                    goto error;
+                }
+                val = PyObject_CallObject(
+                    PyExc_ExceptionGroup, args);
+                if (val == NULL) {
+                    Py_DECREF(args);
+                    Py_DECREF(raised);
+                    Py_DECREF(reraised);
+                    Py_DECREF(exc);
+                    Py_DECREF(orig);
+                    goto error;
+                }
+            }
+            else if (reraised != Py_None) {
+                val = Py_NewRef(reraised);
+            }
+            Py_DECREF(raised);
+            Py_DECREF(reraised);
+
+            if (val != NULL) {
+                assert(val != Py_None);
+                PUSH(PyException_GetTraceback(val));
+                PUSH(val);
+                PUSH(Py_NewRef((PyObject*)val->ob_type));
+            }
+            else {
+                // nothing to reraise
+                PUSH(Py_NewRef(Py_None));
+                PUSH(Py_NewRef(Py_None));
+                PUSH(Py_NewRef(Py_None));
+            }
+            Py_DECREF(orig);
+            FAST_DISPATCH();
         }
 
         case TARGET(END_ASYNC_FOR): {
@@ -3325,7 +3499,6 @@ main_loop:
         case TARGET(JUMP_IF_NOT_EG_MATCH): {
             PyObject *right = POP();
             PyObject *left = POP();
-
             if (!check_except_star_type_valid(tstate, right)) {
                 Py_DECREF(left);
                 Py_DECREF(right);
@@ -3368,7 +3541,8 @@ main_loop:
                     // TODO: DUP val on the stack like the exc?
                     PyObject *eg = PEEK(2);
                     pair = PyObject_CallMethod(
-                        eg, "project", "OO", right, Py_True);
+                        eg, "split", "OO", right, Py_True);
+
                     Py_DECREF(left);
                     Py_DECREF(right);
                     if (!pair) {
@@ -3411,7 +3585,6 @@ main_loop:
                         Py_XDECREF(pair);
                         goto error;
                     }
-
                     // Total or partial match - update the stack from
                     // [tb, val, exc]
                     // to
@@ -4135,7 +4308,6 @@ exception_unwind:
         while (f->f_iblock > 0) {
             /* Pop the current block. */
             PyTryBlock *b = &f->f_blockstack[--f->f_iblock];
-
             if (b->b_type == EXCEPT_HANDLER) {
                 UNWIND_EXCEPT_HANDLER(b);
                 continue;
@@ -5824,9 +5996,26 @@ check_except_star_type_valid(PyThreadState *tstate, PyObject* right) {
         return 0;
     }
     // reject except *ExceptionGroup
-    int res = PyObject_IsSubclass(PyExc_ExceptionGroup, right);
-    if (res == -1) {
-        return 0;
+    int res = 0;
+    if (PyTuple_Check(right)) {
+        Py_ssize_t i, length;
+        length = PyTuple_GET_SIZE(right);
+        for (i = 0; i < length; i++) {
+            PyObject *exc = PyTuple_GET_ITEM(right, i);
+            res = PyObject_IsSubclass(exc, PyExc_ExceptionGroup);
+            if (res == -1) {
+                return 0;
+            }
+            if (res == 1) {
+                break;
+            }
+        }
+    }
+    else {
+        res = PyObject_IsSubclass(right, PyExc_ExceptionGroup);
+        if (res == -1) {
+            return 0;
+        }
     }
     if (res == 1) {
         _PyErr_SetString(tstate, PyExc_TypeError,

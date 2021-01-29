@@ -768,35 +768,59 @@ error:
     return NULL;
 }
 
+static int _exceptiongroup_flatten(PyObject *list, PyObject *exc) {
+    if (!PyObject_TypeCheck(exc, (PyTypeObject *)PyExc_ExceptionGroup)) {
+        PyList_Append(list, exc);
+    } else {
+        PyExceptionGroupObject *eg = (PyExceptionGroupObject *)exc;
+        Py_ssize_t num_excs = PySequence_Length(eg->excs);
+        Py_ssize_t i;
+        for (i = 0; i < num_excs; i++) {
+            PyObject *e = PySequence_GetItem(eg->excs, i);
+            if (e == NULL) {
+                return -1;
+            }
+            if (_exceptiongroup_flatten(list, e) == -1) {
+                Py_DECREF(e);
+                return -1;
+            }
+            Py_DECREF(e);
+        }
+    }
+    return 0;
+}
 /* check whether exc matches the matcher. Matcher can be:
 
 * - a function, then exc matches if function(exc) returns true
 * - an exception type (or tuple thereof) then exc matches if
 *   PyErr_GivenExceptionMatches(exc, matcher)
-* - (LATER:) a collection of exception instances, then exc
-*   matches if it belongs to the collection (TODO: determine
-*   collection type and implement)
-*
-* TODO: create a matcher struct that has the PyObject + a code
-* specifying its type. Then we don't need the type checks here.
+* - a list of exception instances, then exc matches if it is
+*   in the list.
 */
-static int exceptiongroup_project_check_match(PyObject *exc, PyObject *matcher)
+static int exceptiongroup_split_check_match(PyObject *exc, PyObject *matcher)
 {
     if (PyFunction_Check(matcher)) {
         /* case 1: function matcher */
         PyObject *exc_matches = PyObject_CallOneArg(matcher, exc);
         return exc_matches != NULL && PyObject_IsTrue(exc_matches);
     }
-    else {
-        /* case 2: exception type matcher */
+    else if (PyExceptionClass_Check(matcher) || PyTuple_CheckExact(matcher)) {
+        /* case 2: matcher is an exception type or a tuple of them */
         return PyErr_GivenExceptionMatches(exc, matcher);
+    }
+    else if (PyList_CheckExact(matcher)) {
+        /* case 3: matcher is a list of exception instances */
+        return PySequence_Contains(matcher, exc);
+    }
+    else {
+        return -1;
     }
 }
 
 static PyObject *
-exceptiongroup_project_recursive(PyObject *exc, PyObject *matcher, int complement)
+exceptiongroup_split_recursive(PyObject *exc, PyObject *matcher, int complement)
 {
-    int is_match = exceptiongroup_project_check_match(exc, matcher);
+    int is_match = exceptiongroup_split_check_match(exc, matcher);
     if (is_match == -1) {
         return NULL;
     }
@@ -834,7 +858,7 @@ exceptiongroup_project_recursive(PyObject *exc, PyObject *matcher, int complemen
         }
         /* recursive calls */
         for (i = 0; i < num_excs; i++) {
-            PyObject *rec = exceptiongroup_project_recursive(
+            PyObject *rec = exceptiongroup_split_recursive(
                 PySequence_GetItem(eg->excs, i), matcher, complement);
 
             if (!rec) {
@@ -889,17 +913,17 @@ exceptiongroup_project_recursive(PyObject *exc, PyObject *matcher, int complemen
 }
 
 static PyObject *
-ExceptionGroup_project(PyExceptionGroupObject *self,
+ExceptionGroup_split(PyExceptionGroupObject *self,
                        PyObject *args,
                        PyObject *kwds)
 {
     static char *kwlist[] = {"with_complement", 0 };
-    PyObject *matcher = NULL;
+    PyObject *matcher_ = NULL;
     PyObject *with_complement = NULL;
     int is_with_complement;
 
-    if (!PyArg_UnpackTuple(args, "project", 0, 2,
-                           &matcher, &with_complement)) {
+    if (!PyArg_UnpackTuple(args, "split", 0, 2,
+                           &matcher_, &with_complement)) {
         return NULL;
     }
 
@@ -913,8 +937,28 @@ ExceptionGroup_project(PyExceptionGroupObject *self,
         is_with_complement = 1;
     }
 
-    return exceptiongroup_project_recursive(
+    PyObject *matcher;
+    if (PyObject_TypeCheck(matcher_, (PyTypeObject *)PyExc_ExceptionGroup)) {
+        matcher = PyList_New(0);
+        if (matcher == NULL) {
+            return NULL;
+        }
+        if (_exceptiongroup_flatten(matcher, matcher_) < 0) {
+            Py_DECREF(matcher);
+            return NULL;
+        }
+    }
+    else {
+        matcher = matcher_;
+    }
+
+    PyObject *ret = exceptiongroup_split_recursive(
         (PyObject*)self, matcher, is_with_complement);
+
+    if (matcher != matcher_) {
+        Py_DECREF(matcher);
+    }
+    return ret;
 }
 
 static PyMemberDef ExceptionGroup_members[] = {
@@ -926,7 +970,7 @@ static PyMemberDef ExceptionGroup_members[] = {
 };
 
 static PyMethodDef ExceptionGroup_methods[] = {
-    {"project", (PyCFunction)ExceptionGroup_project, METH_VARARGS},
+    {"split", (PyCFunction)ExceptionGroup_split, METH_VARARGS},
     {NULL}
 };
 

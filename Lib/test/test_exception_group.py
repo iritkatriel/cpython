@@ -13,7 +13,7 @@ class ExceptionGroupHelper:
 
         keep: List[BaseException]
         """
-        match, _ = exc.project(lambda e: e in keep, False)
+        match, _ = exc.split(lambda e: e in keep, False)
         return match
 
     @staticmethod
@@ -202,7 +202,7 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
         fnames = [t.name for t in traceback.extract_tb(eg.__traceback__)]
         all_excs = list(ExceptionGroupHelper.flatten(eg))
 
-        match, rest = eg.project(types)
+        match, rest = eg.split(types)
 
         if match is not None:
             self.assertIsInstance(match, ExceptionGroup)
@@ -289,12 +289,12 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
         self.assertMatchesTemplate(rest, valueErrors_template)
 
         # Match ExceptionGroup
-        match, rest = eg.project(ExceptionGroup)
+        match, rest = eg.split(ExceptionGroup)
         self.assertIs(match, eg)
         self.assertIsNone(rest)
 
         # Match MyExceptionGroup (ExceptionGroup subclass)
-        match, rest = eg.project(MyExceptionGroup)
+        match, rest = eg.split(MyExceptionGroup)
         self.assertMatchesTemplate(match, [eg_template[0]])
         self.assertMatchesTemplate(rest, [eg_template[1]])
 

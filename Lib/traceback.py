@@ -491,24 +491,24 @@ class TracebackException:
         # being called with no type or value (None, None, None).
         if (exc_value and exc_value.__cause__ is not None
             and id(exc_value.__cause__) not in _seen):
-            cause = TracebackException(
+            cause = ExceptionFormatter.get(
                 type(exc_value.__cause__),
                 exc_value.__cause__,
                 exc_value.__cause__.__traceback__,
                 limit=limit,
-                lookup_lines=False,
+                lookup_lines=lookup_lines,
                 capture_locals=capture_locals,
                 _seen=_seen)
         else:
             cause = None
         if (exc_value and exc_value.__context__ is not None
             and id(exc_value.__context__) not in _seen):
-            context = TracebackException(
+            context = ExceptionFormatter.get(
                 type(exc_value.__context__),
                 exc_value.__context__,
                 exc_value.__context__.__traceback__,
                 limit=limit,
-                lookup_lines=False,
+                lookup_lines=lookup_lines,
                 capture_locals=capture_locals,
                 _seen=_seen)
         else:
@@ -544,10 +544,6 @@ class TracebackException:
         """Private API. force all lines in the stack to be loaded."""
         for frame in self.stack:
             frame.line
-        if self.__context__:
-            self.__context__._load_lines()
-        if self.__cause__:
-            self.__cause__._load_lines()
 
     def __eq__(self, other):
         if isinstance(other, TracebackException):
