@@ -3050,30 +3050,38 @@ compiler_try_finally(struct compiler *c, stmt_ty s)
    [orig, tb, val, exc, res]          BUILD_LIST         ) list for raised/reraised exceptions
    [orig, res, tb, val, exc]          ROT_FOUR           )
 
-   [orig, res, tb, val, exc]                   DUP                             )
-   [orig, res, tb, val, exc, exc]              <evaluate E1>                   )
-   [orig, res, tb, val, exc, exc, E1]          JUMP_IF_NOT_EG_MATCH L2         ) only if E1
-   [orig, res, tb, rest, exc, tb, match, exc]  POP
-   [orig, res, tb, rest, exc, tb, match]       <assign to V1>  (or POP if no V1)
-   [orig, res, tb, rest, exc, tb]              POP
-   [orig, res, tb, rest, exc]                  SETUP_FINALLY  R1
-   [orig, res, tb, rest, exc]                  <code for S1>
-   [orig, res, tb, rest, exc]                  JUMP_FORWARD    C1
-   [orig, res, tb, rest, exc, t, v, e]   R1:   POP
-   [orig, res, tb, rest, exc, t, v]            LIST_APPEND 8 ) add raised exc to res
-   [orig, res, tb, rest, exc, t]               POP
+   [orig, res, tb, val, exc]                                   DUP                             )
+   [orig, res, tb, val, exc, exc]                              <evaluate E1>                   )
+   [orig, res, tb, val, exc, exc, E1]                          JUMP_IF_NOT_EG_MATCH L2         ) only if E1
+   [orig, res, tb, rest, exc, tb, match, exc]                  POP
+   [orig, res, tb, rest, exc, tb, match]                       <assign to V1>  (or POP if no V1)
+   [orig, res, tb, rest, exc, tb]                              POP
+   [orig, res, tb, rest, exc]                                  SETUP_FINALLY  R1
+   [orig, res, tb, rest, exc]                                  <code for S1>
+   [orig, res, tb, rest, exc]                                  JUMP_FORWARD    C1
+   [orig, res, tb, rest, exc, tb, match, exc, t, v, e]   R1:   POP
+   [orig, res, tb, rest, exc, tb, match, exc, t, v]            LIST_APPEND 8 ) add raised exc to res
+   [orig, res, tb, rest, exc, tb, match, exc, t]               POP
+   [orig, res, tb, rest, exc, tb, match, exc]                  POP
+   [orig, res, tb, rest, exc, tb, match]                       POP
+   [orig, res, tb, rest, exc, tb]                              POP
 
-   [orig, res, tb, rest, exc]      C1:         DUP_TOP                         ) check if done
-   [orig, res, tb, rest, exc, exc]             POP_JUMP_IF_TRUE    L2          )
-   [orig, res, tb, rest, exc]                  JUMP_FORWARD        L0          ) done - go to reraise
+   [orig, res, tb, rest, exc]                            C1:   DUP_TOP                         ) check if done
+   [orig, res, tb, rest, exc, exc]                             POP_JUMP_IF_TRUE    L2          )
+   [orig, res, tb, rest, exc]                                  JUMP_FORWARD        L0          ) done - go to reraise
 
-   [orig, res, tb, val, exc]       L2:         DUP
-   [orig, res, tb, val, exc, exc]              <evaluate E2>
-   .............................etc.............................
+   [orig, res, tb, val, exc]                             L2:   DUP
+   [orig, res, tb, val, exc, exc]                              <evaluate E2>
+   ..................................etc.......................................
 
-   [orig, res, tb, val, exc]       Ln+1:       RERAISE_STAR    ) raise exception (merged with what's in res)
+   [orig, res, tb, val, exc]                             L0:   POP
+   [orig, res, tb, val]                                        LIST_APPEND 2 ) add unhandled exc to res
+   [orig, res, tb]                                             POP
+   [orig, res]                                                 POP
+   [orig, res]                                                 RERAISE    ) raise exception (merged what's 
+                                                                          )in res, using orig for reference)
 
-   []                   L0:              <next statement>
+   []                                               <next statement>
 
    Of course, parts are not generated if Vi or Ei is not present.
 */
