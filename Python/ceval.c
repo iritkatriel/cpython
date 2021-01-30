@@ -1930,31 +1930,14 @@ main_loop:
 
         case TARGET(LIST_APPEND): {
             PyObject *v = POP();
-            fprintf(stderr, "LIST_APPEND  oparg = %d\n", oparg);
 
-            fprintf(stderr, "v= %s\n", PyUnicode_AsUTF8(PyObject_Repr(v)));
-            fprintf(stderr, "TOP() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(TOP())));
-            fprintf(stderr, "SECOND() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(SECOND())));
-            fprintf(stderr, "THIRD() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(THIRD())));
-            /*
-            fprintf(stderr, "PEEK(4) = %s\n", PyUnicode_AsUTF8(PyObject_Repr(PEEK(4))));
-            */
+            fprintf(stderr, "LIST_APPEND  oparg = %d\n", oparg);
+            for (Py_ssize_t i = 0; i <= oparg; i++) {
+                fprintf(stderr, "PEEK(%d) = %s\n", (int)i, PyUnicode_AsUTF8(PyObject_Repr(PEEK(i))));
+            }
             PyObject *list = PEEK(oparg);
-            /*
-            fprintf(stderr, "list = %s\n", PyUnicode_AsUTF8(PyObject_Repr(list)));
-            if (STACK_LEVEL() >= 5 && PEEK(5))
-                fprintf(stderr, "PEEK(5) = %s\n", PyUnicode_AsUTF8(PyObject_Repr(PEEK(5))));
-            if (STACK_LEVEL() >= 6 && PEEK(6))
-                fprintf(stderr, "PEEK(6) = %s\n", PyUnicode_AsUTF8(PyObject_Repr(PEEK(6))));
-            if (STACK_LEVEL() >= 7 && PEEK(7))
-                fprintf(stderr, "PEEK(7) = %s\n", PyUnicode_AsUTF8(PyObject_Repr(PEEK(7))));
-            if (STACK_LEVEL() >= 8 && PEEK(8))
-                fprintf(stderr, "PEEK(8) = %s\n", PyUnicode_AsUTF8(PyObject_Repr(PEEK(8))));
-            */
             int err;
             err = PyList_Append(list, v);
-            if (STACK_LEVEL() >= 8 && PEEK(8))
-                fprintf(stderr, "PEEK(8) = %s\n", PyUnicode_AsUTF8(PyObject_Repr(PEEK(8))));
             Py_DECREF(v);
             if (err != 0)
                 goto error;
@@ -2425,9 +2408,7 @@ main_loop:
         case TARGET(POP_EXCEPT): {
             PyObject *type, *value, *traceback;
             _PyErr_StackItem *exc_info;
-            fprintf(stderr, "POP_EXCEPT -- before\n");
             PyTryBlock *b = PyFrame_BlockPop(f);
-            fprintf(stderr, "POP_EXCEPT -- after\n");
             if (b->b_type != EXCEPT_HANDLER) {
                 _PyErr_SetString(tstate, PyExc_SystemError,
                                  "popped block is not an except handler");
@@ -2439,16 +2420,6 @@ main_loop:
             type = exc_info->exc_type;
             value = exc_info->exc_value;
             traceback = exc_info->exc_traceback;
-            fprintf(stderr, "TOP() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(TOP())));
-            fprintf(stderr, "SECOND() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(SECOND())));
-            fprintf(stderr, "THIRD() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(THIRD())));
-
-            if (STACK_LEVEL() >= 4 && PEEK(4))
-                fprintf(stderr, "PEEK(4) = %s\n", PyUnicode_AsUTF8(PyObject_Repr(PEEK(4))));
-            if (STACK_LEVEL() >= 5 && PEEK(5))
-                fprintf(stderr, "PEEK(5) = %s\n", PyUnicode_AsUTF8(PyObject_Repr(PEEK(5))));
-            if (STACK_LEVEL() >= 6 && PEEK(6))
-                fprintf(stderr, "PEEK(6) = %s\n", PyUnicode_AsUTF8(PyObject_Repr(PEEK(6))));
             exc_info->exc_type = POP();
             exc_info->exc_value = POP();
             exc_info->exc_traceback = POP();
@@ -2477,14 +2448,13 @@ main_loop:
             }
             else {
                 assert(PyList_Check(exc));
-                fprintf(stderr, "=========== RERAISE= %s\n", PyUnicode_AsUTF8(PyObject_Repr(exc)));
-                fprintf(stderr, "TOP() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(TOP())));
-                fprintf(stderr, "SECOND() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(SECOND())));
-                fprintf(stderr, "THIRD() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(THIRD())));
+                fprintf(stderr, "=========== RERAISE exc=%s\n", PyUnicode_AsUTF8(PyObject_Repr(exc)));
                 PyObject *orig = POP();
-                fprintf(stderr, "orig = %s\n", PyUnicode_AsUTF8(PyObject_Repr(orig)));
+                fprintf(stderr, "=========== RERAISE orig = %s\n", PyUnicode_AsUTF8(PyObject_Repr(orig)));
+
+                /* TODO: merge the exceptions in exc (use orig for structure) */
                 PyObject *args = PyTuple_Pack(
-                    2, PyUnicode_FromString("HELLO!"), exc);
+                    2, PyUnicode_FromString(""), exc);
                 if (!args) {
                     goto error;
                 }
@@ -2493,10 +2463,6 @@ main_loop:
                 if (!val) {
                     goto error;
                 }
-                fprintf(stderr, "RESTORE = %s\n", PyUnicode_AsUTF8(PyObject_Repr(val)));
-                fprintf(stderr, "TOP() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(TOP())));
-                fprintf(stderr, "SECOND() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(SECOND())));
-                fprintf(stderr, "THIRD() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(THIRD())));
                 _PyErr_Restore(tstate, (PyObject*)val->ob_type, val, PyException_GetTraceback(orig));
             }
             goto exception_unwind;
@@ -3389,18 +3355,6 @@ main_loop:
         case TARGET(JUMP_IF_NOT_EG_MATCH): {
             PyObject *right = POP();
             PyObject *left = POP();
-            fprintf(stderr, "-----  JUMP_IF_NOT_EG_MATCH:\n");
-            fprintf(stderr, "left = %s\n", PyUnicode_AsUTF8(PyObject_Repr(left)));
-            fprintf(stderr, "right = %s\n", PyUnicode_AsUTF8(PyObject_Repr(right)));
-            fprintf(stderr, "TOP() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(TOP())));
-            fprintf(stderr, "SECOND() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(SECOND())));
-            fprintf(stderr, "THIRD() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(THIRD())));
-            if (STACK_LEVEL() >= 4 && PEEK(4))
-                fprintf(stderr, "PEEK(4) = %s\n", PyUnicode_AsUTF8(PyObject_Repr(PEEK(4))));
-            if (STACK_LEVEL() >= 5 && PEEK(5))
-                fprintf(stderr, "PEEK(5) = %s\n", PyUnicode_AsUTF8(PyObject_Repr(PEEK(5))));
-            if (STACK_LEVEL() >= 6 && PEEK(6))
-                fprintf(stderr, "PEEK(6) = %s\n", PyUnicode_AsUTF8(PyObject_Repr(PEEK(6))));
 
             if (!check_except_star_type_valid(tstate, right)) {
                 Py_DECREF(left);
