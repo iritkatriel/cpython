@@ -3290,13 +3290,6 @@ compiler_try_except(struct compiler *c, stmt_ty s)
                 ADDOP(c, POP_TOP);
                 ADDOP(c, POP_TOP);
             }
-            /*
-            if (i == n - 1) {
-                ADDOP(c, POP_TOP);
-                ADDOP_I(c, LIST_APPEND, 2);
-                ADDOP(c, POP_TOP);
-            }
-            */
             ADDOP_JUMP(c, JUMP_FORWARD, end);
         }
         compiler_use_next_block(c, except);
