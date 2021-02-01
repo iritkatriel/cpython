@@ -42,6 +42,8 @@
 #  error "ceval.c must be build with Py_BUILD_CORE define for best performance"
 #endif
 
+//#define FPRINTF fprintf(stderr,"  >>  SL=%d  << :", STACK_LEVEL()); fprintf
+#define FPRINTF
 _Py_IDENTIFIER(__name__);
 
 /* Forward declarations */
@@ -1930,11 +1932,6 @@ main_loop:
 
         case TARGET(LIST_APPEND): {
             PyObject *v = POP();
-
-            fprintf(stderr, "LIST_APPEND  oparg = %d\n", oparg);
-            for (Py_ssize_t i = 0; i <= oparg; i++) {
-                fprintf(stderr, "PEEK(%d) = %s\n", (int)i, PyUnicode_AsUTF8(PyObject_Repr(PEEK(i))));
-            }
             PyObject *list = PEEK(oparg);
             int err;
             err = PyList_Append(list, v);
@@ -2193,6 +2190,9 @@ main_loop:
 
         case TARGET(RETURN_VALUE): {
             retval = POP();
+            for (Py_ssize_t i = 0; i < STACK_LEVEL(); i++) {
+                fprintf(stderr, "PEEK(%d) = %s\n", (int)(i+1), PyUnicode_AsUTF8(PyObject_Repr(PEEK(i+1))));
+            }
             assert(f->f_iblock == 0);
             assert(EMPTY());
             f->f_state = FRAME_RETURNED;
@@ -2435,37 +2435,188 @@ main_loop:
         }
 
         case TARGET(RERAISE): {
-            fprintf(stderr, "~~~~~~~~~~~~~~~ RERAISE \n");
-            fprintf(stderr, "TOP() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(TOP())));
-            fprintf(stderr, "SECOND() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(SECOND())));
-            fprintf(stderr, "THIRD() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(THIRD())));
+            FPRINTF(stderr, "~~~~~~~~~~~~~~~ RERAISE \n");
+            FPRINTF(stderr, "TOP() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(TOP())));
+            FPRINTF(stderr, "SECOND() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(SECOND())));
+            FPRINTF(stderr, "THIRD() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(THIRD())));
             PyObject *exc = POP();
-            if (PyExceptionClass_Check(exc)) {
-                PyObject *val = POP();
-                fprintf(stderr, "RERAISE val= %s\n", PyUnicode_AsUTF8(PyObject_Repr(val)));
-                PyObject *tb = POP();
-                _PyErr_Restore(tstate, exc, val, tb);
+            PyObject *val = POP();
+            PyObject *tb = POP();
+            _PyErr_Restore(tstate, exc, val, tb);
+            goto exception_unwind;
+        }
+
+        case TARGET(RERAISE_STAR): {
+            FPRINTF(stderr, "~~~~~~~~~~~~~~~ RERAISE_STAR \n");
+            FPRINTF(stderr, "TOP() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(TOP())));
+            FPRINTF(stderr, "SECOND() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(SECOND())));
+            FPRINTF(stderr, "THIRD() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(THIRD())));
+
+            PyObject *exc = POP();
+            assert(PyList_Check(exc));
+            FPRINTF(stderr, "=========== RERAISE_STAR exc=%s\n", PyUnicode_AsUTF8(PyObject_Repr(exc)));
+            PyObject *orig = POP();
+            FPRINTF(stderr, "=========== RERAISE_STAR orig = %s\n", PyUnicode_AsUTF8(PyObject_Repr(orig)));
+
+            PyObject *raised = PyList_New(0);
+            if (raised == NULL) {
+                Py_DECREF(exc);
+                Py_DECREF(orig);
+                goto error;
+            }
+
+            PyObject *swallowed = orig;
+
+            Py_ssize_t numexcs = PySequence_Length(exc);
+            PyObject *o_tb = PyException_GetTraceback(orig);
+            PyObject *o_ctx = PyException_GetContext(orig);
+            PyObject *o_cause = PyException_GetCause(orig);
+
+            for (Py_ssize_t i = 0; i < numexcs; i++) {
+                PyObject *e = PyList_GetItem(exc, i);
+                if (e == NULL) {
+                    Py_DECREF(exc);
+                    Py_DECREF(orig);
+                    Py_XDECREF(o_tb);
+                    Py_XDECREF(o_ctx);
+                    Py_XDECREF(o_cause);
+                    goto error;
+                }
+                PyObject *tb = PyException_GetTraceback(e);
+                PyObject *ctx = PyException_GetContext(e);
+                PyObject *cause = PyException_GetCause(e);
+                if (e == swallowed) {
+                    /* raised exception was caught and raised - nothing swallowed */
+                    FPRINTF(stderr, "e == swallowed = %s\n", PyUnicode_AsUTF8(PyObject_Repr(e)));
+                    swallowed = Py_NewRef(Py_None);
+                } else if (PyObject_TypeCheck(e, (PyTypeObject *)PyExc_ExceptionGroup) &&
+                           PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_ExceptionGroup) &&
+                           tb == o_tb && ctx == o_ctx && cause == o_cause) {
+                    /* same metadata - this is a reraise */
+                    FPRINTF(stderr, ";;;; e = %s\n", PyUnicode_AsUTF8(PyObject_Repr(e)));
+                    FPRINTF(stderr, "swallowed = %s\n", PyUnicode_AsUTF8(PyObject_Repr(swallowed)));
+                    PyObject *pair = PyObject_CallMethod(
+                        (PyObject*)swallowed, "project", "OO", e, Py_True);
+                    if (pair == NULL) {
+                        Py_DECREF(exc);
+                        Py_DECREF(orig);
+                        Py_XDECREF(o_tb);
+                        Py_XDECREF(o_ctx);
+                        Py_XDECREF(o_cause);
+                        if (swallowed != orig)
+                            Py_XDECREF(swallowed);
+                        goto error;
+                    }
+                    FPRINTF(stderr, "pair = %s\n", PyUnicode_AsUTF8(PyObject_Repr(pair)));
+                    swallowed = Py_NewRef(PyTuple_GET_ITEM(pair, 1));
+                    FPRINTF(stderr, "swallowed = %s\n", PyUnicode_AsUTF8(PyObject_Repr(swallowed)));
+                    Py_DECREF(pair);
+                }
+                else {
+                    /* different metadata - this is a raise */
+                    PyList_Append(raised, e);
+                }
+                Py_XDECREF(tb);
+                Py_XDECREF(ctx);
+                Py_XDECREF(cause);
+            }
+
+            Py_XDECREF(o_tb);
+            Py_XDECREF(o_ctx);
+            Py_XDECREF(o_cause);
+
+            FPRINTF(stderr, "~~~~~~~~~~~~~~~~~~ swallowed = %s\n", PyUnicode_AsUTF8(PyObject_Repr(swallowed)));
+
+            PyObject* reraised = NULL;
+            if (swallowed == orig) {
+                reraised = Py_NewRef(Py_None);
+            } else if (swallowed != Py_None) {
+                if (PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_ExceptionGroup)) {
+                    if (PySequence_Length(((PyExceptionGroupObject*)swallowed)->excs) > 0) {
+                        PyObject *pair = PyObject_CallMethod(
+                            orig, "project", "OO", swallowed, Py_True);
+                        if (pair == NULL) {
+                            Py_DECREF(exc);
+                            Py_DECREF(orig);
+                            goto error;
+                        }
+                        reraised = Py_NewRef(PyTuple_GET_ITEM(pair, 1));
+                        Py_DECREF(pair);
+                    }
+                }
+            }
+
+            if (reraised == NULL) {
+                reraised = orig;
+            }
+            if (swallowed != orig) {
+                Py_DECREF(swallowed);
+            }
+            FPRINTF(stderr, "~~~~~~~~~~~~~~~~~~ reraised = %s\n", PyUnicode_AsUTF8(PyObject_Repr(reraised)));
+
+            if (reraised != Py_None) {
+                if ((!PyObject_TypeCheck(reraised, (PyTypeObject *)PyExc_ExceptionGroup)) ||
+                    PySequence_Length(((PyExceptionGroupObject*)reraised)->excs) > 0) {
+                    if (PyList_Append(raised, reraised) == -1) {
+                        if (reraised != orig) {
+                            Py_DECREF(reraised);
+                        }
+                        Py_DECREF(exc);
+                        Py_DECREF(orig);
+                    }
+                }
+            }
+            FPRINTF(stderr, "~~~~~~~~~~~~~~~~~~ raised = %s\n", PyUnicode_AsUTF8(PyObject_Repr(raised)));
+            if (reraised != orig) {
+                Py_DECREF(reraised);
+            }
+            Py_ssize_t num_raised = PySequence_Length(raised);
+            FPRINTF(stderr, "~~~~~~ num_raised = %d\n", (int)num_raised);
+            if (num_raised == -1) {
+                Py_DECREF(exc);
+                Py_DECREF(orig);
+                goto error;
+            }
+            if (num_raised) {
+                PyObject *val = NULL;
+                if (PySequence_Length(raised) > 1) {
+                    PyObject *args = PyTuple_Pack(
+                        2, PyUnicode_FromString(""), raised);
+
+                    if (args == NULL) {
+                        Py_DECREF(exc);
+                        Py_DECREF(orig);
+                        goto error;
+                    }
+                    val = PyObject_CallObject(
+                        PyExc_ExceptionGroup, args);
+                    Py_DECREF(exc);
+                    Py_DECREF(args);
+                    if (val == NULL) {
+                        Py_DECREF(orig);
+                        goto error;
+                    }
+                }
+                else {
+                    val = PyList_GetItem(raised, 0);
+                }
+                FPRINTF(stderr, "~~~~~~~~~~~~~~~~~~ val = %s\n", PyUnicode_AsUTF8(PyObject_Repr(val)));
+                PUSH(PyException_GetTraceback(orig));
+                PUSH(val);
+                PUSH(Py_NewRef((PyObject*)val->ob_type));
+                Py_DECREF(orig);
             }
             else {
-                assert(PyList_Check(exc));
-                fprintf(stderr, "=========== RERAISE exc=%s\n", PyUnicode_AsUTF8(PyObject_Repr(exc)));
-                PyObject *orig = POP();
-                fprintf(stderr, "=========== RERAISE orig = %s\n", PyUnicode_AsUTF8(PyObject_Repr(orig)));
-
-                /* TODO: merge the exceptions in exc (use orig for structure) */
-                PyObject *args = PyTuple_Pack(
-                    2, PyUnicode_FromString(""), exc);
-                if (!args) {
-                    goto error;
-                }
-                PyObject *val = PyObject_CallObject(
-                    PyExc_ExceptionGroup, args);
-                if (!val) {
-                    goto error;
-                }
-                _PyErr_Restore(tstate, (PyObject*)val->ob_type, val, PyException_GetTraceback(orig));
+                // nothing to reraise
+                FPRINTF(stderr, "NOTHING TO RERAISE\n");
+                FPRINTF(stderr, "--TOP() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(TOP())));
+                FPRINTF(stderr, "--SECOND() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(SECOND())));
+                FPRINTF(stderr, "--THIRD() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(THIRD())));
+                PUSH(Py_NewRef(Py_None));
+                PUSH(Py_NewRef(Py_None));
+                PUSH(Py_NewRef(Py_None));
             }
-            goto exception_unwind;
+            FAST_DISPATCH();
         }
 
         case TARGET(END_ASYNC_FOR): {
@@ -4165,7 +4316,6 @@ exception_unwind:
         while (f->f_iblock > 0) {
             /* Pop the current block. */
             PyTryBlock *b = &f->f_blockstack[--f->f_iblock];
-
             if (b->b_type == EXCEPT_HANDLER) {
                 UNWIND_EXCEPT_HANDLER(b);
                 continue;

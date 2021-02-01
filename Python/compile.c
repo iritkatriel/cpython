@@ -1053,6 +1053,8 @@ stack_effect(int opcode, int oparg, int jump)
              * Restore the stack position and push 6 values before jumping to
              * the handler if an exception be raised. */
             return jump ? 6 : 0;
+        case RERAISE_STAR:
+            return 1;
         case RERAISE:
             return -3;
 
@@ -3078,8 +3080,8 @@ compiler_try_finally(struct compiler *c, stmt_ty s)
    [orig, res, tb, val]                                        LIST_APPEND 2 ) add unhandled exc to res
    [orig, res, tb]                                             POP
    [orig, res]                                                 POP
-   [orig, res]                                                 RERAISE    ) raise exception (merged what's 
-                                                                          )in res, using orig for reference)
+   [orig, res]                                                 RERAISE_STAR  ) raise exception (merged what's 
+                                                                             )in res, using orig for reference)
 
    []                                               <next statement>
 
@@ -3089,7 +3091,7 @@ compiler_try_finally(struct compiler *c, stmt_ty s)
 static int
 compiler_try_except(struct compiler *c, stmt_ty s)
 {
-    basicblock *body, *orelse, *check_if_done, *except, *end;
+    basicblock *body, *orelse, *check_if_done, *except, *end, *reraise_star;
     Py_ssize_t i, n;
     int is_except_star = s->v.Try.star;
 
@@ -3099,6 +3101,13 @@ compiler_try_except(struct compiler *c, stmt_ty s)
     end = compiler_new_block(c);
     if (body == NULL || except == NULL || orelse == NULL || end == NULL)
         return 0;
+
+    if (is_except_star) {
+        reraise_star = compiler_new_block(c);
+        if (reraise_star == NULL)
+            return 0;
+    }
+
     ADDOP_JUMP(c, SETUP_FINALLY, except);
     compiler_use_next_block(c, body);
     if (!compiler_push_fblock(c, TRY_EXCEPT, body, NULL, NULL))
@@ -3115,7 +3124,11 @@ compiler_try_except(struct compiler *c, stmt_ty s)
     for (i = 0; i < n; i++) {
         excepthandler_ty handler = (excepthandler_ty)asdl_seq_GET(
             s->v.Try.handlers, i);
-        if (!handler->v.ExceptHandler.type && i < n-1)
+        if (is_except_star) {
+            if (!handler->v.ExceptHandler.type)
+                return compiler_error(c, "default 'except*:' not supported yet");
+        }
+        if (!handler->v.ExceptHandler.type && i < n - 1)
             return compiler_error(c, "default 'except:' must be last");
         SET_LOC(c, handler);
         except = compiler_new_block(c);
@@ -3221,9 +3234,7 @@ compiler_try_except(struct compiler *c, stmt_ty s)
                 ADDOP(c, POP_TOP);
 
                 /* remove (tb, match, exc) */
-                ADDOP(c, POP_TOP);
-                ADDOP(c, POP_TOP);
-                ADDOP(c, POP_TOP);
+                ADDOP(c, POP_EXCEPT);
                 ADDOP_JUMP(c, JUMP_ABSOLUTE, check_if_done);
             }
             else {
@@ -3237,16 +3248,13 @@ compiler_try_except(struct compiler *c, stmt_ty s)
             if (!cleanup_body)
                 return 0;
 
+            ADDOP(c, POP_TOP);
+            ADDOP(c, POP_TOP);
+
             if (is_except_star) {
                 cleanup_end = compiler_new_block(c);
                 if (!cleanup_body)
                     return 0;
-            }
-
-            ADDOP(c, POP_TOP);
-            ADDOP(c, POP_TOP);
-
-            if (is_except_star) {
                 ADDOP_JUMP(c, SETUP_FINALLY, cleanup_end);
             }
 
@@ -3261,6 +3269,7 @@ compiler_try_except(struct compiler *c, stmt_ty s)
                 ADDOP_JUMP(c, JUMP_FORWARD, end);
             }
             else {
+                ADDOP(c, POP_BLOCK);
                 ADDOP_JUMP(c, JUMP_ABSOLUTE, check_if_done);
             }
 
@@ -3273,24 +3282,24 @@ compiler_try_except(struct compiler *c, stmt_ty s)
                 ADDOP(c, POP_TOP);
 
                 /* remove (tb, match, exc) */
-                ADDOP(c, POP_TOP);
-                ADDOP(c, POP_TOP);
-                ADDOP(c, POP_TOP);
+                ADDOP(c, POP_EXCEPT);
                 ADDOP_JUMP(c, JUMP_ABSOLUTE, check_if_done);
             }
         }
         if (is_except_star) {
             compiler_use_next_block(c, check_if_done);
-            ADDOP(c, DUP_TOP);
-            ADDOP_JUMP(c, POP_JUMP_IF_TRUE, except); /* not done */
-            NEXT_BLOCK(c);
+            if (handler->v.ExceptHandler.type) {
+                ADDOP(c, DUP_TOP);
+                ADDOP_JUMP(c, POP_JUMP_IF_TRUE, except); /* not done */
+                NEXT_BLOCK(c);
+            }
             if (handler->v.ExceptHandler.type) {
                 /* Done - remove the Nones of (tb, rest, exc) */
                 ADDOP(c, POP_TOP);
                 ADDOP(c, POP_TOP);
                 ADDOP(c, POP_TOP);
             }
-            ADDOP_JUMP(c, JUMP_FORWARD, end);
+            ADDOP_JUMP(c, JUMP_FORWARD, reraise_star);
         }
         compiler_use_next_block(c, except);
         if (is_except_star) {
@@ -3299,7 +3308,7 @@ compiler_try_except(struct compiler *c, stmt_ty s)
                 ADDOP(c, POP_TOP);
                 ADDOP_I(c, LIST_APPEND, 2);
                 ADDOP(c, POP_TOP);
-                ADDOP_JUMP(c, JUMP_FORWARD, end);
+                ADDOP_JUMP(c, JUMP_FORWARD, reraise_star);
             }
         }
     }
@@ -3312,15 +3321,27 @@ compiler_try_except(struct compiler *c, stmt_ty s)
     }
     compiler_use_next_block(c, orelse);
     VISIT_SEQ(c, stmt, s->v.Try.orelse);
-    compiler_use_next_block(c, end);
     if (is_except_star) {
-        basicblock *really_end;
-        really_end = compiler_new_block(c);
-        if (really_end == NULL)
+        basicblock *reraise;
+        reraise = compiler_new_block(c);
+        if (reraise == NULL)
             return 0;
-        ADDOP(c, RERAISE);
-        compiler_use_next_block(c, really_end);
+        ADDOP_JUMP(c, JUMP_FORWARD, end);
+        compiler_use_next_block(c, reraise_star);
+        ADDOP(c, RERAISE_STAR)
+        ADDOP(c, DUP_TOP);
+        ADDOP_JUMP(c, POP_JUMP_IF_TRUE, reraise);
+        NEXT_BLOCK(c);
+        /* Nothing to reraise - pop it */
+        ADDOP(c, POP_TOP);
+        ADDOP(c, POP_TOP);
+        ADDOP(c, POP_TOP);
+        ADDOP(c, POP_EXCEPT);
+        ADDOP_JUMP(c, JUMP_FORWARD, end);
+        compiler_use_next_block(c, reraise);
+        ADDOP(c, RERAISE)
     }
+    compiler_use_next_block(c, end);
     return 1;
 }
 
