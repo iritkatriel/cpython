@@ -42,7 +42,7 @@
 #  error "ceval.c must be build with Py_BUILD_CORE define for best performance"
 #endif
 
-//#define FPRINTF fprintf(stderr,"  >>  SL=%d  << :", STACK_LEVEL()); fprintf
+// #define FPRINTF fprintf(stderr,"  >>  SL=%d  << :", STACK_LEVEL()); fprintf
 #define FPRINTF
 _Py_IDENTIFIER(__name__);
 
@@ -2553,53 +2553,59 @@ main_loop:
                 Py_DECREF(swallowed);
             }
             FPRINTF(stderr, "~~~~~~~~~~~~~~~~~~ reraised = %s\n", PyUnicode_AsUTF8(PyObject_Repr(reraised)));
-
-            if (reraised != Py_None) {
-                if ((!PyObject_TypeCheck(reraised, (PyTypeObject *)PyExc_ExceptionGroup)) ||
-                    PySequence_Length(((PyExceptionGroupObject*)reraised)->excs) > 0) {
-                    if (PyList_Append(raised, reraised) == -1) {
-                        if (reraised != orig) {
-                            Py_DECREF(reraised);
-                        }
-                        Py_DECREF(exc);
-                        Py_DECREF(orig);
-                    }
-                }
-            }
-            FPRINTF(stderr, "~~~~~~~~~~~~~~~~~~ raised = %s\n", PyUnicode_AsUTF8(PyObject_Repr(raised)));
-            if (reraised != orig) {
-                Py_DECREF(reraised);
-            }
             Py_ssize_t num_raised = PySequence_Length(raised);
-            FPRINTF(stderr, "~~~~~~ num_raised = %d\n", (int)num_raised);
             if (num_raised == -1) {
-                Py_DECREF(exc);
-                Py_DECREF(orig);
+                // TODO: decrefs?
                 goto error;
             }
-            if (num_raised) {
-                PyObject *val = NULL;
-                if (PySequence_Length(raised) > 1) {
+            FPRINTF(stderr, "~~~~~~ num_raised = %d\n", (int)num_raised);
+
+            PyObject *val = NULL;
+            if (reraised == Py_None) {
+                if (num_raised >= 1) {
                     PyObject *args = PyTuple_Pack(
                         2, PyUnicode_FromString(""), raised);
 
                     if (args == NULL) {
-                        Py_DECREF(exc);
-                        Py_DECREF(orig);
+                        // TODO: decrefs?
                         goto error;
                     }
                     val = PyObject_CallObject(
                         PyExc_ExceptionGroup, args);
-                    Py_DECREF(exc);
-                    Py_DECREF(args);
                     if (val == NULL) {
-                        Py_DECREF(orig);
+                        // TODO: decrefs?
                         goto error;
                     }
+                    // TODO: decrefs?
                 }
-                else {
-                    val = PyList_GetItem(raised, 0);
+            } else {
+                /* reraised is not None */
+                if (num_raised == 0) {
+                    val = Py_NewRef(reraised);
+                } else {
+                    if (PyList_Append(raised, reraised) == -1) {
+                        // TODO: decrefs?
+                        goto error;
+                    }
+                    FPRINTF(stderr, "~~~~~~~~~~~~~~~~~~ raised = %s\n", PyUnicode_AsUTF8(PyObject_Repr(raised)));
+                    PyObject *args = PyTuple_Pack(
+                        2, PyUnicode_FromString(""), raised);
+                    if (args == NULL) {
+                        // TODO: decrefs?
+                        goto error;
+                    }
+                    val = PyObject_CallObject(
+                        PyExc_ExceptionGroup, args);
+                    if (val == NULL) {
+                        // TODO: decrefs?
+                        goto error;
+                    }
+                    // TODO: decrefs?
                 }
+            }
+
+
+            if (val != NULL) {
                 FPRINTF(stderr, "~~~~~~~~~~~~~~~~~~ val = %s\n", PyUnicode_AsUTF8(PyObject_Repr(val)));
                 PUSH(PyException_GetTraceback(orig));
                 PUSH(val);

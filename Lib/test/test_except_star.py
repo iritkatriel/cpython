@@ -34,8 +34,7 @@ class TestInvalidExceptStar(unittest.TestCase):
                 pass
 
 
-class TestExceptStarSplitSemantics(unittest.TestCase):
-
+class ExceptStarTest(unittest.TestCase):
     def assertExceptionIsLike(self, exc, template):
         if exc is None and template is None:
             return
@@ -55,6 +54,8 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
             for e, t in zip(exc.excs, template.excs):
                 self.assertExceptionIsLike(e, t)
 
+
+class TestExceptStarSplitSemantics(ExceptStarTest):
     def doSplitTestNamed(self, exc, T, match_template, rest_template):
         exc_info = match = rest = None
         try:
@@ -208,6 +209,32 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
             ExceptionGroup("st", [BlockingIOError("io")]),
             ExceptionGroup("st", [TypeError("T")]))
 
+    def test_multiple_matches_named(self):
+        try:
+            raise ExceptionGroup("mmn", [OSError("os"), BlockingIOError("io")])
+        except *BlockingIOError as e:
+            self.assertExceptionIsLike(e,
+                ExceptionGroup("mmn", [BlockingIOError("io")]))
+        except *OSError as e:
+            self.assertExceptionIsLike(e,
+                ExceptionGroup("mmn", [OSError("os")]))
+        else:
+            self.fail("Exception not raised")
+
+    def test_multiple_matches_unnamed(self):
+        try:
+            raise ExceptionGroup("mmu", [OSError("os"), BlockingIOError("io")])
+        except *BlockingIOError:
+            e = sys.exc_info()[1]
+            self.assertExceptionIsLike(e,
+                ExceptionGroup("mmu", [BlockingIOError("io")]))
+        except *OSError:
+            e = sys.exc_info()[1]
+            self.assertExceptionIsLike(e,
+                ExceptionGroup("mmu", [OSError("os")]))
+        else:
+            self.fail("Exception not raised")
+
     def test_first_match_wins_named(self):
         try:
             raise ExceptionGroup("fst", [BlockingIOError("io")])
@@ -254,12 +281,378 @@ class TestExceptStarSplitSemantics(unittest.TestCase):
                 self.fail("Exception not raised")
 
 
-class TestExceptStarReraise(unittest.TestCase):
-    pass
+class TestExceptStarReraise(ExceptStarTest):
+    def test_reraise_all_named(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [TypeError(1), ValueError(2), OSError(3)])
+            except *TypeError as e:
+                raise
+            except *ValueError as e:
+                raise
+            # OSError not handled
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc,
+            ExceptionGroup("eg", [TypeError(1), ValueError(2), OSError(3)]))
+
+    def test_reraise_all_unnamed(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [TypeError(1), ValueError(2), OSError(3)])
+            except *TypeError:
+                raise
+            except *ValueError:
+                raise
+            # OSError not handled
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc,
+            ExceptionGroup("eg", [TypeError(1), ValueError(2), OSError(3)]))
+
+    def test_reraise_some_handle_all_named(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [TypeError(1), ValueError(2), OSError(3)])
+            except *TypeError as e:
+                raise
+            except *ValueError as e:
+                pass
+            # OSError not handled
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc, ExceptionGroup("eg", [TypeError(1), OSError(3)]))
+
+    def test_reraise_partial_handle_all_unnamed(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [TypeError(1), ValueError(2)])
+            except *TypeError:
+                raise
+            except *ValueError:
+                pass
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc, ExceptionGroup("eg", [TypeError(1)]))
+
+    def test_reraise_partial_handle_some_named(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [TypeError(1), ValueError(2), OSError(3)])
+            except *TypeError as e:
+                raise
+            except *ValueError as e:
+                pass
+            # OSError not handled
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc, ExceptionGroup("eg", [TypeError(1), OSError(3)]))
+
+    def test_reraise_partial_handle_some_unnamed(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [TypeError(1), ValueError(2), OSError(3)])
+            except *TypeError:
+                raise
+            except *ValueError:
+                pass
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc, ExceptionGroup("eg", [TypeError(1), OSError(3)]))
 
 
-class TestExceptStarChaining(unittest.TestCase):
-    pass
+class TestExceptStarRaise(ExceptStarTest):
+    def test_raise_named(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [ValueError(1), OSError(2)])
+            except *OSError as e:
+                raise TypeError(3)
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc,
+            ExceptionGroup(
+                "", [TypeError(3), ExceptionGroup("eg", [ValueError(1)])]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__context__,
+            ExceptionGroup("eg", [OSError(2)]))
+
+    def test_raise_unnamed(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [ValueError(1), OSError(2)])
+            except *OSError:
+                raise TypeError(3)
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc,
+            ExceptionGroup(
+                "", [TypeError(3), ExceptionGroup("eg", [ValueError(1)])]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__context__,
+            ExceptionGroup("eg", [OSError(2)]))
+
+    def test_raise_handle_all_raise_one_named(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [TypeError(1), ValueError(2)])
+            except *(TypeError, ValueError) as e:
+                raise SyntaxError(3)
+        except BaseException as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc, ExceptionGroup("", [SyntaxError(3)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__context__,
+            ExceptionGroup("eg", [TypeError(1), ValueError(2)]))
+
+    def test_raise_handle_all_raise_one_unnamed(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [TypeError(1), ValueError(2)])
+            except *(TypeError, ValueError) as e:
+                raise SyntaxError(3)
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc, ExceptionGroup("", [SyntaxError(3)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__context__,
+            ExceptionGroup("eg", [TypeError(1), ValueError(2)]))
+
+    def test_raise_handle_all_raise_two_named(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [TypeError(1), ValueError(2)])
+            except *TypeError as e:
+                raise SyntaxError(3)
+            except *ValueError as e:
+                raise SyntaxError(4)
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc, ExceptionGroup("", [SyntaxError(3), SyntaxError(4)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__context__,
+            ExceptionGroup("eg", [TypeError(1)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[1].__context__,
+            ExceptionGroup("eg", [ValueError(2)]))
+
+    def test_raise_handle_all_raise_two_unnamed(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [TypeError(1), ValueError(2)])
+            except *TypeError:
+                raise SyntaxError(3)
+            except *ValueError:
+                raise SyntaxError(4)
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc, ExceptionGroup("", [SyntaxError(3), SyntaxError(4)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__context__,
+            ExceptionGroup("eg", [TypeError(1)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[1].__context__,
+            ExceptionGroup("eg", [ValueError(2)]))
+
+
+class TestExceptStarRaiseFrom(ExceptStarTest):
+    def test_raise_named(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [ValueError(1), OSError(2)])
+            except *OSError as e:
+                raise TypeError(3) from e
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc,
+            ExceptionGroup(
+                "", [TypeError(3), ExceptionGroup("eg", [ValueError(1)])]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__context__,
+            ExceptionGroup("eg", [OSError(2)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__cause__,
+            ExceptionGroup("eg", [OSError(2)]))
+
+    def test_raise_unnamed(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [ValueError(1), OSError(2)])
+            except *OSError:
+                e = sys.exc_info()[1]
+                raise TypeError(3) from e
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc,
+            ExceptionGroup(
+                "", [TypeError(3), ExceptionGroup("eg", [ValueError(1)])]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__context__,
+            ExceptionGroup("eg", [OSError(2)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__cause__,
+            ExceptionGroup("eg", [OSError(2)]))
+
+    def test_raise_handle_all_raise_one_named(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [TypeError(1), ValueError(2)])
+            except *(TypeError, ValueError) as e:
+                raise SyntaxError(3) from e
+        except BaseException as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc, ExceptionGroup("", [SyntaxError(3)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__context__,
+            ExceptionGroup("eg", [TypeError(1), ValueError(2)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__cause__,
+            ExceptionGroup("eg", [TypeError(1), ValueError(2)]))
+
+    def test_raise_handle_all_raise_one_unnamed(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [TypeError(1), ValueError(2)])
+            except *(TypeError, ValueError) as e:
+                e = sys.exc_info()[1]
+                raise SyntaxError(3) from e
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc, ExceptionGroup("", [SyntaxError(3)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__context__,
+            ExceptionGroup("eg", [TypeError(1), ValueError(2)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__cause__,
+            ExceptionGroup("eg", [TypeError(1), ValueError(2)]))
+
+    def test_raise_handle_all_raise_two_named(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [TypeError(1), ValueError(2)])
+            except *TypeError as e:
+                raise SyntaxError(3) from e
+            except *ValueError as e:
+                raise SyntaxError(4) from e
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc, ExceptionGroup("", [SyntaxError(3), SyntaxError(4)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__context__,
+            ExceptionGroup("eg", [TypeError(1)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__cause__,
+            ExceptionGroup("eg", [TypeError(1)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[1].__context__,
+            ExceptionGroup("eg", [ValueError(2)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[1].__cause__,
+            ExceptionGroup("eg", [ValueError(2)]))
+
+    def test_raise_handle_all_raise_two_unnamed(self):
+        try:
+            try:
+                raise ExceptionGroup(
+                    "eg", [TypeError(1), ValueError(2)])
+            except *TypeError:
+                e = sys.exc_info()[1]
+                raise SyntaxError(3) from e
+            except *ValueError:
+                e = sys.exc_info()[1]
+                raise SyntaxError(4) from e
+        except ExceptionGroup as e:
+            exc = e
+
+        self.assertExceptionIsLike(
+            exc, ExceptionGroup("", [SyntaxError(3), SyntaxError(4)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__context__,
+            ExceptionGroup("eg", [TypeError(1)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[0].__cause__,
+            ExceptionGroup("eg", [TypeError(1)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[1].__context__,
+            ExceptionGroup("eg", [ValueError(2)]))
+
+        self.assertExceptionIsLike(
+            exc.excs[1].__cause__,
+            ExceptionGroup("eg", [ValueError(2)]))
 
 
 if __name__ == '__main__':
