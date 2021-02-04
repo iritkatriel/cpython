@@ -181,7 +181,7 @@ class ExceptStarTestCases(unittest.TestCase):
 
         try:
             raise Exception('nyaa!')
-        except*:
+        except *BaseException:
             hit_except = True
         else:
             hit_else = True
@@ -199,7 +199,7 @@ class ExceptStarTestCases(unittest.TestCase):
 
         try:
             pass
-        except*:
+        except *BaseException:
             hit_except = True
         else:
             hit_else = True
@@ -216,7 +216,7 @@ class ExceptStarTestCases(unittest.TestCase):
 
         try:
             raise Exception('yarr!')
-        except*:
+        except *BaseException:
             hit_except = True
         finally:
             hit_finally = True
@@ -230,7 +230,7 @@ class ExceptStarTestCases(unittest.TestCase):
 
         try:
             pass
-        except*:
+        except *BaseException:
             hit_except = True
         finally:
             hit_finally = True
@@ -243,7 +243,7 @@ class ExceptStarTestCases(unittest.TestCase):
 
         try:
             raise Exception('ahoy!')
-        except*:
+        except *BaseException:
             hit_except = True
 
         self.assertTrue(hit_except)
@@ -253,7 +253,7 @@ class ExceptStarTestCases(unittest.TestCase):
 
         try:
             pass
-        except*:
+        except *BaseException:
             hit_except = True
 
         self.assertFalse(hit_except)
@@ -264,7 +264,7 @@ class ExceptStarTestCases(unittest.TestCase):
 
         try:
             raise Exception('foo!')
-        except*:
+        except *BaseException:
             hit_except = True
         else:
             hit_else = True
@@ -278,7 +278,7 @@ class ExceptStarTestCases(unittest.TestCase):
 
         try:
             pass
-        except*:
+        except *BaseException:
             hit_except = True
         else:
             hit_else = True
@@ -304,7 +304,7 @@ class ExceptStarTestCases(unittest.TestCase):
         try:
             try:
                 raise Exception('inner exception')
-            except*:
+            except *BaseException:
                 hit_inner_except = True
             finally:
                 hit_inner_finally = True
@@ -325,13 +325,13 @@ class ExceptStarTestCases(unittest.TestCase):
         try:
             try:
                 pass
-            except*:
+            except *BaseException:
                 hit_inner_except = True
             else:
                 hit_inner_else = True
 
             raise Exception('outer exception')
-        except*:
+        except *BaseException:
             hit_except = True
         else:
             hit_else = True
@@ -353,7 +353,7 @@ class ExceptStarTestCases(unittest.TestCase):
         try:
             try:
                 raise Exception('inner exception')
-            except*:
+            except *BaseException:
                 hit_inner_except = True
             finally:
                 hit_inner_finally = True
@@ -380,7 +380,7 @@ class ExceptStarTestCases(unittest.TestCase):
                 hit_inner_except = True
             finally:
                 hit_inner_finally = True
-        except*:
+        except *BaseException:
             hit_except = True
         finally:
             hit_finally = True
@@ -401,7 +401,7 @@ class ExceptStarTestCases(unittest.TestCase):
         try:
             try:
                 pass
-            except*:
+            except *BaseException:
                 hit_inner_except = True
             else:
                 hit_inner_else = True
@@ -436,7 +436,7 @@ class ExceptStarTestCases(unittest.TestCase):
                 hit_inner_else = True
 
             raise Exception('outer exception')
-        except*:
+        except *BaseException:
             hit_except = True
         else:
             hit_else = True

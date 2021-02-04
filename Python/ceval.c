@@ -2496,7 +2496,7 @@ main_loop:
                     FPRINTF(stderr, ";;;; e = %s\n", PyUnicode_AsUTF8(PyObject_Repr(e)));
                     FPRINTF(stderr, "swallowed = %s\n", PyUnicode_AsUTF8(PyObject_Repr(swallowed)));
                     PyObject *pair = PyObject_CallMethod(
-                        (PyObject*)swallowed, "project", "OO", e, Py_True);
+                        (PyObject*)swallowed, "split", "OO", e, Py_True);
                     if (pair == NULL) {
                         Py_DECREF(exc);
                         Py_DECREF(orig);
@@ -2534,7 +2534,7 @@ main_loop:
                 if (PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_ExceptionGroup)) {
                     if (PySequence_Length(((PyExceptionGroupObject*)swallowed)->excs) > 0) {
                         PyObject *pair = PyObject_CallMethod(
-                            orig, "project", "OO", swallowed, Py_True);
+                            orig, "split", "OO", swallowed, Py_True);
                         if (pair == NULL) {
                             Py_DECREF(exc);
                             Py_DECREF(orig);
@@ -3555,7 +3555,7 @@ main_loop:
                     // TODO: DUP val on the stack like the exc?
                     PyObject *eg = PEEK(2);
                     pair = PyObject_CallMethod(
-                        eg, "project", "OO", right, Py_True);
+                        eg, "split", "OO", right, Py_True);
                     Py_DECREF(left);
                     Py_DECREF(right);
                     if (!pair) {
@@ -6010,7 +6010,7 @@ check_except_star_type_valid(PyThreadState *tstate, PyObject* right) {
         return 0;
     }
     // reject except *ExceptionGroup
-    int res = PyObject_IsSubclass(PyExc_ExceptionGroup, right);
+    int res = PyObject_IsSubclass(right, PyExc_ExceptionGroup);
     if (res == -1) {
         return 0;
     }
