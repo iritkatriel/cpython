@@ -3126,7 +3126,7 @@ compiler_try_except(struct compiler *c, stmt_ty s)
             s->v.Try.handlers, i);
         if (is_except_star) {
             if (!handler->v.ExceptHandler.type)
-                return compiler_error(c, "default 'except*:' not supported yet");
+                return compiler_error(c, "default 'except*:' not supported");
         }
         if (!handler->v.ExceptHandler.type && i < n - 1)
             return compiler_error(c, "default 'except:' must be last");

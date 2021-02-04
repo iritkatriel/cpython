@@ -2435,10 +2435,6 @@ main_loop:
         }
 
         case TARGET(RERAISE): {
-            FPRINTF(stderr, "~~~~~~~~~~~~~~~ RERAISE \n");
-            FPRINTF(stderr, "TOP() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(TOP())));
-            FPRINTF(stderr, "SECOND() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(SECOND())));
-            FPRINTF(stderr, "THIRD() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(THIRD())));
             PyObject *exc = POP();
             PyObject *val = POP();
             PyObject *tb = POP();
@@ -2447,16 +2443,10 @@ main_loop:
         }
 
         case TARGET(RERAISE_STAR): {
-            FPRINTF(stderr, "~~~~~~~~~~~~~~~ RERAISE_STAR \n");
-            FPRINTF(stderr, "TOP() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(TOP())));
-            FPRINTF(stderr, "SECOND() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(SECOND())));
-            FPRINTF(stderr, "THIRD() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(THIRD())));
 
             PyObject *exc = POP();
             assert(PyList_Check(exc));
-            FPRINTF(stderr, "=========== RERAISE_STAR exc=%s\n", PyUnicode_AsUTF8(PyObject_Repr(exc)));
             PyObject *orig = POP();
-            FPRINTF(stderr, "=========== RERAISE_STAR orig = %s\n", PyUnicode_AsUTF8(PyObject_Repr(orig)));
 
             PyObject *raised = PyList_New(0);
             if (raised == NULL) {
@@ -2487,14 +2477,11 @@ main_loop:
                 PyObject *cause = PyException_GetCause(e);
                 if (e == swallowed) {
                     /* raised exception was caught and raised - nothing swallowed */
-                    FPRINTF(stderr, "e == swallowed = %s\n", PyUnicode_AsUTF8(PyObject_Repr(e)));
                     swallowed = Py_NewRef(Py_None);
                 } else if (PyObject_TypeCheck(e, (PyTypeObject *)PyExc_ExceptionGroup) &&
                            PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_ExceptionGroup) &&
                            tb == o_tb && ctx == o_ctx && cause == o_cause) {
                     /* same metadata - this is a reraise */
-                    FPRINTF(stderr, ";;;; e = %s\n", PyUnicode_AsUTF8(PyObject_Repr(e)));
-                    FPRINTF(stderr, "swallowed = %s\n", PyUnicode_AsUTF8(PyObject_Repr(swallowed)));
                     PyObject *pair = PyObject_CallMethod(
                         (PyObject*)swallowed, "split", "OO", e, Py_True);
                     if (pair == NULL) {
@@ -2507,9 +2494,7 @@ main_loop:
                             Py_XDECREF(swallowed);
                         goto error;
                     }
-                    FPRINTF(stderr, "pair = %s\n", PyUnicode_AsUTF8(PyObject_Repr(pair)));
                     swallowed = Py_NewRef(PyTuple_GET_ITEM(pair, 1));
-                    FPRINTF(stderr, "swallowed = %s\n", PyUnicode_AsUTF8(PyObject_Repr(swallowed)));
                     Py_DECREF(pair);
                 }
                 else {
@@ -2524,8 +2509,6 @@ main_loop:
             Py_XDECREF(o_tb);
             Py_XDECREF(o_ctx);
             Py_XDECREF(o_cause);
-
-            FPRINTF(stderr, "~~~~~~~~~~~~~~~~~~ swallowed = %s\n", PyUnicode_AsUTF8(PyObject_Repr(swallowed)));
 
             PyObject* reraised = NULL;
             if (swallowed == orig) {
@@ -2552,14 +2535,11 @@ main_loop:
             if (swallowed != orig) {
                 Py_DECREF(swallowed);
             }
-            FPRINTF(stderr, "~~~~~~~~~~~~~~~~~~ reraised = %s\n", PyUnicode_AsUTF8(PyObject_Repr(reraised)));
             Py_ssize_t num_raised = PySequence_Length(raised);
             if (num_raised == -1) {
                 // TODO: decrefs?
                 goto error;
             }
-            FPRINTF(stderr, "~~~~~~ num_raised = %d\n", (int)num_raised);
-
             PyObject *val = NULL;
             if (reraised == Py_None) {
                 if (num_raised >= 1) {
@@ -2587,7 +2567,6 @@ main_loop:
                         // TODO: decrefs?
                         goto error;
                     }
-                    FPRINTF(stderr, "~~~~~~~~~~~~~~~~~~ raised = %s\n", PyUnicode_AsUTF8(PyObject_Repr(raised)));
                     PyObject *args = PyTuple_Pack(
                         2, PyUnicode_FromString(""), raised);
                     if (args == NULL) {
@@ -2606,7 +2585,6 @@ main_loop:
 
 
             if (val != NULL) {
-                FPRINTF(stderr, "~~~~~~~~~~~~~~~~~~ val = %s\n", PyUnicode_AsUTF8(PyObject_Repr(val)));
                 PUSH(PyException_GetTraceback(orig));
                 PUSH(val);
                 PUSH(Py_NewRef((PyObject*)val->ob_type));
@@ -2614,10 +2592,6 @@ main_loop:
             }
             else {
                 // nothing to reraise
-                FPRINTF(stderr, "NOTHING TO RERAISE\n");
-                FPRINTF(stderr, "--TOP() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(TOP())));
-                FPRINTF(stderr, "--SECOND() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(SECOND())));
-                FPRINTF(stderr, "--THIRD() = %s\n", PyUnicode_AsUTF8(PyObject_Repr(THIRD())));
                 PUSH(Py_NewRef(Py_None));
                 PUSH(Py_NewRef(Py_None));
                 PUSH(Py_NewRef(Py_None));
