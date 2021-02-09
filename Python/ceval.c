@@ -2455,60 +2455,66 @@ main_loop:
                 goto error;
             }
 
-            PyObject *swallowed = orig;
+            PyObject *swallowed = Py_NewRef(orig);
 
-            Py_ssize_t numexcs = PySequence_Length(exc);
-            PyObject *o_tb = PyException_GetTraceback(orig);
-            PyObject *o_ctx = PyException_GetContext(orig);
-            PyObject *o_cause = PyException_GetCause(orig);
+            {
+                Py_ssize_t numexcs = PySequence_Length(exc);
+                PyObject *o_tb = PyException_GetTraceback(orig);
+                PyObject *o_ctx = PyException_GetContext(orig);
+                PyObject *o_cause = PyException_GetCause(orig);
 
-            for (Py_ssize_t i = 0; i < numexcs; i++) {
-                PyObject *e = PyList_GetItem(exc, i);
-                if (e == NULL) {
-                    Py_DECREF(exc);
-                    Py_DECREF(orig);
-                    Py_XDECREF(o_tb);
-                    Py_XDECREF(o_ctx);
-                    Py_XDECREF(o_cause);
-                    goto error;
-                }
-                PyObject *tb = PyException_GetTraceback(e);
-                PyObject *ctx = PyException_GetContext(e);
-                PyObject *cause = PyException_GetCause(e);
-                if (e == swallowed) {
-                    /* raised exception was caught and raised - nothing swallowed */
-                    swallowed = Py_NewRef(Py_None);
-                } else if (PyObject_TypeCheck(e, (PyTypeObject *)PyExc_ExceptionGroup) &&
-                           PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_ExceptionGroup) &&
-                           tb == o_tb && ctx == o_ctx && cause == o_cause) {
-                    /* same metadata - this is a reraise */
-                    PyObject *pair = PyObject_CallMethod(
-                        (PyObject*)swallowed, "split", "OO", e, Py_True);
-                    if (pair == NULL) {
+                for (Py_ssize_t i = 0; i < numexcs; i++) {
+                    PyObject *e = PyList_GetItem(exc, i);
+                    if (e == NULL) {
                         Py_DECREF(exc);
                         Py_DECREF(orig);
                         Py_XDECREF(o_tb);
                         Py_XDECREF(o_ctx);
                         Py_XDECREF(o_cause);
-                        if (swallowed != orig)
-                            Py_XDECREF(swallowed);
+                        Py_XDECREF(swallowed);
                         goto error;
                     }
-                    swallowed = Py_NewRef(PyTuple_GET_ITEM(pair, 1));
-                    Py_DECREF(pair);
+                    PyObject *tb = PyException_GetTraceback(e);
+                    PyObject *ctx = PyException_GetContext(e);
+                    PyObject *cause = PyException_GetCause(e);
+                    if (e == swallowed) {
+                        /* raised exception was caught and raised - nothing swallowed */
+                        swallowed = Py_NewRef(Py_None);
+                    }
+                    else if (PyObject_TypeCheck(e, (PyTypeObject *)PyExc_ExceptionGroup) &&
+                        PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_ExceptionGroup) &&
+                        tb == o_tb && ctx == o_ctx && cause == o_cause) {
+                        /* same metadata - this is a reraise */
+                        PyObject *pair = PyObject_CallMethod(
+                            (PyObject*)swallowed, "split", "OO", e, Py_True);
+                        if (pair == NULL) {
+                            Py_DECREF(exc);
+                            Py_DECREF(orig);
+                            Py_XDECREF(o_tb);
+                            Py_XDECREF(o_ctx);
+                            Py_XDECREF(o_cause);
+                            Py_XDECREF(tb);
+                            Py_XDECREF(ctx);
+                            Py_XDECREF(cause);
+                            Py_XDECREF(swallowed);
+                            goto error;
+                        }
+                        swallowed = Py_NewRef(PyTuple_GET_ITEM(pair, 1));
+                        Py_DECREF(pair);
+                    }
+                    else {
+                        /* different metadata - this is a raise */
+                        PyList_Append(raised, e);
+                    }
+                    Py_XDECREF(tb);
+                    Py_XDECREF(ctx);
+                    Py_XDECREF(cause);
                 }
-                else {
-                    /* different metadata - this is a raise */
-                    PyList_Append(raised, e);
-                }
-                Py_XDECREF(tb);
-                Py_XDECREF(ctx);
-                Py_XDECREF(cause);
-            }
 
-            Py_XDECREF(o_tb);
-            Py_XDECREF(o_ctx);
-            Py_XDECREF(o_cause);
+                Py_XDECREF(o_tb);
+                Py_XDECREF(o_ctx);
+                Py_XDECREF(o_cause);
+            }
 
             PyObject* reraised = NULL;
             if (swallowed == orig) {
@@ -2528,67 +2534,69 @@ main_loop:
                     }
                 }
             }
-
             if (reraised == NULL) {
-                reraised = orig;
+                reraised = Py_NewRef(orig);
             }
-            if (swallowed != orig) {
-                Py_DECREF(swallowed);
-            }
+
+            Py_DECREF(swallowed);
+            swallowed = NULL;
             Py_ssize_t num_raised = PySequence_Length(raised);
             if (num_raised == -1) {
-                // TODO: decrefs?
+                Py_DECREF(raised);
+                Py_DECREF(reraised);
+                Py_DECREF(exc);
+                Py_DECREF(orig);
                 goto error;
             }
             PyObject *val = NULL;
-            if (reraised == Py_None) {
-                if (num_raised >= 1) {
-                    PyObject *args = PyTuple_Pack(
-                        2, PyUnicode_FromString(""), raised);
-
-                    if (args == NULL) {
-                        // TODO: decrefs?
-                        goto error;
-                    }
-                    val = PyObject_CallObject(
-                        PyExc_ExceptionGroup, args);
-                    if (val == NULL) {
-                        // TODO: decrefs?
-                        goto error;
-                    }
-                    // TODO: decrefs?
-                }
-            } else {
-                /* reraised is not None */
-                if (num_raised == 0) {
-                    val = Py_NewRef(reraised);
-                } else {
+            if (num_raised > 0) {
+                if (reraised != Py_None) {
                     if (PyList_Append(raised, reraised) == -1) {
-                        // TODO: decrefs?
+                        Py_DECREF(raised);
+                        Py_DECREF(reraised);
+                        Py_DECREF(exc);
+                        Py_DECREF(orig);
                         goto error;
                     }
-                    PyObject *args = PyTuple_Pack(
-                        2, PyUnicode_FromString(""), raised);
-                    if (args == NULL) {
-                        // TODO: decrefs?
-                        goto error;
-                    }
-                    val = PyObject_CallObject(
-                        PyExc_ExceptionGroup, args);
-                    if (val == NULL) {
-                        // TODO: decrefs?
-                        goto error;
-                    }
-                    // TODO: decrefs?
+                }
+                PyObject *args = PyTuple_Pack(
+                    2, PyUnicode_FromString(""), raised);
+                if (args == NULL) {
+                    Py_DECREF(raised);
+                    Py_DECREF(reraised);
+                    Py_DECREF(exc);
+                    Py_DECREF(orig);
+                    goto error;
+                }
+                val = PyObject_CallObject(
+                    PyExc_ExceptionGroup, args);
+                if (val == NULL) {
+                    Py_DECREF(args);
+                    Py_DECREF(raised);
+                    Py_DECREF(reraised);
+                    Py_DECREF(exc);
+                    Py_DECREF(orig);
+                    goto error;
                 }
             }
-
+            else if (reraised != Py_None) {
+                val = Py_NewRef(reraised);
+            }
+            Py_DECREF(raised);
+            Py_DECREF(reraised);
 
             if (val != NULL) {
-                PUSH(PyException_GetTraceback(orig));
+                assert(val != Py_None);
+                PyObject *tb = PyException_GetTraceback(orig);
+                PyException_SetTraceback(val, tb);  /* does not steal ref */
+                Py_XDECREF(tb);
+                PyException_SetContext(  /* steals ref */
+                    val, PyException_GetContext(orig));
+                PyException_SetCause(    /* steals ref */
+                    val, PyException_GetCause(orig));
+                PUSH(PyException_GetTraceback(val));
                 PUSH(val);
                 PUSH(Py_NewRef((PyObject*)val->ob_type));
-                Py_DECREF(orig);
             }
             else {
                 // nothing to reraise
@@ -2596,6 +2604,7 @@ main_loop:
                 PUSH(Py_NewRef(Py_None));
                 PUSH(Py_NewRef(Py_None));
             }
+            Py_DECREF(orig);
             FAST_DISPATCH();
         }
 
@@ -3486,7 +3495,6 @@ main_loop:
         case TARGET(JUMP_IF_NOT_EG_MATCH): {
             PyObject *right = POP();
             PyObject *left = POP();
-
             if (!check_except_star_type_valid(tstate, right)) {
                 Py_DECREF(left);
                 Py_DECREF(right);
@@ -3530,6 +3538,7 @@ main_loop:
                     PyObject *eg = PEEK(2);
                     pair = PyObject_CallMethod(
                         eg, "split", "OO", right, Py_True);
+
                     Py_DECREF(left);
                     Py_DECREF(right);
                     if (!pair) {
@@ -3572,7 +3581,6 @@ main_loop:
                         Py_XDECREF(pair);
                         goto error;
                     }
-
                     // Total or partial match - update the stack from
                     // [tb, val, exc]
                     // to
@@ -5984,9 +5992,26 @@ check_except_star_type_valid(PyThreadState *tstate, PyObject* right) {
         return 0;
     }
     // reject except *ExceptionGroup
-    int res = PyObject_IsSubclass(right, PyExc_ExceptionGroup);
-    if (res == -1) {
-        return 0;
+    int res = 0;
+    if (PyTuple_Check(right)) {
+        Py_ssize_t i, length;
+        length = PyTuple_GET_SIZE(right);
+        for (i = 0; i < length; i++) {
+            PyObject *exc = PyTuple_GET_ITEM(right, i);
+            res = PyObject_IsSubclass(exc, PyExc_ExceptionGroup);
+            if (res == -1) {
+                return 0;
+            }
+            if (res == 1) {
+                break;
+            }
+        }
+    }
+    else {
+        res = PyObject_IsSubclass(right, PyExc_ExceptionGroup);
+        if (res == -1) {
+            return 0;
+        }
     }
     if (res == 1) {
         _PyErr_SetString(tstate, PyExc_TypeError,
