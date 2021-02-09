@@ -2537,6 +2537,17 @@ main_loop:
             if (reraised == NULL) {
                 reraised = Py_NewRef(orig);
             }
+            else {
+                if (reraised != Py_None) {
+                    PyObject *tb = PyException_GetTraceback(orig);
+                    PyException_SetTraceback(reraised, tb);  /* does not steal ref */
+                    Py_XDECREF(tb);
+                    PyException_SetContext(  /* steals ref */
+                        reraised, PyException_GetContext(orig));
+                    PyException_SetCause(    /* steals ref */
+                        reraised, PyException_GetCause(orig));
+                }
+            }
 
             Py_DECREF(swallowed);
             swallowed = NULL;
@@ -2587,13 +2598,6 @@ main_loop:
 
             if (val != NULL) {
                 assert(val != Py_None);
-                PyObject *tb = PyException_GetTraceback(orig);
-                PyException_SetTraceback(val, tb);  /* does not steal ref */
-                Py_XDECREF(tb);
-                PyException_SetContext(  /* steals ref */
-                    val, PyException_GetContext(orig));
-                PyException_SetCause(    /* steals ref */
-                    val, PyException_GetCause(orig));
                 PUSH(PyException_GetTraceback(val));
                 PUSH(val);
                 PUSH(Py_NewRef((PyObject*)val->ob_type));
