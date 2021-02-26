@@ -643,7 +643,7 @@ class TracebackExceptionGroup:
     objects, or the constructor to create TracebackExceptionGroup instances from
     individual components.
 
-    - :attr:`excs` A list of TracebackException objects, one for each exception
+    - :attr:`errors` A list of TracebackException objects, one for each exception
     in the group.
     """
 
@@ -655,8 +655,8 @@ class TracebackExceptionGroup:
             raise ValueError(f'Expected an ExceptionGroup, got {type(exc_value)}')
         self.this = TracebackException(
             exc_type, exc_value, exc_traceback, **kwargs)
-        self.excs = [
-            ExceptionFormatter.from_exception(e) for e in exc_value.excs]
+        self.errors = [
+            ExceptionFormatter.from_exception(e) for e in exc_value.errors]
 
     @staticmethod
     def from_exception(exc, *args, **kwargs):
@@ -682,13 +682,13 @@ class TracebackExceptionGroup:
         # (2) the number of exceptions reported per level
         separator = self.SEPARATOR_LINE
         yield from self.this.format(chain=chain)
-        for exc in self.excs:
+        for exc in self.errors:
             yield from self._emit(
                 exc.format(chain=chain), sep=separator)
 
     def format_exception_only(self):
         yield from self.this.format_exception_only()
-        for exc in self.excs:
+        for exc in self.errors:
             yield from self._emit(exc.format_exception_only())
 
     def _emit(self, text_gen, sep=None):

@@ -20,7 +20,7 @@ class ExceptionGroupHelper:
     def flatten(exc):
         ''' iterate over the individual exceptions (flattens the tree) '''
         if isinstance(exc, ExceptionGroup):
-            for e in exc.excs:
+            for e in exc.errors:
                 for e_ in ExceptionGroupHelper.flatten(e):
                     yield e_
         else:
@@ -99,12 +99,12 @@ def extract_traceback(exc, eg):
     e = ExceptionGroupHelper.subgroup(eg, [exc])
     while e is not None:
         if isinstance(e, ExceptionGroup):
-            assert len(e.excs) == 1 and exc in ExceptionGroupHelper.flatten(e)
+            assert len(e.errors) == 1 and exc in ExceptionGroupHelper.flatten(e)
         r = traceback.extract_tb(e.__traceback__)
         if result is None:
             result = []
         result.extend(r)
-        e = e.excs[0] if isinstance(e, ExceptionGroup) else None
+        e = e.errors[0] if isinstance(e, ExceptionGroup) else None
     return result
 
 
@@ -129,8 +129,8 @@ class ExceptionGroupTestBase(unittest.TestCase):
         """ Assert that the exception matches the template """
         if isinstance(exc, ExceptionGroup):
             self.assertIsInstance(template, collections.abc.Sequence)
-            self.assertEqual(len(exc.excs), len(template))
-            for e, t in zip(exc.excs, template):
+            self.assertEqual(len(exc.errors), len(template))
+            for e, t in zip(exc.errors, template):
                 self.assertMatchesTemplate(e, t)
         else:
             self.assertIsInstance(template, BaseException)
@@ -145,7 +145,7 @@ class ExceptionGroupBasicsTests(ExceptionGroupTestBase):
         self.assertMatchesTemplate(
             eg, [ValueError(1), TypeError(int), ValueError(2)])
 
-        self.assertEqual(list(ExceptionGroupHelper.flatten(eg)), list(eg.excs))  # check iteration
+        self.assertEqual(list(ExceptionGroupHelper.flatten(eg)), list(eg.errors))  # check iteration
 
         # check msg
         self.assertEqual(eg.msg, 'simple EG')

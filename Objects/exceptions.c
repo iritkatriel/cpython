@@ -964,7 +964,7 @@ ExceptionGroup_split(PyExceptionGroupObject *self,
 static PyMemberDef ExceptionGroup_members[] = {
     {"msg", T_OBJECT, offsetof(PyExceptionGroupObject, msg), 0,
         PyDoc_STR("exception message")},
-    {"excs", T_OBJECT, offsetof(PyExceptionGroupObject, excs), 0,
+    {"errors", T_OBJECT, offsetof(PyExceptionGroupObject, excs), 0,
         PyDoc_STR("nested exceptions")},
     {NULL}  /* Sentinel */
 };
