@@ -913,30 +913,7 @@ exceptiongroup_split_recursive(PyObject *exc, PyObject *matcher, int complement)
 }
 
 static PyObject *
-ExceptionGroup_split(PyExceptionGroupObject *self,
-                       PyObject *args,
-                       PyObject *kwds)
-{
-    static char *kwlist[] = {"with_complement", 0 };
-    PyObject *matcher_ = NULL;
-    PyObject *with_complement = NULL;
-    int is_with_complement;
-
-    if (!PyArg_UnpackTuple(args, "split", 0, 2,
-                           &matcher_, &with_complement)) {
-        return NULL;
-    }
-
-    if (with_complement != NULL) {
-        is_with_complement = PyObject_IsTrue(with_complement);
-        if (is_with_complement == -1) {
-            return NULL;
-        }
-    }
-    else {
-        is_with_complement = 1;
-    }
-
+exceptiongroup_prepare_matcher(PyObject *matcher_) {
     PyObject *matcher;
     if (PyObject_TypeCheck(matcher_, (PyTypeObject *)PyExc_ExceptionGroup)) {
         matcher = PyList_New(0);
@@ -949,14 +926,53 @@ ExceptionGroup_split(PyExceptionGroupObject *self,
         }
     }
     else {
-        matcher = matcher_;
+        matcher = Py_NewRef(matcher_);
+    }
+    return matcher;
+}
+
+static PyObject *
+ExceptionGroup_split(PyExceptionGroupObject *self,
+                       PyObject *args,
+                       PyObject *kwds)
+{
+    PyObject *matcher_ = NULL;
+
+    if (!PyArg_UnpackTuple(args, "split", 1, 1, &matcher_)) {
+        return NULL;
     }
 
-    PyObject *ret = exceptiongroup_split_recursive(
-        (PyObject*)self, matcher, is_with_complement);
+    PyObject *matcher = exceptiongroup_prepare_matcher(matcher_);
 
-    if (matcher != matcher_) {
-        Py_DECREF(matcher);
+    PyObject *ret = exceptiongroup_split_recursive(
+        (PyObject*)self, matcher, 1 /* with_complement */);
+
+    Py_DECREF(matcher);
+    return ret;
+}
+
+static PyObject *
+ExceptionGroup_subgroup(PyExceptionGroupObject *self,
+    PyObject *args,
+    PyObject *kwds)
+{
+    PyObject *matcher_ = NULL;
+
+    if (!PyArg_UnpackTuple(args, "subgroup", 1, 1, &matcher_)) {
+        return NULL;
+    }
+
+    PyObject *matcher = exceptiongroup_prepare_matcher(matcher_);
+
+    PyObject *ret = exceptiongroup_split_recursive(
+        (PyObject*)self, matcher, 0 /* without complement */);
+
+    Py_DECREF(matcher);
+    if (ret != NULL && PyTuple_CheckExact(ret)) {
+        PyObject *match = PyTuple_GetItem(ret, 0);
+        Py_XINCREF(match);
+        Py_DECREF(ret);
+        return match;
     }
     return ret;
 }
@@ -971,6 +987,7 @@ static PyMemberDef ExceptionGroup_members[] = {
 
 static PyMethodDef ExceptionGroup_methods[] = {
     {"split", (PyCFunction)ExceptionGroup_split, METH_VARARGS},
+    {"subgroup", (PyCFunction)ExceptionGroup_subgroup, METH_VARARGS},
     {NULL}
 };
 

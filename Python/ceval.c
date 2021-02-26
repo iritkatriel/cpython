@@ -2486,7 +2486,7 @@ main_loop:
                         tb == o_tb && ctx == o_ctx && cause == o_cause) {
                         /* same metadata - this is a reraise */
                         PyObject *pair = PyObject_CallMethod(
-                            (PyObject*)swallowed, "split", "OO", e, Py_True);
+                            (PyObject*)swallowed, "split", "(O)", e);
                         if (pair == NULL) {
                             Py_DECREF(exc);
                             Py_DECREF(orig);
@@ -2523,7 +2523,7 @@ main_loop:
                 if (PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_ExceptionGroup)) {
                     if (PySequence_Length(((PyExceptionGroupObject*)swallowed)->excs) > 0) {
                         PyObject *pair = PyObject_CallMethod(
-                            orig, "split", "OO", swallowed, Py_True);
+                            orig, "split", "(O)", swallowed);
                         if (pair == NULL) {
                             Py_DECREF(exc);
                             Py_DECREF(orig);
@@ -3541,7 +3541,7 @@ main_loop:
                     // TODO: DUP val on the stack like the exc?
                     PyObject *eg = PEEK(2);
                     pair = PyObject_CallMethod(
-                        eg, "split", "OO", right, Py_True);
+                        eg, "split", "(O)", right);
 
                     Py_DECREF(left);
                     Py_DECREF(right);

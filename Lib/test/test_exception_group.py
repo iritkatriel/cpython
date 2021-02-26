@@ -13,8 +13,7 @@ class ExceptionGroupHelper:
 
         keep: List[BaseException]
         """
-        match, _ = exc.split(lambda e: e in keep, False)
-        return match
+        return exc.subgroup(lambda e: e in keep)
 
     @staticmethod
     def flatten(exc):
@@ -203,10 +202,16 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
         all_excs = list(ExceptionGroupHelper.flatten(eg))
 
         match, rest = eg.split(types)
+        subgroup = eg.subgroup(types)
 
         if match is not None:
             self.assertIsInstance(match, ExceptionGroup)
             for e in ExceptionGroupHelper.flatten(match):
+                self.assertIsInstance(e, types)
+
+            self.assertIsNotNone(subgroup)
+            self.assertIsInstance(subgroup, ExceptionGroup)
+            for e in ExceptionGroupHelper.flatten(subgroup):
                 self.assertIsInstance(e, types)
 
         if rest is not None:
@@ -216,17 +221,21 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
 
         match_len = len(list(ExceptionGroupHelper.flatten(match))) if match is not None else 0
         rest_len = len(list(ExceptionGroupHelper.flatten(rest))) if rest is not None else 0
+        subgroup_len = len(list(ExceptionGroupHelper.flatten(subgroup))) if subgroup is not None else 0
         self.assertEqual(len(list(all_excs)), match_len + rest_len)
+        self.assertEqual(match_len, subgroup_len)
 
         for e in all_excs:
             # each exception is in eg and exactly one of match and rest
             self.assertIn(e, ExceptionGroupHelper.flatten(eg))
             self.assertNotEqual(match and e in ExceptionGroupHelper.flatten(match),
                                 rest and e in ExceptionGroupHelper.flatten(rest))
+            self.assertEqual(match and e in ExceptionGroupHelper.flatten(match),
+                             subgroup and e in ExceptionGroupHelper.flatten(subgroup))
 
-        for part in [match, rest]:
+        for part in [match, rest, subgroup]:
             if part is not None:
-                self.assertEqual(eg.msg, part.msg)                
+                self.assertEqual(eg.msg, part.msg)
                 for e in ExceptionGroupHelper.flatten(part):
                     self.assertEqual(
                         extract_traceback(e, eg),
