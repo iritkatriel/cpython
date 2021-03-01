@@ -566,7 +566,7 @@ class BaseExceptionReportingTests:
             return exception_or_callable
         try:
             exception_or_callable()
-        except Exception as e:
+        except (Exception, ExceptionGroup) as e:
             return e
 
     def zero_div(self):
@@ -746,6 +746,37 @@ class CExcReportingTests(BaseExceptionReportingTests, unittest.TestCase):
         with captured_output("stderr") as s:
             exception_print(e)
         return s.getvalue()
+
+    # TODO: traceback has a different format. Need to unify them
+    # and move this test to the superclass
+    @cpython_only
+    def test_exception_group(self):
+        def inner_raise():
+            try:
+                raise ExceptionGroup("eg", [ValueError(1), TypeError(2)])
+            except *ValueError as e:
+                1/0
+        def outer_raise():
+            inner_raise() # Marker
+
+        # TODO: define different boundaries for ExceptionGroups?
+        blocks = boundaries.split(self.get_report(outer_raise))
+        self.assertEqual(len(blocks), 3)
+        self.assertEqual(blocks[1], context_message)
+
+        # The first block is the "context" ExceptionGroup("eg", ValueError(1))
+        self.assertIn('raise ExceptionGroup("eg", [ValueError(1), TypeError(2)])', blocks[0])
+        self.assertIn('inner_raise() # Marker', blocks[0])
+        self.assertIn('ValueError: 1\n', blocks[0])
+        self.assertNotIn('1/0', blocks[0])
+        self.assertNotIn('TypeError: 2\n', blocks[0])
+        # The second block is the ZeroDivError, along with the unrasied
+        # part of the original ExceptionGroup("eg", TypeError(2))
+        self.assertIn('raise ExceptionGroup("eg", [ValueError(1), TypeError(2)])', blocks[0])
+        self.assertNotIn('inner_raise() # Marker', blocks[2])
+        self.assertIn('1/0', blocks[2])
+        self.assertIn('TypeError: 2\n', blocks[2])
+        self.assertNotIn('ValueError: 1\n', blocks[2])
 
 
 class LimitTests(unittest.TestCase):

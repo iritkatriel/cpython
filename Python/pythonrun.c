@@ -919,8 +919,9 @@ print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen, struct r
         PyObject *value_id = PyLong_FromVoidPtr(value);
         if (value_id == NULL || PySet_Add(seen, value_id) == -1)
             PyErr_Clear();
-        else if (PyExceptionInstance_Check(value)) {
+        else if (PyExceptionInstance_Check(value) || PyObject_TypeCheck(value, (PyTypeObject *)PyExc_ExceptionGroup)) {
             PyObject *check_id = NULL;
+
             cause = PyException_GetCause(value);
             context = PyException_GetContext(value);
             if (cause) {
@@ -976,8 +977,8 @@ print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen, struct r
         print_exception(f, value, ctx->depth);
 
         PyObject *excs = ((PyExceptionGroupObject *)value)->excs;
-        if (excs && PyTuple_Check(excs)) {
-            Py_ssize_t i, num_excs = PyTuple_GET_SIZE(excs);
+        if (excs && PySequence_Check(excs)) {
+            Py_ssize_t i, num_excs = PySequence_Length(excs);
             PyObject *parent_label = ctx->parent_label;
             line = PyUnicode_FromFormat(
                 "This exception has %d sub-exceptions:\n", num_excs);
@@ -1004,8 +1005,7 @@ print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen, struct r
                 ctx->depth += 1;
                 ctx->parent_label = label;
                 print_exception_recursive(
-                    f, PyTuple_GET_ITEM(excs, i), seen, ctx);
-                Py_XDECREF(label);
+                    f, PySequence_GetItem(excs, i), seen, ctx);
                 ctx->depth -= 1;
                 ctx->parent_label = parent_label;
 
@@ -1014,6 +1014,7 @@ print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen, struct r
                 err |= _Py_WriteIndent(ctx->depth+1, f);
                 err |= PyFile_WriteObject(line, f, Py_PRINT_RAW);
                 Py_XDECREF(line);
+                Py_XDECREF(label);
             }
         }
     }
