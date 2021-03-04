@@ -385,8 +385,24 @@ _Py_WriteIndent(int indent, PyObject *f) {
     return 0;
 }
 
+/* Utility for write pretty indentation. Writes 2*indent chars,
+ * in the format "efefefe " where e is the edge character and b
+ * is the fill character
+ */
 int
-_Py_DisplaySourceLine(PyObject *f, PyObject *filename, int lineno, int indent)
+_Py_WriteFancyIndent(int indent, char margin_char, PyObject *f) {
+    int err = 0;
+    char margin[] = {margin_char, ' ', '\0' };
+    err |= _Py_WriteIndent(indent, f);
+    err |= PyFile_WriteString(margin, f);
+    if (err != 0)
+        return err;
+    return 0;
+}
+
+
+int
+_Py_DisplaySourceLine(PyObject *f, PyObject *filename, int lineno, int indent, char margin_char)
 {
     int err = 0;
     int fd;
@@ -497,7 +513,8 @@ _Py_DisplaySourceLine(PyObject *f, PyObject *filename, int lineno, int indent)
     }
 
     /* Write some spaces before the line */
-    err = _Py_WriteIndent(indent, f);
+    err |= _Py_WriteFancyIndent(indent-4, margin_char, f);
+    err |= _Py_WriteIndent(4, f);
 
     /* finally display the line */
     if (err == 0)
@@ -509,7 +526,7 @@ _Py_DisplaySourceLine(PyObject *f, PyObject *filename, int lineno, int indent)
 }
 
 static int
-tb_displayline(PyObject *f, PyObject *filename, int lineno, PyObject *name, int indent)
+tb_displayline(PyObject *f, PyObject *filename, int lineno, PyObject *name, int indent, char margin_char)
 {
     int err;
     PyObject *line;
@@ -520,13 +537,13 @@ tb_displayline(PyObject *f, PyObject *filename, int lineno, PyObject *name, int 
                                 filename, lineno, name);
     if (line == NULL)
         return -1;
-    err = _Py_WriteIndent(indent, f);
+    err = _Py_WriteFancyIndent(indent, margin_char, f);
     err |= PyFile_WriteObject(line, f, Py_PRINT_RAW);
     Py_DECREF(line);
     if (err != 0)
         return err;
     /* ignore errors since we can't report them, can we? */
-    if (_Py_DisplaySourceLine(f, filename, lineno, indent+4))
+    if (_Py_DisplaySourceLine(f, filename, lineno, indent+4, margin_char))
         PyErr_Clear();
     return err;
 }
@@ -551,7 +568,7 @@ tb_print_line_repeated(PyObject *f, long cnt)
 }
 
 static int
-tb_printinternal(PyTracebackObject *tb, PyObject *f, long limit, int indent)
+tb_printinternal(PyTracebackObject *tb, PyObject *f, long limit, int indent, char margin_char)
 {
     int err = 0;
     Py_ssize_t depth = 0;
@@ -585,7 +602,7 @@ tb_printinternal(PyTracebackObject *tb, PyObject *f, long limit, int indent)
         cnt++;
         if (err == 0 && cnt <= TB_RECURSIVE_CUTOFF) {
             err = tb_displayline(f, code->co_filename, tb->tb_lineno,
-                                 code->co_name, indent);
+                                 code->co_name, indent, margin_char);
             if (err == 0) {
                 err = PyErr_CheckSignals();
             }
@@ -602,7 +619,7 @@ tb_printinternal(PyTracebackObject *tb, PyObject *f, long limit, int indent)
 #define PyTraceBack_LIMIT 1000
 
 int
-PyTraceBack_Print_Indented(PyObject *v, PyObject *f, int indent)
+PyTraceBack_Print_Indented(PyObject *v, PyObject *f, int indent, char margin_char)
 {
     int err;
     PyObject *limitv;
@@ -625,17 +642,17 @@ PyTraceBack_Print_Indented(PyObject *v, PyObject *f, int indent)
             return 0;
         }
     }
-    err = _Py_WriteIndent(indent, f);
+    err = _Py_WriteFancyIndent(indent, margin_char, f);
     err |= PyFile_WriteString("Traceback (most recent call last):\n", f);
     if (!err)
-        err = tb_printinternal((PyTracebackObject *)v, f, limit, indent);
+        err = tb_printinternal((PyTracebackObject *)v, f, limit, indent, margin_char);
     return err;
 }
 
 int
 PyTraceBack_Print(PyObject *v, PyObject *f)
 {
-    return PyTraceBack_Print_Indented(v, f, 0);
+    return PyTraceBack_Print_Indented(v, f, 0, '\0');
 }
 
 /* Reverse a string. For example, "abcd" becomes "dcba".

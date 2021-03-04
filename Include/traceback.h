@@ -9,7 +9,8 @@ extern "C" {
 PyAPI_FUNC(int) PyTraceBack_Here(PyFrameObject *);
 PyAPI_FUNC(int) PyTraceBack_Print(PyObject *, PyObject *);
 
-int PyTraceBack_Print_Indented(PyObject *, PyObject *, int);
+int PyTraceBack_Print_Indented(PyObject *, PyObject *, int, char);
+int _Py_WriteFancyIndent(int, char, PyObject*);
 int _Py_WriteIndent(int, PyObject *);
 
 /* Reveal traceback type so we can typecheck traceback objects */

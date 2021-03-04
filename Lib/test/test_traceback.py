@@ -556,7 +556,10 @@ context_message = (
     "another exception occurred:\n\n")
 
 boundaries = re.compile(
-    '(%s|%s)' % (re.escape(cause_message), re.escape(context_message)))
+    '(%s|%s)' % (re.escape(cause_message),re.escape(context_message)))
+
+nested_exception_header_re = re.compile(
+    "[\+-]?\+[----]+[ \d\.]*[----]+")
 
 
 class BaseExceptionReportingTests:
@@ -759,24 +762,40 @@ class CExcReportingTests(BaseExceptionReportingTests, unittest.TestCase):
         def outer_raise():
             inner_raise() # Marker
 
-        # TODO: define different boundaries for ExceptionGroups?
-        blocks = boundaries.split(self.get_report(outer_raise))
-        self.assertEqual(len(blocks), 3)
-        self.assertEqual(blocks[1], context_message)
+        blocks = nested_exception_header_re.split(self.get_report(outer_raise))
+        self.assertEqual(len(blocks), 8)
+        # Expecting:
+        #  ExceptionGroup("", [ZeroDivisionError(), ExceptionGroup("eg", TypeError(2))])
+        # Where the ZeroDivisionError has context equal to:
+        #  ExceptionGroup("eg", [ValueError(1)])
 
-        # The first block is the "context" ExceptionGroup("eg", ValueError(1))
-        self.assertIn('raise ExceptionGroup("eg", [ValueError(1), TypeError(2)])', blocks[0])
+        # Block 0: The outermost ExceptionGroup up to "with 2 sub-expressions"
+        self.assertIn('exception_or_callable()\n', blocks[0])
         self.assertIn('inner_raise() # Marker', blocks[0])
-        self.assertIn('ValueError: 1\n', blocks[0])
+        self.assertIn('|  with 2 sub-exceptions:\n', blocks[0])
         self.assertNotIn('1/0', blocks[0])
-        self.assertNotIn('TypeError: 2\n', blocks[0])
-        # The second block is the ZeroDivError, along with the unrasied
-        # part of the original ExceptionGroup("eg", TypeError(2))
-        self.assertIn('raise ExceptionGroup("eg", [ValueError(1), TypeError(2)])', blocks[0])
-        self.assertNotIn('inner_raise() # Marker', blocks[2])
-        self.assertIn('1/0', blocks[2])
-        self.assertIn('TypeError: 2\n', blocks[2])
-        self.assertNotIn('ValueError: 1\n', blocks[2])
+        self.assertNotIn('TypeError', blocks[0])
+
+        # Block 1: The ExceptionGroup which is the context of the ZeroDivisionError
+        self.assertIn('  |     raise ExceptionGroup("eg", [ValueError(1), TypeError(2)])\n', blocks[1])
+        self.assertIn('  | ExceptionGroup: eg\n', blocks[1])
+        self.assertIn('  |    with one sub-exception:\n', blocks[1])
+
+        # Block 2: The ValueError
+        self.assertIn('  | ValueError: 1\n', blocks[2])
+
+        # Block 3: The ZeroDivisionError
+        self.assertIn('  | During handling of the above exception, another exception occurred:\n', blocks[3])
+        self.assertIn('  |     1/0\n', blocks[3])
+        self.assertIn('  | ZeroDivisionError: division by zero\n', blocks[3])
+
+        # Block 4: The nested ExceptionGroup
+        self.assertIn('  |     raise ExceptionGroup("eg", [ValueError(1), TypeError(2)])\n', blocks[4])
+        self.assertIn('  | ExceptionGroup: eg\n', blocks[4])
+        self.assertIn('  |    with one sub-exception:\n', blocks[4])
+
+        # Block 5: The TypeError
+        self.assertIn('  | TypeError: 2\n', blocks[5])
 
 
 class LimitTests(unittest.TestCase):
