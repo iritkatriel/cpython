@@ -2478,10 +2478,43 @@ main_loop:
                     PyObject *ctx = PyException_GetContext(e);
                     PyObject *cause = PyException_GetCause(e);
                     if (e == swallowed) {
-                        /* raised exception was caught and raised - nothing swallowed */
+                        /* raised exception group was caught and raised - nothing swallowed */
                         swallowed = Py_NewRef(Py_None);
-                    }
-                    else if (PyObject_TypeCheck(e, (PyTypeObject *)PyExc_ExceptionGroup) &&
+                    } else if (! PyObject_TypeCheck(orig, (PyTypeObject *)PyExc_ExceptionGroup)) {
+                        /* e is either (1) orig wrapped in an EG or (2) a raise */
+                        if (! PyObject_TypeCheck(e, (PyTypeObject *)PyExc_ExceptionGroup)) {
+                            /* e is not an EG - it's a raise */
+                            PyList_Append(raised, e);
+                        } else {
+                            PyExceptionGroupObject *eg = (PyExceptionGroupObject *)e;
+                            if (PySequence_Length(eg->excs) == 1) {
+                                int res = PySequence_Contains(eg->excs, orig);
+                                if (res == -1) {
+                                    Py_DECREF(exc);
+                                    Py_DECREF(orig);
+                                    Py_XDECREF(o_tb);
+                                    Py_XDECREF(o_ctx);
+                                    Py_XDECREF(o_cause);
+                                    Py_XDECREF(tb);
+                                    Py_XDECREF(ctx);
+                                    Py_XDECREF(cause);
+                                    Py_XDECREF(swallowed);
+                                    goto error;
+                                }
+                                else if (res == 1) {
+                                    swallowed = Py_NewRef(Py_None);
+                                    PyObject *tmp = orig;
+                                    // make sure the wrapped exception is reraised.
+                                    orig = Py_NewRef(e);
+                                    Py_XDECREF(tmp);
+                                }
+                                else {
+                                    /* e is not an EG wrapping orig - it's a raise */
+                                    PyList_Append(raised, e);
+                                }
+                            }
+                        }
+                    } else if (PyObject_TypeCheck(e, (PyTypeObject *)PyExc_ExceptionGroup) &&
                         PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_ExceptionGroup) &&
                         tb == o_tb && ctx == o_ctx && cause == o_cause) {
                         /* same metadata - this is a reraise */
