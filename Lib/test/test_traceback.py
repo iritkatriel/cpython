@@ -810,7 +810,7 @@ class CExcReportingTests(BaseExceptionReportingTests, unittest.TestCase):
             inner_raise() # Marker
 
         blocks = nested_exception_header_re.split(self.get_report(outer_raise))
-        self.assertEqual(len(blocks), 8)
+        self.assertEqual(len(blocks), 7)
         # Expecting:
         #  ExceptionGroup("", [ZeroDivisionError(), ExceptionGroup("eg", TypeError(2))])
         # Where the ZeroDivisionError has context equal to:
