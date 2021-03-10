@@ -647,6 +647,7 @@ class TracebackException:
         output = []
         exc = self
         while exc:
+            e = exc.this if isinstance(exc, TracebackExceptionGroup) else exc
             if chain:
                 if exc.__cause__ is not None:
                     chained_msg = _cause_message
@@ -659,10 +660,10 @@ class TracebackException:
                     chained_msg = None
                     chained_exc = None
 
-                output.append((chained_msg, exc))
+                output.append((chained_msg, e))
                 exc = chained_exc
             else:
-                output.append((None, exc))
+                output.append((None, e))
                 exc = None
 
         for msg, exc in reversed(output):

@@ -978,7 +978,7 @@ ExceptionGroup_subgroup(PyExceptionGroupObject *self,
 }
 
 static PyMemberDef ExceptionGroup_members[] = {
-    {"msg", T_OBJECT, offsetof(PyExceptionGroupObject, msg), 0,
+    {"message", T_OBJECT, offsetof(PyExceptionGroupObject, msg), 0,
         PyDoc_STR("exception message")},
     {"errors", T_OBJECT, offsetof(PyExceptionGroupObject, excs), 0,
         PyDoc_STR("nested exceptions")},

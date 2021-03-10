@@ -147,7 +147,7 @@ class ExceptionGroupBasicsTests(ExceptionGroupTestBase):
         self.assertEqual(list(ExceptionGroupHelper.flatten(eg)), list(eg.errors))  # check iteration
 
         # check msg
-        self.assertEqual(eg.msg, 'simple EG')
+        self.assertEqual(eg.message, 'simple EG')
         self.assertEqual(eg.args[0], 'simple EG')
 
         # check tracebacks
@@ -235,7 +235,7 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
 
         for part in [match, rest, subgroup]:
             if part is not None:
-                self.assertEqual(eg.msg, part.msg)
+                self.assertEqual(eg.message, part.message)
                 for e in ExceptionGroupHelper.flatten(part):
                     self.assertEqual(
                         extract_traceback(e, eg),

@@ -49,7 +49,7 @@ class ExceptStarTest(unittest.TestCase):
             self.assertEqual(exc.__class__, template.__class__)
             self.assertEqual(exc.args[0], template.args[0])
         else:
-            self.assertEqual(exc.msg, template.msg)
+            self.assertEqual(exc.message, template.message)
             self.assertEqual(len(exc.errors), len(template.errors))
             for e, t in zip(exc.errors, template.errors):
                 self.assertExceptionIsLike(e, t)
