@@ -773,6 +773,7 @@ struct exception_print_context
 {
     int exception_group_depth; // nesting level of current exception group
     PyObject *parent_label;    // Unicode label of containing exception group
+    int need_close;            // Need a closing frame
 };
 
 static char margin_char(struct exception_print_context *ctx) {
@@ -917,7 +918,7 @@ static const char context_message[] =
     "another exception occurred:\n";
 
 static void
-print_exception_recursive(PyObject*, PyObject*, PyObject*, struct exception_print_context*, int);
+print_exception_recursive(PyObject*, PyObject*, PyObject*, struct exception_print_context*);
 
 static int
 print_chained(PyObject *f, PyObject *value, PyObject *seen,
@@ -925,13 +926,14 @@ print_chained(PyObject *f, PyObject *value, PyObject *seen,
     int err = 0;
     PyObject *parent_label = ctx->parent_label;
     PyObject *label = NULL;
+    int need_close = ctx->need_close;
     if (parent_label) {
         label = PyUnicode_FromFormat("%U.%s",
             parent_label, tag);
     }
     ctx->parent_label = label;
 
-    print_exception_recursive(f, value, seen, ctx, 1);
+    print_exception_recursive(f, value, seen, ctx);
     err |= _Py_WriteFancyIndent(indent(ctx), margin_char(ctx), f);
     err |= PyFile_WriteString("\n", f);
     err |= _Py_WriteFancyIndent(indent(ctx), margin_char(ctx), f);
@@ -939,13 +941,14 @@ print_chained(PyObject *f, PyObject *value, PyObject *seen,
     err |= _Py_WriteFancyIndent(indent(ctx), margin_char(ctx), f);
     err |= PyFile_WriteString("\n", f);
 
+    ctx->need_close = need_close;
     ctx->parent_label = parent_label;
     Py_XDECREF(label);
     return err;
 }
 
 static void
-print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen, struct exception_print_context* ctx, int close)
+print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen, struct exception_print_context* ctx)
 {
     int err = 0, res;
     PyObject *cause, *context;
@@ -1026,7 +1029,13 @@ print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen, struct e
                 err |= _Py_WriteFancyIndent(indent(ctx), margin_char(ctx), f);
                 err |= PyFile_WriteObject(line, f, Py_PRINT_RAW);
                 Py_XDECREF(line);
+                ctx->need_close = 0;
                 for (i = 0; i < num_excs; i++) {
+                    int last_exc = i == num_excs - 1;
+                    if (last_exc) {
+                        // The closing frame may be added in a recursive call
+                        ctx->need_close = 1;
+                    }
                     PyObject *label;
                     if (parent_label) {
                         label = PyUnicode_FromFormat("%U.%d",
@@ -1045,20 +1054,22 @@ print_exception_recursive(PyObject *f, PyObject *value, PyObject *seen, struct e
 
                     ctx->parent_label = label;
                     PyObject *exc = PySequence_GetItem(excs, i);
-                    print_exception_recursive(f, exc, seen, ctx, i < num_excs - 1);
+                    print_exception_recursive(f, exc, seen, ctx);
                     ctx->parent_label = parent_label;
                     Py_XDECREF(label);
+
+                    if (last_exc && ctx->need_close) {
+                        err |= _Py_WriteIndent(indent(ctx), f);
+                        line = PyUnicode_FromFormat(
+                            "+------------------------------------\n");
+                        err |= PyFile_WriteObject(line, f, Py_PRINT_RAW);
+                        Py_XDECREF(line);
+                        ctx->need_close = 0;
+                    }
                     ctx->exception_group_depth -= 1;
                     Py_XDECREF(exc);
                 }
             }
-        }
-        if (close) {
-            err |= _Py_WriteIndent(indent(ctx), f);
-            line = PyUnicode_FromFormat(
-                "+------------------------------------\n");
-            err |= PyFile_WriteObject(line, f, Py_PRINT_RAW);
-            Py_XDECREF(line);
         }
         if (ctx->exception_group_depth == 1) {
             ctx->exception_group_depth -= 1;
@@ -1097,7 +1108,7 @@ _PyErr_Display(PyObject *file, PyObject *exception, PyObject *value, PyObject *t
     if (seen == NULL) {
         PyErr_Clear();
     }
-    print_exception_recursive(file, value, seen, &ctx, 1);
+    print_exception_recursive(file, value, seen, &ctx);
     Py_XDECREF(seen);
 
     /* Call file.flush() */
