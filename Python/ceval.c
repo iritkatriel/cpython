@@ -2480,13 +2480,13 @@ main_loop:
                     if (e == swallowed) {
                         /* raised exception group was caught and raised - nothing swallowed */
                         swallowed = Py_NewRef(Py_None);
-                    } else if (! PyObject_TypeCheck(orig, (PyTypeObject *)PyExc_ExceptionGroup)) {
+                    } else if (! PyObject_TypeCheck(orig, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
                         /* e is either (1) orig wrapped in an EG or (2) a raise */
-                        if (! PyObject_TypeCheck(e, (PyTypeObject *)PyExc_ExceptionGroup)) {
+                        if (! PyObject_TypeCheck(e, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
                             /* e is not an EG - it's a raise */
                             PyList_Append(raised, e);
                         } else {
-                            PyExceptionGroupObject *eg = (PyExceptionGroupObject *)e;
+                            PyBaseExceptionGroupObject *eg = (PyBaseExceptionGroupObject *)e;
                             if (PySequence_Length(eg->excs) == 1) {
                                 int res = PySequence_Contains(eg->excs, orig);
                                 if (res == -1) {
@@ -2514,8 +2514,8 @@ main_loop:
                                 }
                             }
                         }
-                    } else if (PyObject_TypeCheck(e, (PyTypeObject *)PyExc_ExceptionGroup) &&
-                        PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_ExceptionGroup) &&
+                    } else if (PyObject_TypeCheck(e, (PyTypeObject *)PyExc_BaseExceptionGroup) &&
+                        PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_BaseExceptionGroup) &&
                         tb == o_tb && ctx == o_ctx && cause == o_cause) {
                         /* same metadata - this is a reraise */
                         PyObject *pair = PyObject_CallMethod(
@@ -2553,8 +2553,8 @@ main_loop:
             if (swallowed == orig) {
                 reraised = Py_NewRef(Py_None);
             } else if (swallowed != Py_None) {
-                if (PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_ExceptionGroup)) {
-                    if (PySequence_Length(((PyExceptionGroupObject*)swallowed)->excs) > 0) {
+                if (PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
+                    if (PySequence_Length(((PyBaseExceptionGroupObject*)swallowed)->excs) > 0) {
                         PyObject *pair = PyObject_CallMethod(
                             orig, "split", "(O)", swallowed);
                         if (pair == NULL) {
@@ -2613,7 +2613,7 @@ main_loop:
                     goto error;
                 }
                 val = PyObject_CallObject(
-                    PyExc_ExceptionGroup, args);
+                    PyExc_BaseExceptionGroup, args);
                 if (val == NULL) {
                     Py_DECREF(args);
                     Py_DECREF(raised);
@@ -3552,7 +3552,7 @@ main_loop:
                     goto error;
                 }
                 PyObject *match = PyObject_CallObject(
-                    PyExc_ExceptionGroup, args);
+                    PyExc_BaseExceptionGroup, args);
                 if (!match) {
                     goto error;
                 }
@@ -3563,7 +3563,7 @@ main_loop:
             }
             else if (res == 0) {
                 // check if left is an ExceptionGroup
-                int res1 = PyErr_GivenExceptionMatches(left, PyExc_ExceptionGroup);
+                int res1 = PyErr_GivenExceptionMatches(left, PyExc_BaseExceptionGroup);
                 if (res1 == 0) {
                     Py_DECREF(left);
                     Py_DECREF(right);
@@ -6035,7 +6035,7 @@ check_except_star_type_valid(PyThreadState *tstate, PyObject* right) {
         length = PyTuple_GET_SIZE(right);
         for (i = 0; i < length; i++) {
             PyObject *exc = PyTuple_GET_ITEM(right, i);
-            res = PyObject_IsSubclass(exc, PyExc_ExceptionGroup);
+            res = PyObject_IsSubclass(exc, PyExc_BaseExceptionGroup);
             if (res == -1) {
                 return 0;
             }
@@ -6045,7 +6045,7 @@ check_except_star_type_valid(PyThreadState *tstate, PyObject* right) {
         }
     }
     else {
-        res = PyObject_IsSubclass(right, PyExc_ExceptionGroup);
+        res = PyObject_IsSubclass(right, PyExc_BaseExceptionGroup);
         if (res == -1) {
             return 0;
         }

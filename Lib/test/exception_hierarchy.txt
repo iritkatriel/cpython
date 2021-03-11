@@ -2,8 +2,9 @@ BaseException
  +-- SystemExit
  +-- KeyboardInterrupt
  +-- GeneratorExit
- +-- ExceptionGroup
+ +-- BaseExceptionGroup
  +-- Exception
+      +-- ExceptionGroup
       +-- StopIteration
       +-- StopAsyncIteration
       +-- ArithmeticError

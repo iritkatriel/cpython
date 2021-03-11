@@ -85,7 +85,7 @@ PyAPI_DATA(PyObject *) PyExc_BufferError;
 PyAPI_DATA(PyObject *) PyExc_EOFError;
 PyAPI_DATA(PyObject *) PyExc_FloatingPointError;
 PyAPI_DATA(PyObject *) PyExc_OSError;
-PyAPI_DATA(PyObject *) PyExc_ExceptionGroup;
+PyAPI_DATA(PyObject *) PyExc_BaseExceptionGroup;
 PyAPI_DATA(PyObject *) PyExc_ImportError;
 #if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x03060000
 PyAPI_DATA(PyObject *) PyExc_ModuleNotFoundError;

@@ -632,17 +632,83 @@ SimpleExtendsException(PyExc_BaseException, KeyboardInterrupt,
                        "Program interrupted by user.");
 
 /*
- *    ExceptionGroup extends BaseException
+ *    BaseExceptionGroup extends BaseException
+ *    ExceptionGroup extends BaseExceptionGroup and Exception
  */
 
-static int
-ExceptionGroup_init(PyExceptionGroupObject *self, PyObject *args, PyObject *kwds)
+static PyObject *PyExc_ExceptionGroup;
+
+static PyObject *
+BaseExceptionGroup_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     PyObject *excs = NULL;
     PyObject *msg = NULL;
     Py_ssize_t lenargs = PyTuple_GET_SIZE(args);
     Py_ssize_t i, numexcs;
 
+    PyTypeObject *cls = type;
+
+    if (lenargs != 2) {
+        PyErr_SetString(PyExc_TypeError,
+            "Expected msg followed by a sequence of the nested exceptions");
+        return NULL;
+    }
+    msg = PyTuple_GET_ITEM(args, 0);
+    excs = PyTuple_GET_ITEM(args, 1);
+    if (!PyUnicode_CheckExact(msg)) {
+        PyErr_SetString(PyExc_TypeError,
+            "Expected msg followed by a sequence of the nested exceptions");
+        return NULL;
+    }
+    if (!PySequence_Check(excs)) {
+        PyErr_SetString(PyExc_TypeError,
+            "Expected msg followed by a sequence of the nested exceptions");
+        return NULL;
+    }
+    numexcs = PySequence_Length(excs);
+    if (numexcs == 0) {
+        PyErr_SetString(PyExc_ValueError,
+            "Expected non-empty sequence of nested exceptions");
+        return NULL;
+    }
+
+    int nested_base_exceptions = 0;
+
+    for (i = 0; i < numexcs; i++) {
+        PyObject *exc = PySequence_GetItem(excs, i);
+        if (!PyExceptionInstance_Check(PySequence_GetItem(excs, i))) {
+            PyErr_SetString(PyExc_TypeError,
+                "Nested exception must derive from BaseException");
+            return NULL;
+        }
+        int is_exception = PyObject_IsInstance(exc, PyExc_Exception);
+        if (is_exception == -1) {
+            PyErr_SetString(PyExc_RuntimeError, "Error in BaseExceptionGroup_new");
+            return NULL;
+        }
+        if (!is_exception) {
+            nested_base_exceptions = 1;
+        }
+    }
+
+    if (cls == (PyTypeObject *)PyExc_BaseExceptionGroup) {
+        if (!nested_base_exceptions) {
+            cls = (PyTypeObject *)PyExc_ExceptionGroup;
+        }
+    }
+    else {
+        if (nested_base_exceptions) {
+            PyErr_SetString(PyExc_TypeError,
+                "Cannot nest BaseExceptions in an ExceptionGroup");
+            return NULL;
+        }
+    }
+    return BaseException_new(cls, args, kwds);
+}
+
+static int
+BaseExceptionGroup_init(PyBaseExceptionGroupObject *self, PyObject *args, PyObject *kwds)
+{
     if (!_PyArg_NoKeywords(Py_TYPE(self)->tp_name, kwds)) {
         return -1;
     }
@@ -651,38 +717,13 @@ ExceptionGroup_init(PyExceptionGroupObject *self, PyObject *args, PyObject *kwds
         return -1;
     }
 
-    if (lenargs != 2) {
-        PyErr_SetString(PyExc_TypeError,
-            "Expected msg followed by a sequence of the nested exceptions");
-        return -1;
-    }
-    msg = PyTuple_GET_ITEM(args, 0);
-    excs = PyTuple_GET_ITEM(args, 1);
-    if (!PyUnicode_CheckExact(msg)) {
-        PyErr_SetString(PyExc_TypeError,
-            "Expected msg followed by a sequence of the nested exceptions");
-        return -1;
-    }
-    if (!PySequence_Check(excs)) {
-        PyErr_SetString(PyExc_TypeError,
-            "Expected msg followed by a sequence of the nested exceptions");
-        return -1;
-    }
-    numexcs = PySequence_Length(excs);
-    for (i = 0; i < numexcs; i++) {
-        if (!PyExceptionInstance_Check(PySequence_GetItem(excs, i))) {
-            PyErr_SetString(PyExc_TypeError,
-                "Nested exception must derive from BaseException");
-            return -1;
-        }
-    }
-    self->msg = Py_NewRef(msg);
-    self->excs = Py_NewRef(excs);
+    self->msg = Py_NewRef(PyTuple_GET_ITEM(args, 0));
+    self->excs = Py_NewRef(PyTuple_GET_ITEM(args, 1));
     return 0;
 }
 
 static int
-ExceptionGroup_clear(PyExceptionGroupObject *self)
+BaseExceptionGroup_clear(PyBaseExceptionGroupObject *self)
 {
     Py_CLEAR(self->msg);
     Py_CLEAR(self->excs);
@@ -690,15 +731,15 @@ ExceptionGroup_clear(PyExceptionGroupObject *self)
 }
 
 static void
-ExceptionGroup_dealloc(PyExceptionGroupObject *self)
+BaseExceptionGroup_dealloc(PyBaseExceptionGroupObject *self)
 {
     _PyObject_GC_UNTRACK(self);
-    ExceptionGroup_clear(self);
+    BaseExceptionGroup_clear(self);
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 static int
-ExceptionGroup_traverse(PyExceptionGroupObject *self, visitproc visit, void *arg)
+BaseExceptionGroup_traverse(PyBaseExceptionGroupObject *self, visitproc visit, void *arg)
 {
     Py_VISIT(self->msg);
     Py_VISIT(self->excs);
@@ -706,7 +747,7 @@ ExceptionGroup_traverse(PyExceptionGroupObject *self, visitproc visit, void *arg
 }
 
 static PyObject *
-ExceptionGroup_str(PyExceptionGroupObject *self)
+BaseExceptionGroup_str(PyBaseExceptionGroupObject *self)
 {
     if (self->msg && PyUnicode_CheckExact(self->msg)) {
         Py_INCREF(self->msg);
@@ -717,7 +758,7 @@ ExceptionGroup_str(PyExceptionGroupObject *self)
     }
 }
 
-static PyObject* exceptiongroup_subset(PyExceptionGroupObject *orig,
+static PyObject* exceptiongroup_subset(PyBaseExceptionGroupObject *orig,
                                        PyObject *excs)
 {
     /* Returns an ExceptionGroup with metadata from orig and exceptions from
@@ -742,7 +783,7 @@ static PyObject* exceptiongroup_subset(PyExceptionGroupObject *orig,
     if (!args) {
         goto error;
     }
-    eg = PyObject_CallObject(PyExc_ExceptionGroup, args);
+    eg = PyObject_CallObject(PyExc_BaseExceptionGroup, args);
     if (!eg) {
         goto error;
     }
@@ -769,10 +810,10 @@ error:
 }
 
 static int _exceptiongroup_flatten(PyObject *list, PyObject *exc) {
-    if (!PyObject_TypeCheck(exc, (PyTypeObject *)PyExc_ExceptionGroup)) {
+    if (!PyObject_TypeCheck(exc, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
         PyList_Append(list, exc);
     } else {
-        PyExceptionGroupObject *eg = (PyExceptionGroupObject *)exc;
+        PyBaseExceptionGroupObject *eg = (PyBaseExceptionGroupObject *)exc;
         Py_ssize_t num_excs = PySequence_Length(eg->excs);
         Py_ssize_t i;
         for (i = 0; i < num_excs; i++) {
@@ -828,12 +869,12 @@ exceptiongroup_split_recursive(PyObject *exc, PyObject *matcher, int complement)
     if (is_match) {
         return PyTuple_Pack(2, exc, Py_None);
     }
-    else if (!PyObject_TypeCheck(exc, (PyTypeObject *)PyExc_ExceptionGroup)) {
+    else if (!PyObject_TypeCheck(exc, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
         return PyTuple_Pack(
             2, Py_None, complement ? (PyObject*)exc : Py_None);
 
     } else {
-        PyExceptionGroupObject *eg = (PyExceptionGroupObject *)exc;
+        PyBaseExceptionGroupObject *eg = (PyBaseExceptionGroupObject *)exc;
         PyObject *match_exc = NULL;
         PyObject *rest_exc = NULL;
         PyObject *match_list = NULL;
@@ -915,7 +956,7 @@ exceptiongroup_split_recursive(PyObject *exc, PyObject *matcher, int complement)
 static PyObject *
 exceptiongroup_prepare_matcher(PyObject *matcher_) {
     PyObject *matcher;
-    if (PyObject_TypeCheck(matcher_, (PyTypeObject *)PyExc_ExceptionGroup)) {
+    if (PyObject_TypeCheck(matcher_, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
         matcher = PyList_New(0);
         if (matcher == NULL) {
             return NULL;
@@ -932,7 +973,7 @@ exceptiongroup_prepare_matcher(PyObject *matcher_) {
 }
 
 static PyObject *
-ExceptionGroup_split(PyExceptionGroupObject *self,
+BaseExceptionGroup_split(PyBaseExceptionGroupObject *self,
                        PyObject *args,
                        PyObject *kwds)
 {
@@ -952,7 +993,7 @@ ExceptionGroup_split(PyExceptionGroupObject *self,
 }
 
 static PyObject *
-ExceptionGroup_subgroup(PyExceptionGroupObject *self,
+BaseExceptionGroup_subgroup(PyBaseExceptionGroupObject *self,
     PyObject *args,
     PyObject *kwds)
 {
@@ -977,25 +1018,46 @@ ExceptionGroup_subgroup(PyExceptionGroupObject *self,
     return ret;
 }
 
-static PyMemberDef ExceptionGroup_members[] = {
-    {"message", T_OBJECT, offsetof(PyExceptionGroupObject, msg), 0,
+static PyMemberDef BaseExceptionGroup_members[] = {
+    {"message", T_OBJECT, offsetof(PyBaseExceptionGroupObject, msg), 0,
         PyDoc_STR("exception message")},
-    {"errors", T_OBJECT, offsetof(PyExceptionGroupObject, excs), 0,
+    {"errors", T_OBJECT, offsetof(PyBaseExceptionGroupObject, excs), 0,
         PyDoc_STR("nested exceptions")},
     {NULL}  /* Sentinel */
 };
 
-static PyMethodDef ExceptionGroup_methods[] = {
-    {"split", (PyCFunction)ExceptionGroup_split, METH_VARARGS},
-    {"subgroup", (PyCFunction)ExceptionGroup_subgroup, METH_VARARGS},
+static PyMethodDef BaseExceptionGroup_methods[] = {
+    {"split", (PyCFunction)BaseExceptionGroup_split, METH_VARARGS},
+    {"subgroup", (PyCFunction)BaseExceptionGroup_subgroup, METH_VARARGS},
     {NULL}
 };
 
-ComplexExtendsException(PyExc_BaseException, ExceptionGroup,
-    ExceptionGroup, 0 /* new */,
-    ExceptionGroup_methods, ExceptionGroup_members,
-    0 /* getset */, ExceptionGroup_str,
+ComplexExtendsException(PyExc_BaseException, BaseExceptionGroup,
+    BaseExceptionGroup, BaseExceptionGroup_new /* new */,
+    BaseExceptionGroup_methods, BaseExceptionGroup_members,
+    0 /* getset */, BaseExceptionGroup_str,
     "A combination of multiple unrelated exceptions.");
+
+
+/*
+ *    ExceptionGroup extends BaseExceptionGroup and Exception
+ */
+
+PyObject* create_exception_group_class() {
+    PyObject *bases = PyTuple_Pack(
+        2, PyExc_BaseExceptionGroup, PyExc_Exception);
+    if (bases == NULL) {
+        return NULL;
+    }
+
+    PyExc_ExceptionGroup = PyErr_NewException(
+        "builtins.ExceptionGroup", bases, NULL);
+    if (PyExc_ExceptionGroup == NULL) {
+        return NULL;
+    }
+    return PyExc_ExceptionGroup;
+}
+
 
 /*
  *    ImportError extends Exception
@@ -2926,7 +2988,7 @@ _PyExc_Init(PyThreadState *tstate)
     PRE_INIT(GeneratorExit);
     PRE_INIT(SystemExit);
     PRE_INIT(KeyboardInterrupt);
-    PRE_INIT(ExceptionGroup);
+    PRE_INIT(BaseExceptionGroup);
     PRE_INIT(ImportError);
     PRE_INIT(ModuleNotFoundError);
     PRE_INIT(OSError);
@@ -3053,6 +3115,10 @@ _PyBuiltins_AddExceptions(PyObject *bltinmod)
         return _PyStatus_ERR("exceptions bootstrapping error.");
     }
 
+    if (!create_exception_group_class()) {
+        return _PyStatus_ERR("exceptions bootstrapping error.");
+    }
+
     POST_INIT(BaseException);
     POST_INIT(Exception);
     POST_INIT(TypeError);
@@ -3061,6 +3127,7 @@ _PyBuiltins_AddExceptions(PyObject *bltinmod)
     POST_INIT(GeneratorExit);
     POST_INIT(SystemExit);
     POST_INIT(KeyboardInterrupt);
+    POST_INIT(BaseExceptionGroup);
     POST_INIT(ExceptionGroup);
     POST_INIT(ImportError);
     POST_INIT(ModuleNotFoundError);

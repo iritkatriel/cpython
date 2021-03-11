@@ -28,7 +28,7 @@ typedef struct {
     PyException_HEAD
     PyObject *msg;
     PyObject *excs;
-} PyExceptionGroupObject;
+} PyBaseExceptionGroupObject;
 
 typedef struct {
     PyException_HEAD
