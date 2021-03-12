@@ -962,7 +962,7 @@ print_exception_recursive(struct exception_print_context* ctx, PyObject *value)
         PyObject *value_id = PyLong_FromVoidPtr(value);
         if (value_id == NULL || PySet_Add(ctx->seen, value_id) == -1)
             PyErr_Clear();
-        else if (PyExceptionInstance_Check(value) || PyObject_TypeCheck(value, (PyTypeObject *)PyExc_ExceptionGroup)) {
+        else if (PyExceptionInstance_Check(value) || PyObject_TypeCheck(value, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
             PyObject *check_id = NULL;
 
             cause = PyException_GetCause(value);
@@ -1001,7 +1001,7 @@ print_exception_recursive(struct exception_print_context* ctx, PyObject *value)
         }
         Py_XDECREF(value_id);
     }
-    if (!PyObject_TypeCheck(value, (PyTypeObject *)PyExc_ExceptionGroup)) {
+    if (!PyObject_TypeCheck(value, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
         print_exception(ctx, value);
     }
     else {
@@ -1017,7 +1017,7 @@ print_exception_recursive(struct exception_print_context* ctx, PyObject *value)
         }
         print_exception(ctx, value);
 
-        PyObject *excs = ((PyExceptionGroupObject *)value)->excs;
+        PyObject *excs = ((PyBaseExceptionGroupObject *)value)->excs;
         if (excs && PySequence_Check(excs)) {
             Py_ssize_t i, num_excs = PySequence_Length(excs);
             PyObject *parent_label = ctx->parent_label;

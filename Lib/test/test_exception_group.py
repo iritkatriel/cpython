@@ -111,16 +111,39 @@ class ExceptionGroupTestBadInputs(unittest.TestCase):
     def test_simple_group_bad_constructor_args(self):
         not_seq = 'Expected msg followed by a sequence of the nested exceptions'
         not_exc = 'Nested exception must derive from BaseException'
+        empty_seq = 'Expected non-empty sequence of nested exceptions'
         with self.assertRaisesRegex(TypeError, not_seq):
             _ = ExceptionGroup('no errors')
         with self.assertRaisesRegex(TypeError, not_seq):
             _ = ExceptionGroup('errors not sequence', {ValueError(42)})
         with self.assertRaisesRegex(TypeError, not_exc):
             _ = ExceptionGroup('bad error', ["not an exception"])
+        with self.assertRaisesRegex(ValueError, empty_seq):
+            _ = ExceptionGroup("eg", [])
         with self.assertRaisesRegex(TypeError, not_seq):
             _ = ExceptionGroup(ValueError(12))
         with self.assertRaisesRegex(TypeError, not_seq):
             _ = ExceptionGroup(ValueError(12), SyntaxError('bad syntax'))
+
+
+class BaseExceptionGroupInstanceCreation(unittest.TestCase):
+    def test_without_BaseException_create_ExceptionGroup(self):
+        self.assertIsInstance(
+            BaseExceptionGroup("beg", [ValueError(12), TypeError(42)]),
+            ExceptionGroup)
+
+        self.assertIsInstance(
+            ExceptionGroup("eg", [ValueError(12), TypeError(42)]),
+            ExceptionGroup)
+
+    def test_with_BaseException_create_BaseExceptionGroup(self):
+        beg = BaseExceptionGroup("beg", [ValueError(12), KeyboardInterrupt(42)])
+        self.assertIsInstance(beg, BaseExceptionGroup)
+        self.assertFalse(isinstance(beg, ExceptionGroup))
+
+        msg = "Cannot nest BaseExceptions in an ExceptionGroup"
+        with self.assertRaisesRegex(TypeError, msg):
+            ExceptionGroup("eg", [ValueError(12), KeyboardInterrupt(42)])
 
 
 class ExceptionGroupTestBase(unittest.TestCase):
