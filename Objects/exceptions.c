@@ -657,12 +657,12 @@ BaseExceptionGroup_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     excs = PyTuple_GET_ITEM(args, 1);
     if (!PyUnicode_CheckExact(msg)) {
         PyErr_SetString(PyExc_TypeError,
-            "Expected msg followed by a sequence of the nested exceptions");
+            "Expected a message");
         return NULL;
     }
     if (!PySequence_Check(excs)) {
         PyErr_SetString(PyExc_TypeError,
-            "Expected msg followed by a sequence of the nested exceptions");
+            "Expected a sequence of the nested exceptions");
         return NULL;
     }
     numexcs = PySequence_Length(excs);
@@ -758,6 +758,20 @@ BaseExceptionGroup_str(PyBaseExceptionGroupObject *self)
     }
 }
 
+static PyObject *
+BaseExceptionGroup_create_new(PyBaseExceptionGroupObject *self,
+    PyObject *args,
+    PyObject *kwds) {
+
+    PyObject *eg = NULL;
+
+    eg = PyObject_CallObject(PyExc_BaseExceptionGroup, args);
+    if (!eg) {
+        return NULL;
+    }
+    return eg;
+}
+
 static PyObject* exceptiongroup_subset(PyBaseExceptionGroupObject *orig,
                                        PyObject *excs)
 {
@@ -765,7 +779,6 @@ static PyObject* exceptiongroup_subset(PyBaseExceptionGroupObject *orig,
     the list excs.
     excs is a subset of the exceptions in orig->excs (this is not checked).
     */
-    PyObject *args = NULL;
     PyObject *eg = NULL;
     PyObject *tb = NULL;
     PyObject *context = NULL;
@@ -779,14 +792,22 @@ static PyObject* exceptiongroup_subset(PyBaseExceptionGroupObject *orig,
         return Py_NewRef(Py_None);
     }
 
-    args = PyTuple_Pack(2, Py_NewRef(orig->msg), Py_NewRef(excs));
-    if (!args) {
-        goto error;
-    }
-    eg = PyObject_CallObject(PyExc_BaseExceptionGroup, args);
+    eg = PyObject_CallMethod(
+        (PyObject*)orig,
+        "create_new",
+        "(OO)",
+        Py_NewRef(orig->msg),
+        Py_NewRef(excs));
+
     if (!eg) {
         goto error;
     }
+    if (eg != Py_None && !PyObject_TypeCheck(eg, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
+        PyErr_SetString(PyExc_TypeError,
+            "create_new must return an instance of BaseExceptionGroup or None");
+        goto error;
+    }
+
     tb = PyException_GetTraceback((PyObject*)orig);
     if (tb) {
         int res = PyException_SetTraceback(eg, tb);
@@ -1027,6 +1048,7 @@ static PyMemberDef BaseExceptionGroup_members[] = {
 };
 
 static PyMethodDef BaseExceptionGroup_methods[] = {
+    {"create_new", (PyCFunction)BaseExceptionGroup_create_new, METH_VARARGS},
     {"split", (PyCFunction)BaseExceptionGroup_split, METH_VARARGS},
     {"subgroup", (PyCFunction)BaseExceptionGroup_subgroup, METH_VARARGS},
     {NULL}
