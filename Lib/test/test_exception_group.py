@@ -18,7 +18,7 @@ class ExceptionGroupHelper:
     @staticmethod
     def flatten(exc):
         ''' iterate over the individual exceptions (flattens the tree) '''
-        if isinstance(exc, ExceptionGroup):
+        if isinstance(exc, BaseExceptionGroup):
             for e in exc.errors:
                 for e_ in ExceptionGroupHelper.flatten(e):
                     yield e_
@@ -47,7 +47,7 @@ def newTE(t):
     raise TypeError(t)
 
 
-def newSimpleEG(msg=None):
+def newSimpleEG(msg):
     bind = functools.partial
     return newEG(msg, [bind(newVE, 1), bind(newTE, int), bind(newVE, 2)])
 
@@ -55,7 +55,7 @@ class MyExceptionGroup(ExceptionGroup):
     pass
 
 
-def newNestedEG(arg, msg=None):
+def newNestedEG(arg):
     bind = functools.partial
 
     def level1(i):
@@ -109,20 +109,22 @@ def extract_traceback(exc, eg):
 
 class ExceptionGroupTestBadInputs(unittest.TestCase):
     def test_simple_group_bad_constructor_args(self):
-        not_seq = 'Expected msg followed by a sequence of the nested exceptions'
+        not_seq1 = 'Expected msg followed by a sequence of the nested exceptions'
+        not_seq2 = 'Expected a sequence of the nested exceptions'
+        not_seq3 = 'Expected a message'
         not_exc = 'Nested exception must derive from BaseException'
         empty_seq = 'Expected non-empty sequence of nested exceptions'
-        with self.assertRaisesRegex(TypeError, not_seq):
+        with self.assertRaisesRegex(TypeError, not_seq1):
             _ = ExceptionGroup('no errors')
-        with self.assertRaisesRegex(TypeError, not_seq):
+        with self.assertRaisesRegex(TypeError, not_seq2):
             _ = ExceptionGroup('errors not sequence', {ValueError(42)})
         with self.assertRaisesRegex(TypeError, not_exc):
             _ = ExceptionGroup('bad error', ["not an exception"])
         with self.assertRaisesRegex(ValueError, empty_seq):
             _ = ExceptionGroup("eg", [])
-        with self.assertRaisesRegex(TypeError, not_seq):
+        with self.assertRaisesRegex(TypeError, not_seq1):
             _ = ExceptionGroup(ValueError(12))
-        with self.assertRaisesRegex(TypeError, not_seq):
+        with self.assertRaisesRegex(TypeError, not_seq3):
             _ = ExceptionGroup(ValueError(12), SyntaxError('bad syntax'))
 
 
@@ -149,7 +151,7 @@ class BaseExceptionGroupInstanceCreation(unittest.TestCase):
 class ExceptionGroupTestBase(unittest.TestCase):
     def assertMatchesTemplate(self, exc, template):
         """ Assert that the exception matches the template """
-        if isinstance(exc, ExceptionGroup):
+        if isinstance(exc, BaseExceptionGroup):
             self.assertIsInstance(template, collections.abc.Sequence)
             self.assertEqual(len(exc.errors), len(template))
             for e, t in zip(exc.errors, template):
@@ -220,7 +222,7 @@ class ExceptionGroupBasicsTests(ExceptionGroupTestBase):
 class ExceptionGroupSplitTests(ExceptionGroupTestBase):
     def _split_exception_group(self, eg, types):
         """ Split an EG and do some sanity checks on the result """
-        self.assertIsInstance(eg, ExceptionGroup)
+        self.assertIsInstance(eg, BaseExceptionGroup)
         fnames = [t.name for t in traceback.extract_tb(eg.__traceback__)]
         all_excs = list(ExceptionGroupHelper.flatten(eg))
 
@@ -228,17 +230,17 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
         subgroup = eg.subgroup(types)
 
         if match is not None:
-            self.assertIsInstance(match, ExceptionGroup)
+            self.assertIsInstance(match, BaseExceptionGroup)
             for e in ExceptionGroupHelper.flatten(match):
                 self.assertIsInstance(e, types)
 
             self.assertIsNotNone(subgroup)
-            self.assertIsInstance(subgroup, ExceptionGroup)
+            self.assertIsInstance(subgroup, BaseExceptionGroup)
             for e in ExceptionGroupHelper.flatten(subgroup):
                 self.assertIsInstance(e, types)
 
         if rest is not None:
-            self.assertIsInstance(rest, ExceptionGroup)
+            self.assertIsInstance(rest, BaseExceptionGroup)
             for e in ExceptionGroupHelper.flatten(rest):
                 self.assertNotIsInstance(e, types)
 
@@ -329,6 +331,152 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
         match, rest = eg.split(MyExceptionGroup)
         self.assertMatchesTemplate(match, [eg_template[0]])
         self.assertMatchesTemplate(rest, [eg_template[1]])
+
+    def test_split_BaseExceptionGroup(self):
+        def exc(ex):
+            try:
+                raise ex
+            except BaseException as e:
+                return e
+
+        try:
+            raise BaseExceptionGroup("beg", [exc(ValueError(1)), exc(KeyboardInterrupt(2))])
+        except BaseExceptionGroup as e:
+            beg = e
+
+        # Match Nothing
+        match, rest = self._split_exception_group(beg, TypeError)
+        self.assertIsNone(match)
+        self.assertMatchesTemplate(rest, [ValueError(1), KeyboardInterrupt(2)])
+        self.assertFalse(isinstance(rest, ExceptionGroup))
+
+        # Match Everything
+        match, rest = self._split_exception_group(beg, (ValueError, KeyboardInterrupt))
+        self.assertMatchesTemplate(match, [ValueError(1), KeyboardInterrupt(2)])
+        self.assertIsNone(rest)
+        self.assertFalse(isinstance(match, ExceptionGroup))
+
+        # Match ValueErrors
+        match, rest = self._split_exception_group(beg, ValueError)
+        self.assertMatchesTemplate(match, [ValueError(1)])
+        self.assertMatchesTemplate(rest, [KeyboardInterrupt(2)])
+        self.assertTrue(isinstance(match, ExceptionGroup))
+        self.assertFalse(isinstance(rest, ExceptionGroup))
+
+        # Match KeyboardInterrupts
+        match, rest = self._split_exception_group(beg, KeyboardInterrupt)
+        self.assertMatchesTemplate(match, [KeyboardInterrupt(2)])
+        self.assertMatchesTemplate(rest, [ValueError(1)])
+        self.assertFalse(isinstance(match, ExceptionGroup))
+        self.assertTrue(isinstance(rest, ExceptionGroup))
+
+    def test_split_ExceptionGroup_subclass_no_derive_new_override(self):
+        class EG(ExceptionGroup):
+            pass
+
+        try:
+            try:
+                try:
+                    raise TypeError(2)
+                except TypeError as te:
+                    raise EG("nested", [te])
+            except EG as nested:
+                try:
+                    raise ValueError(1)
+                except ValueError as ve:
+                    raise EG("eg", [ve, nested])
+        except EG as e:
+            eg = e
+
+        # Match Nothing
+        match, rest = self._split_exception_group(eg, OSError)
+        self.assertIsNone(match)
+        self.assertMatchesTemplate(rest, [ValueError(1), [TypeError(2)]])
+        self.assertFalse(isinstance(rest, EG))
+        self.assertTrue(isinstance(rest, ExceptionGroup))
+
+        # Match Everything
+        match, rest = self._split_exception_group(eg, (ValueError, TypeError))
+        self.assertMatchesTemplate(match, [ValueError(1), [TypeError(2)]])
+        self.assertIsNone(rest)
+        self.assertFalse(isinstance(match, EG))
+        self.assertTrue(isinstance(match, ExceptionGroup))
+
+        # Match ValueErrors
+        match, rest = self._split_exception_group(eg, ValueError)
+        self.assertMatchesTemplate(match, [ValueError(1)])
+        self.assertMatchesTemplate(rest, [[TypeError(2)]])
+        for e in [match, rest]:
+            self.assertFalse(isinstance(e, EG))
+            self.assertTrue(isinstance(e, ExceptionGroup))
+
+        # Match TypeErrors
+        match, rest = self._split_exception_group(eg, TypeError)
+        self.assertMatchesTemplate(match, [[TypeError(2)]])
+        self.assertMatchesTemplate(rest, [ValueError(1)])
+        for e in [match, rest]:
+            self.assertFalse(isinstance(e, EG))
+            self.assertTrue(isinstance(e, ExceptionGroup))
+
+    def test_split_ExceptionGroup_subclass_derive_new_override(self):
+        class EG(ExceptionGroup):
+            def __new__(cls, message, excs, code):
+                obj = super().__new__(cls, message, excs)
+                obj.code = code
+                return obj
+
+            def derive_new(self, excs):
+                return EG(self.message, excs, self.code)
+
+        try:
+            try:
+                try:
+                    raise TypeError(2)
+                except TypeError as te:
+                    raise EG("nested", [te], 101)
+            except EG as nested:
+                try:
+                    raise ValueError(1)
+                except ValueError as ve:
+                    raise EG("eg", [ve, nested], 42)
+        except EG as e:
+            eg = e
+
+        # Match Nothing
+        match, rest = self._split_exception_group(eg, OSError)
+        self.assertIsNone(match)
+        self.assertMatchesTemplate(rest, [ValueError(1), [TypeError(2)]])
+        self.assertTrue(isinstance(rest, EG))
+        self.assertEqual(rest.code, 42)
+        self.assertEqual(rest.errors[1].code, 101)
+
+        # Match Everything
+        match, rest = self._split_exception_group(eg, (ValueError, TypeError))
+        self.assertMatchesTemplate(match, [ValueError(1), [TypeError(2)]])
+        self.assertIsNone(rest)
+        self.assertTrue(isinstance(match, EG))
+        self.assertEqual(match.code, 42)
+        self.assertEqual(match.errors[1].code, 101)
+
+        # Match ValueErrors
+        match, rest = self._split_exception_group(eg, ValueError)
+        self.assertMatchesTemplate(match, [ValueError(1)])
+        self.assertMatchesTemplate(rest, [[TypeError(2)]])
+        self.assertTrue(isinstance(match, EG))
+        self.assertTrue(isinstance(rest, EG))
+        self.assertEqual(match.code, 42)
+        self.assertEqual(rest.code, 42)
+        self.assertEqual(rest.errors[0].code, 101)
+
+        # Match TypeErrors
+        match, rest = self._split_exception_group(eg, TypeError)
+        self.assertMatchesTemplate(match, [[TypeError(2)]])
+        self.assertMatchesTemplate(rest, [ValueError(1)])
+        self.assertTrue(isinstance(match, EG))
+        self.assertTrue(isinstance(rest, EG))
+        self.assertEqual(match.code, 42)
+        self.assertEqual(rest.code, 42)
+        self.assertEqual(match.errors[0].code, 101)
 
 
 if __name__ == '__main__':

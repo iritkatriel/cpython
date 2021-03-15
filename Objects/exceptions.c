@@ -759,13 +759,21 @@ BaseExceptionGroup_str(PyBaseExceptionGroupObject *self)
 }
 
 static PyObject *
-BaseExceptionGroup_create_new(PyBaseExceptionGroupObject *self,
+BaseExceptionGroup_derive_new(PyBaseExceptionGroupObject *self,
     PyObject *args,
     PyObject *kwds) {
 
-    PyObject *eg = NULL;
+    PyObject *msg = Py_NewRef(self->msg);
+    PyObject *excs = Py_NewRef(PySequence_GetItem(args, 0));
 
-    eg = PyObject_CallObject(PyExc_BaseExceptionGroup, args);
+    PyObject *init_args = PyTuple_Pack(2, msg, excs);
+    if (args == NULL) {
+        return NULL;
+    }
+
+    PyObject *eg = PyObject_CallObject(
+        PyExc_BaseExceptionGroup, init_args);
+    Py_DECREF(init_args);
     if (!eg) {
         return NULL;
     }
@@ -794,17 +802,16 @@ static PyObject* exceptiongroup_subset(PyBaseExceptionGroupObject *orig,
 
     eg = PyObject_CallMethod(
         (PyObject*)orig,
-        "create_new",
-        "(OO)",
-        Py_NewRef(orig->msg),
+        "derive_new",
+        "(O)",
         Py_NewRef(excs));
 
     if (!eg) {
         goto error;
     }
-    if (eg != Py_None && !PyObject_TypeCheck(eg, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
+    if (!PyObject_TypeCheck(eg, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
         PyErr_SetString(PyExc_TypeError,
-            "create_new must return an instance of BaseExceptionGroup or None");
+            "derive_new must return an instance of BaseExceptionGroup");
         goto error;
     }
 
@@ -1048,7 +1055,7 @@ static PyMemberDef BaseExceptionGroup_members[] = {
 };
 
 static PyMethodDef BaseExceptionGroup_methods[] = {
-    {"create_new", (PyCFunction)BaseExceptionGroup_create_new, METH_VARARGS},
+    {"derive_new", (PyCFunction)BaseExceptionGroup_derive_new, METH_VARARGS},
     {"split", (PyCFunction)BaseExceptionGroup_split, METH_VARARGS},
     {"subgroup", (PyCFunction)BaseExceptionGroup_subgroup, METH_VARARGS},
     {NULL}

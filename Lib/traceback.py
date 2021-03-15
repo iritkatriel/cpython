@@ -659,7 +659,6 @@ class TracebackException:
                 else:
                     chained_msg = None
                     chained_exc = None
-
                 output.append((chained_msg, e))
                 exc = chained_exc
             else:
@@ -694,8 +693,8 @@ class TracebackExceptionGroup:
     INDENT_SIZE = 3
 
     def __init__(self, exc_type, exc_value, exc_traceback, **kwargs):
-        if not isinstance(exc_value, ExceptionGroup):
-            raise ValueError(f'Expected an ExceptionGroup, got {type(exc_value)}')
+        if not isinstance(exc_value, BaseExceptionGroup):
+            raise ValueError(f'Expected a BaseExceptionGroup, got {type(exc_value)}')
         self.this = TracebackException(
             exc_type, exc_value, exc_traceback, **kwargs)
         self.errors = [
@@ -759,7 +758,7 @@ class ExceptionFormatter:
 
     @staticmethod
     def get(exc_type, exc_value, exc_traceback, **kwargs):
-        if isinstance(exc_value, ExceptionGroup):
+        if isinstance(exc_value, BaseExceptionGroup):
             cls = TracebackExceptionGroup
         else:
             cls = TracebackException
@@ -767,7 +766,7 @@ class ExceptionFormatter:
 
     @staticmethod
     def from_exception(exc, **kwargs):
-        if isinstance(exc, ExceptionGroup):
+        if isinstance(exc, BaseExceptionGroup):
             return TracebackExceptionGroup.from_exception(exc, **kwargs)
         else:
             return TracebackException.from_exception(exc, **kwargs)
