@@ -691,7 +691,7 @@ BaseExceptionGroup_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
         }
     }
 
-    if (cls == (PyTypeObject *)PyExc_BaseExceptionGroup) {
+    if (!PyObject_IsSubclass((PyObject*)cls, PyExc_ExceptionGroup)) {
         if (!nested_base_exceptions) {
             cls = (PyTypeObject *)PyExc_ExceptionGroup;
         }

@@ -418,6 +418,49 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
             self.assertFalse(isinstance(e, EG))
             self.assertTrue(isinstance(e, ExceptionGroup))
 
+    def test_split_BaseExceptionGroup_subclass_no_derive_new_override(self):
+        class EG(BaseExceptionGroup):
+            pass
+
+        try:
+            raise EG("eg", [ValueError(1), KeyboardInterrupt(2)])
+        except EG as e:
+            eg = e
+
+        # Match Nothing
+        match, rest = self._split_exception_group(eg, OSError)
+        self.assertIsNone(match)
+        self.assertMatchesTemplate(rest, [ValueError(1), KeyboardInterrupt(2)])
+        self.assertFalse(isinstance(rest, EG))
+        self.assertTrue(isinstance(rest, BaseExceptionGroup))
+
+        # Match Everything
+        match, rest = self._split_exception_group(eg, (ValueError, KeyboardInterrupt))
+        self.assertMatchesTemplate(match, [ValueError(1), KeyboardInterrupt(2)])
+        self.assertIsNone(rest)
+        self.assertFalse(isinstance(match, EG))
+        self.assertTrue(isinstance(match, BaseExceptionGroup))
+
+        # Match ValueErrors
+        match, rest = self._split_exception_group(eg, ValueError)
+        self.assertMatchesTemplate(match, [ValueError(1)])
+        self.assertMatchesTemplate(rest, [KeyboardInterrupt(2)])
+        for e in (match, rest):
+            self.assertFalse(isinstance(e, EG))
+        self.assertTrue(isinstance(match, ExceptionGroup))
+        self.assertTrue(isinstance(rest, BaseExceptionGroup))
+        self.assertFalse(isinstance(rest, ExceptionGroup))
+
+        # Match KeyboardInterrupt
+        match, rest = self._split_exception_group(eg, KeyboardInterrupt)
+        self.assertMatchesTemplate(match, [KeyboardInterrupt(2)])
+        self.assertMatchesTemplate(rest, [ValueError(1)])
+        for e in [match, rest]:
+            self.assertFalse(isinstance(e, EG))
+        self.assertTrue(isinstance(match, BaseExceptionGroup))
+        self.assertFalse(isinstance(match, ExceptionGroup))
+        self.assertTrue(isinstance(rest, ExceptionGroup))
+
     def test_split_ExceptionGroup_subclass_derive_new_override(self):
         class EG(ExceptionGroup):
             def __new__(cls, message, excs, code):
