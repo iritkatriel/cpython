@@ -718,7 +718,7 @@ BaseExceptionGroup_init(PyBaseExceptionGroupObject *self, PyObject *args, PyObje
     }
 
     self->msg = Py_NewRef(PyTuple_GET_ITEM(args, 0));
-    self->excs = Py_NewRef(PyTuple_GET_ITEM(args, 1));
+    self->excs = PySequence_Tuple(PyTuple_GET_ITEM(args, 1));
     return 0;
 }
 
@@ -792,7 +792,7 @@ static PyObject* exceptiongroup_subset(PyBaseExceptionGroupObject *orig,
     PyObject *context = NULL;
     PyObject *cause = NULL;
 
-    Py_ssize_t num_excs = PyList_GET_SIZE(excs);
+    Py_ssize_t num_excs = PySequence_Size(excs);
     if (num_excs < 0) {
         return NULL;
     }
@@ -1047,9 +1047,9 @@ BaseExceptionGroup_subgroup(PyBaseExceptionGroupObject *self,
 }
 
 static PyMemberDef BaseExceptionGroup_members[] = {
-    {"message", T_OBJECT, offsetof(PyBaseExceptionGroupObject, msg), 0,
+    {"message", T_OBJECT, offsetof(PyBaseExceptionGroupObject, msg), READONLY,
         PyDoc_STR("exception message")},
-    {"exceptions", T_OBJECT, offsetof(PyBaseExceptionGroupObject, excs), 0,
+    {"exceptions", T_OBJECT, offsetof(PyBaseExceptionGroupObject, excs), READONLY,
         PyDoc_STR("nested exceptions")},
     {NULL}  /* Sentinel */
 };
