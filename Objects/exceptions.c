@@ -802,7 +802,7 @@ static PyObject* exceptiongroup_subset(PyBaseExceptionGroupObject *orig,
 
     eg = PyObject_CallMethod(
         (PyObject*)orig,
-        "derive_new",
+        "derive",
         "(O)",
         Py_NewRef(excs));
 
@@ -811,7 +811,7 @@ static PyObject* exceptiongroup_subset(PyBaseExceptionGroupObject *orig,
     }
     if (!PyObject_TypeCheck(eg, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
         PyErr_SetString(PyExc_TypeError,
-            "derive_new must return an instance of BaseExceptionGroup");
+            "derive must return an instance of BaseExceptionGroup");
         goto error;
     }
 
@@ -1055,7 +1055,7 @@ static PyMemberDef BaseExceptionGroup_members[] = {
 };
 
 static PyMethodDef BaseExceptionGroup_methods[] = {
-    {"derive_new", (PyCFunction)BaseExceptionGroup_derive_new, METH_VARARGS},
+    {"derive", (PyCFunction)BaseExceptionGroup_derive_new, METH_VARARGS},
     {"split", (PyCFunction)BaseExceptionGroup_split, METH_VARARGS},
     {"subgroup", (PyCFunction)BaseExceptionGroup_subgroup, METH_VARARGS},
     {NULL}

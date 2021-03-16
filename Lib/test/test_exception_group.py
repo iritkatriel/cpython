@@ -468,7 +468,7 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
                 obj.code = code
                 return obj
 
-            def derive_new(self, excs):
+            def derive(self, excs):
                 return EG(self.message, excs, self.code)
 
         try:
