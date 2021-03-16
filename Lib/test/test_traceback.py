@@ -1488,7 +1488,7 @@ class TestTracebackExceptionGroup(unittest.TestCase):
             1/0
         except:
             exc_info = sys.exc_info()
-        msg = "Expected an ExceptionGroup, got <class 'ZeroDivisionError'>"
+        msg = "Expected a BaseExceptionGroup, got <class 'ZeroDivisionError'>"
         with self.assertRaisesRegex(ValueError, msg):
             traceback.TracebackExceptionGroup(*exc_info)
         with self.assertRaisesRegex(ValueError, msg):

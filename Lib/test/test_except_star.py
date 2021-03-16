@@ -63,8 +63,12 @@ class ExceptStarTest(unittest.TestCase):
             self.assertEqual(e1.__traceback__, e2.__traceback__)
 
     def assertMetadataNotEqual(self, e1, e2):
-        return not self.assertMetadataEqual(e2, e2)
-
+        if e1 is None or e2 is None:
+            self.assertNotEqual(e1, e2)
+        else:
+            return not (e1.__context__ == e2.__context__
+                        and e1.__cause__ == e2.__cause__
+                        and e1.__traceback__ == e2.__traceback__)
 
 
 class TestExceptStarSplitSemantics(ExceptStarTest):
@@ -738,6 +742,43 @@ class TestExceptStarRaiseFrom(ExceptStarTest):
         self.assertMetadataEqual(orig, exc.errors[0].__cause__)
         self.assertMetadataEqual(orig, exc.errors[1].__context__)
         self.assertMetadataEqual(orig, exc.errors[1].__cause__)
+
+
+class TestExceptStarExceptionGroupSubclass(ExceptStarTest):
+    def test_except_star_EG_subclass(self):
+        class EG(ExceptionGroup):
+            def __new__(cls, message, excs, code):
+                obj = super().__new__(cls, message, excs)
+                obj.code = code
+                return obj
+
+            def derive(self, excs):
+                return EG(self.message, excs, self.code)
+
+        try:
+            try:
+                try:
+                    try:
+                        raise TypeError(2)
+                    except TypeError as te:
+                        raise EG("nested", [te], 101) from None
+                except EG as nested:
+                    try:
+                        raise ValueError(1)
+                    except ValueError as ve:
+                        raise EG("eg", [ve, nested], 42)
+            except *ValueError as eg:
+                veg = eg
+        except EG as eg:
+            teg = eg
+
+        self.assertIsInstance(veg, EG)
+        self.assertIsInstance(teg, EG)
+        self.assertIsInstance(teg.errors[0], EG)
+        self.assertMetadataEqual(veg, teg)
+        self.assertEqual(veg.code, 42)
+        self.assertEqual(teg.code, 42)
+        self.assertEqual(teg.errors[0].code, 101)
 
 
 if __name__ == '__main__':

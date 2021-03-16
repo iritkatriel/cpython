@@ -657,12 +657,12 @@ BaseExceptionGroup_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     excs = PyTuple_GET_ITEM(args, 1);
     if (!PyUnicode_CheckExact(msg)) {
         PyErr_SetString(PyExc_TypeError,
-            "Expected msg followed by a sequence of the nested exceptions");
+            "Expected a message");
         return NULL;
     }
     if (!PySequence_Check(excs)) {
         PyErr_SetString(PyExc_TypeError,
-            "Expected msg followed by a sequence of the nested exceptions");
+            "Expected a sequence of the nested exceptions");
         return NULL;
     }
     numexcs = PySequence_Length(excs);
@@ -691,7 +691,7 @@ BaseExceptionGroup_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
         }
     }
 
-    if (cls == (PyTypeObject *)PyExc_BaseExceptionGroup) {
+    if (!PyObject_IsSubclass((PyObject*)cls, PyExc_ExceptionGroup)) {
         if (!nested_base_exceptions) {
             cls = (PyTypeObject *)PyExc_ExceptionGroup;
         }
@@ -758,6 +758,28 @@ BaseExceptionGroup_str(PyBaseExceptionGroupObject *self)
     }
 }
 
+static PyObject *
+BaseExceptionGroup_derive_new(PyBaseExceptionGroupObject *self,
+    PyObject *args,
+    PyObject *kwds) {
+
+    PyObject *msg = Py_NewRef(self->msg);
+    PyObject *excs = Py_NewRef(PySequence_GetItem(args, 0));
+
+    PyObject *init_args = PyTuple_Pack(2, msg, excs);
+    if (args == NULL) {
+        return NULL;
+    }
+
+    PyObject *eg = PyObject_CallObject(
+        PyExc_BaseExceptionGroup, init_args);
+    Py_DECREF(init_args);
+    if (!eg) {
+        return NULL;
+    }
+    return eg;
+}
+
 static PyObject* exceptiongroup_subset(PyBaseExceptionGroupObject *orig,
                                        PyObject *excs)
 {
@@ -765,7 +787,6 @@ static PyObject* exceptiongroup_subset(PyBaseExceptionGroupObject *orig,
     the list excs.
     excs is a subset of the exceptions in orig->excs (this is not checked).
     */
-    PyObject *args = NULL;
     PyObject *eg = NULL;
     PyObject *tb = NULL;
     PyObject *context = NULL;
@@ -779,14 +800,21 @@ static PyObject* exceptiongroup_subset(PyBaseExceptionGroupObject *orig,
         return Py_NewRef(Py_None);
     }
 
-    args = PyTuple_Pack(2, Py_NewRef(orig->msg), Py_NewRef(excs));
-    if (!args) {
-        goto error;
-    }
-    eg = PyObject_CallObject(PyExc_BaseExceptionGroup, args);
+    eg = PyObject_CallMethod(
+        (PyObject*)orig,
+        "derive",
+        "(O)",
+        Py_NewRef(excs));
+
     if (!eg) {
         goto error;
     }
+    if (!PyObject_TypeCheck(eg, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
+        PyErr_SetString(PyExc_TypeError,
+            "derive must return an instance of BaseExceptionGroup");
+        goto error;
+    }
+
     tb = PyException_GetTraceback((PyObject*)orig);
     if (tb) {
         int res = PyException_SetTraceback(eg, tb);
@@ -1027,6 +1055,7 @@ static PyMemberDef BaseExceptionGroup_members[] = {
 };
 
 static PyMethodDef BaseExceptionGroup_methods[] = {
+    {"derive", (PyCFunction)BaseExceptionGroup_derive_new, METH_VARARGS},
     {"split", (PyCFunction)BaseExceptionGroup_split, METH_VARARGS},
     {"subgroup", (PyCFunction)BaseExceptionGroup_subgroup, METH_VARARGS},
     {NULL}
