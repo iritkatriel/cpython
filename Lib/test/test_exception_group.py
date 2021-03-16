@@ -19,7 +19,7 @@ class ExceptionGroupHelper:
     def flatten(exc):
         ''' iterate over the individual exceptions (flattens the tree) '''
         if isinstance(exc, BaseExceptionGroup):
-            for e in exc.errors:
+            for e in exc.exceptions:
                 for e_ in ExceptionGroupHelper.flatten(e):
                     yield e_
         else:
@@ -98,12 +98,12 @@ def extract_traceback(exc, eg):
     e = ExceptionGroupHelper.subgroup(eg, [exc])
     while e is not None:
         if isinstance(e, ExceptionGroup):
-            assert len(e.errors) == 1 and exc in ExceptionGroupHelper.flatten(e)
+            assert len(e.exceptions) == 1 and exc in ExceptionGroupHelper.flatten(e)
         r = traceback.extract_tb(e.__traceback__)
         if result is None:
             result = []
         result.extend(r)
-        e = e.errors[0] if isinstance(e, ExceptionGroup) else None
+        e = e.exceptions[0] if isinstance(e, ExceptionGroup) else None
     return result
 
 
@@ -153,8 +153,8 @@ class ExceptionGroupTestBase(unittest.TestCase):
         """ Assert that the exception matches the template """
         if isinstance(exc, BaseExceptionGroup):
             self.assertIsInstance(template, collections.abc.Sequence)
-            self.assertEqual(len(exc.errors), len(template))
-            for e, t in zip(exc.errors, template):
+            self.assertEqual(len(exc.exceptions), len(template))
+            for e, t in zip(exc.exceptions, template):
                 self.assertMatchesTemplate(e, t)
         else:
             self.assertIsInstance(template, BaseException)
@@ -169,7 +169,7 @@ class ExceptionGroupBasicsTests(ExceptionGroupTestBase):
         self.assertMatchesTemplate(
             eg, [ValueError(1), TypeError(int), ValueError(2)])
 
-        self.assertEqual(list(ExceptionGroupHelper.flatten(eg)), list(eg.errors))  # check iteration
+        self.assertEqual(list(ExceptionGroupHelper.flatten(eg)), list(eg.exceptions))  # check iteration
 
         # check msg
         self.assertEqual(eg.message, 'simple EG')
@@ -491,7 +491,7 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
         self.assertMatchesTemplate(rest, [ValueError(1), [TypeError(2)]])
         self.assertTrue(isinstance(rest, EG))
         self.assertEqual(rest.code, 42)
-        self.assertEqual(rest.errors[1].code, 101)
+        self.assertEqual(rest.exceptions[1].code, 101)
 
         # Match Everything
         match, rest = self._split_exception_group(eg, (ValueError, TypeError))
@@ -499,7 +499,7 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
         self.assertIsNone(rest)
         self.assertTrue(isinstance(match, EG))
         self.assertEqual(match.code, 42)
-        self.assertEqual(match.errors[1].code, 101)
+        self.assertEqual(match.exceptions[1].code, 101)
 
         # Match ValueErrors
         match, rest = self._split_exception_group(eg, ValueError)
@@ -509,7 +509,7 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
         self.assertTrue(isinstance(rest, EG))
         self.assertEqual(match.code, 42)
         self.assertEqual(rest.code, 42)
-        self.assertEqual(rest.errors[0].code, 101)
+        self.assertEqual(rest.exceptions[0].code, 101)
 
         # Match TypeErrors
         match, rest = self._split_exception_group(eg, TypeError)
@@ -519,7 +519,7 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
         self.assertTrue(isinstance(rest, EG))
         self.assertEqual(match.code, 42)
         self.assertEqual(rest.code, 42)
-        self.assertEqual(match.errors[0].code, 101)
+        self.assertEqual(match.exceptions[0].code, 101)
 
 
 if __name__ == '__main__':

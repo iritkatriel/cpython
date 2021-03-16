@@ -1049,7 +1049,7 @@ BaseExceptionGroup_subgroup(PyBaseExceptionGroupObject *self,
 static PyMemberDef BaseExceptionGroup_members[] = {
     {"message", T_OBJECT, offsetof(PyBaseExceptionGroupObject, msg), 0,
         PyDoc_STR("exception message")},
-    {"errors", T_OBJECT, offsetof(PyBaseExceptionGroupObject, excs), 0,
+    {"exceptions", T_OBJECT, offsetof(PyBaseExceptionGroupObject, excs), 0,
         PyDoc_STR("nested exceptions")},
     {NULL}  /* Sentinel */
 };
