@@ -826,7 +826,7 @@ class CExcReportingTests(BaseExceptionReportingTests, unittest.TestCase):
         # Block 1: The ExceptionGroup which is the context of the ZeroDivisionError
         self.assertIn('  |     raise ExceptionGroup("eg", [ValueError(1), TypeError(2)])\n', blocks[1])
         self.assertIn('  | ExceptionGroup: eg\n', blocks[1])
-        self.assertIn('  |    with one sub-exception:\n', blocks[1])
+        self.assertIn('  |  with one sub-exception:\n', blocks[1])
 
         # Block 2: The ValueError
         self.assertIn('  | ValueError: 1\n', blocks[2])
@@ -839,7 +839,7 @@ class CExcReportingTests(BaseExceptionReportingTests, unittest.TestCase):
         # Block 4: The nested ExceptionGroup
         self.assertIn('  |     raise ExceptionGroup("eg", [ValueError(1), TypeError(2)])\n', blocks[4])
         self.assertIn('  | ExceptionGroup: eg\n', blocks[4])
-        self.assertIn('  |    with one sub-exception:\n', blocks[4])
+        self.assertIn('  |  with one sub-exception:\n', blocks[4])
 
         # Block 5: The TypeError
         self.assertIn('  | TypeError: 2\n', blocks[5])
@@ -1402,51 +1402,8 @@ class TestTracebackException(unittest.TestCase):
         exc = traceback.TracebackException(Exception, Exception("haven"), None)
         self.assertEqual(list(exc.format()), ["Exception: haven\n"])
 
-    def test_ExceptionFormatter_factory(self):
-        def f():
-            x = 12
-            x/0
 
-        try:
-            f()
-        except:
-            exc_info = sys.exc_info()
-
-        exc = exc_info[1]
-
-        factory = traceback.ExceptionFormatter
-        direct = traceback.TracebackException
-
-        self.assertEqual(
-            factory.get(*exc_info),
-            direct(*exc_info))
-        self.assertEqual(
-            factory.from_exception(exc),
-            direct.from_exception(exc))
-
-        self.assertEqual(
-            factory.get(*exc_info, limit=1),
-            direct(*exc_info, limit=1))
-        self.assertEqual(
-            factory.from_exception(exc, limit=2),
-            direct.from_exception(exc, limit=2))
-
-        self.assertNotEqual(
-            factory.get(*exc_info, limit=1),
-            direct(*exc_info, limit=2))
-        self.assertNotEqual(
-            factory.from_exception(exc, limit=2),
-            direct.from_exception(exc, limit=1))
-
-        self.assertNotEqual(
-            factory.get(*exc_info, capture_locals=True),
-            direct(*exc_info))
-        self.assertNotEqual(
-            factory.from_exception(exc, capture_locals=True),
-            direct.from_exception(exc))
-
-
-class TestTracebackExceptionGroup(unittest.TestCase):
+class TestTracebackException_ExceptionGroups(unittest.TestCase):
     def setUp(self):
         super().setUp()
         self.eg_info = self._get_exception_group()
@@ -1483,75 +1440,75 @@ class TestTracebackExceptionGroup(unittest.TestCase):
             return sys.exc_info()
         self.fail('Exception Not Raised')
 
-    def test_single_exception_raises(self):
-        try:
-            1/0
-        except:
-            exc_info = sys.exc_info()
-        msg = "Expected a BaseExceptionGroup, got <class 'ZeroDivisionError'>"
-        with self.assertRaisesRegex(ValueError, msg):
-            traceback.TracebackExceptionGroup(*exc_info)
-        with self.assertRaisesRegex(ValueError, msg):
-            traceback.TracebackExceptionGroup.from_exception(exc_info[1])
-
     def test_exception_group_construction(self):
         eg_info = self.eg_info
-        teg1 = traceback.TracebackExceptionGroup(*eg_info)
-        teg2 = traceback.TracebackExceptionGroup.from_exception(eg_info[1])
+        teg1 = traceback.TracebackException(*eg_info)
+        teg2 = traceback.TracebackException.from_exception(eg_info[1])
         self.assertIsNot(teg1, teg2)
         self.assertEqual(teg1, teg2)
 
     def test_exception_group_format_exception_only(self):
-        teg = traceback.TracebackExceptionGroup(*self.eg_info)
+        teg = traceback.TracebackException(*self.eg_info)
         formatted = ''.join(teg.format_exception_only()).split('\n')
-        expected = textwrap.dedent(f"""\
-            ExceptionGroup: eg2
-               ExceptionGroup: eg1
-                  ZeroDivisionError: division by zero
-                  ValueError: 42
-               ValueError: 24
-            """).split('\n')
+        expected = textwrap.dedent(f"ExceptionGroup: eg2\n").split('\n')
 
         self.assertEqual(formatted, expected)
+
     def test_exception_group_format(self):
-        teg = traceback.TracebackExceptionGroup(*self.eg_info)
+        teg = traceback.TracebackException(*self.eg_info)
 
         formatted = ''.join(teg.format()).split('\n')
         lno_f = self.lno_f
         lno_g = self.lno_g
 
-        expected = textwrap.dedent(f"""\
-            Traceback (most recent call last):
-              File "{__file__}", line {lno_g+23}, in _get_exception_group
-                raise ExceptionGroup("eg2", [exc3, exc4])
-            ExceptionGroup: eg2
-               ------------------------------------------------------------
-               Traceback (most recent call last):
-                 File "{__file__}", line {lno_g+16}, in _get_exception_group
-                   raise ExceptionGroup("eg1", [exc1, exc2])
-               ExceptionGroup: eg1
-                  ------------------------------------------------------------
-                  Traceback (most recent call last):
-                    File "{__file__}", line {lno_g+9}, in _get_exception_group
-                      f()
-                    File "{__file__}", line {lno_f+1}, in f
-                      1/0
-                  ZeroDivisionError: division by zero
-                  ------------------------------------------------------------
-                  Traceback (most recent call last):
-                    File "{__file__}", line {lno_g+13}, in _get_exception_group
-                      g(42)
-                    File "{__file__}", line {lno_g+1}, in g
-                      raise ValueError(v)
-                  ValueError: 42
-               ------------------------------------------------------------
-               Traceback (most recent call last):
-                 File "{__file__}", line {lno_g+20}, in _get_exception_group
-                   g(24)
-                 File "{__file__}", line {lno_g+1}, in g
-                   raise ValueError(v)
-               ValueError: 24
-            """).split('\n')
+        expected = [
+                    f'  | Traceback (most recent call last):',
+                    f'  |   File "{__file__}", line '
+                    f'{lno_g+23}, in _get_exception_group',
+                    f'  |     raise ExceptionGroup("eg2", [exc3, exc4])',
+                    f'  | ExceptionGroup: eg2',
+                    f'  |  with 2 sub-exceptions:',
+                    f'  +-+---------------- 1 ----------------',
+                    f'    | Traceback (most recent call last):',
+                    f'    |   File "{__file__}", '
+                    f'line {lno_g+16}, in _get_exception_group',
+                    f'    |     raise ExceptionGroup("eg1", [exc1, exc2])',
+                    f'    | ExceptionGroup: eg1',
+                    f'    |  with 2 sub-exceptions:',
+                    f'    +-+---------------- 1.1 ----------------',
+                    f'      | Traceback (most recent call last):',
+                    f'      |   File '
+                    f'"{__file__}", line {lno_g+9}, in '
+                    f'_get_exception_group',
+                    f'      |     f()',
+                    f'      |   File '
+                    f'"{__file__}", line {lno_f+1}, in '
+                    f'f',
+                    f'      |     1/0',
+                    f'      | ZeroDivisionError: division by zero',
+                    f'      +---------------- 1.2 ----------------',
+                    f'      | Traceback (most recent call last):',
+                    f'      |   File '
+                    f'"{__file__}", line {lno_g+13}, in '
+                    f'_get_exception_group',
+                    f'      |     g(42)',
+                    f'      |   File '
+                    f'"{__file__}", line {lno_g+1}, in '
+                    f'g',
+                    f'      |     raise ValueError(v)',
+                    f'      | ValueError: 42',
+                    f'      +------------------------------------',
+                    f'    +---------------- 2 ----------------',
+                    f'    | Traceback (most recent call last):',
+                    f'    |   File "{__file__}", '
+                    f'line {lno_g+20}, in _get_exception_group',
+                    f'    |     g(24)',
+                    f'    |   File "{__file__}", '
+                    f'line {lno_g+1}, in g',
+                    f'    |     raise ValueError(v)',
+                    f'    | ValueError: 24',
+                    f'    +------------------------------------',
+                    f'']
 
         self.assertEqual(formatted, expected)
 
@@ -1565,43 +1522,16 @@ class TestTracebackExceptionGroup(unittest.TestCase):
                 raise exc_info[1]
             except:
                 exc_info = sys.exc_info()
-        exc = traceback.TracebackExceptionGroup(*exc_info)
-        exc2 = traceback.TracebackExceptionGroup(*exc_info)
-        exc3 = traceback.TracebackExceptionGroup(*exc_info, limit=300)
-        ne = traceback.TracebackExceptionGroup(*exc_info, limit=3)
+        exc = traceback.TracebackException(*exc_info)
+        exc2 = traceback.TracebackException(*exc_info)
+        exc3 = traceback.TracebackException(*exc_info, limit=300)
+        ne = traceback.TracebackException(*exc_info, limit=3)
         self.assertIsNot(exc, exc2)
         self.assertEqual(exc, exc2)
         self.assertEqual(exc, exc3)
         self.assertNotEqual(exc, ne)
         self.assertNotEqual(exc, object())
         self.assertEqual(exc, ALWAYS_EQ)
-    def test_ExceptionFormatter_factory(self):
-        exc_info = self.eg_info
-
-        factory = traceback.ExceptionFormatter
-        direct = traceback.TracebackExceptionGroup
-
-        self.assertEqual(
-            factory.get(*exc_info),
-            direct(*exc_info))
-        self.assertEqual(
-            factory.from_exception(exc_info[1]),
-            direct.from_exception(exc_info[1]))
-
-        self.assertEqual(
-            factory.get(*exc_info, limit=10),
-            direct(*exc_info, limit=20))
-        self.assertEqual(
-            factory.from_exception(exc_info[1], limit=10),
-            direct.from_exception(exc_info[1], limit=20))
-
-        self.assertNotEqual(
-            factory.get(*exc_info, capture_locals=True),
-            direct(*exc_info))
-        self.assertNotEqual(
-            factory.from_exception(exc_info[1], capture_locals=True),
-            direct.from_exception(exc_info[1]))
-
 
 class MiscTest(unittest.TestCase):
 

@@ -1029,7 +1029,7 @@ print_exception_recursive(struct exception_print_context* ctx, PyObject *value)
                 }
                 else if (num_excs == 1) {
                     line = PyUnicode_FromFormat(
-                        "   with one sub-exception:\n");
+                        " with one sub-exception:\n");
                 }
                 err |= _Py_WriteFancyIndent(indent(ctx), margin_char(ctx), f);
                 err |= PyFile_WriteObject(line, f, Py_PRINT_RAW);
@@ -1091,10 +1091,6 @@ _PyErr_Display(PyObject *file, PyObject *exception, PyObject *value, PyObject *t
     assert(file != NULL && file != Py_None);
     struct exception_print_context ctx;
 
-    ctx.file = file;
-    ctx.exception_group_depth = 0;
-    ctx.parent_label = 0;
-
     if (PyExceptionInstance_Check(value)
         && tb != NULL && PyTraceBack_Check(tb)) {
         /* Put the traceback on the exception, otherwise it won't get
@@ -1106,6 +1102,10 @@ _PyErr_Display(PyObject *file, PyObject *exception, PyObject *value, PyObject *t
             Py_DECREF(cur_tb);
     }
 
+
+    ctx.file = file;
+    ctx.exception_group_depth = 0;
+    ctx.parent_label = 0;
     /* We choose to ignore seen being possibly NULL, and report
        at least the main exception (it could be a MemoryError).
     */

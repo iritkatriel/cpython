@@ -385,9 +385,8 @@ _Py_WriteIndent(int indent, PyObject *f) {
     return 0;
 }
 
-/* Utility for write pretty indentation. Writes 2*indent chars,
- * in the format "efefefe " where e is the edge character and b
- * is the fill character
+/* Utility for write pretty indentation. Writes indent spaces,
+ * followed by "X " where X is the margin_char
  */
 int
 _Py_WriteFancyIndent(int indent, char margin_char, PyObject *f) {
