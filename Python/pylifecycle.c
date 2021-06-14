@@ -1631,6 +1631,7 @@ finalize_interp_types(PyInterpreterState *interp)
 {
     _PyExc_Fini(interp);
     _PyFrame_Fini(interp);
+    _PyTraceback_Fini(interp);
     _PyAsyncGen_Fini(interp);
     _PyContext_Fini(interp);
     _PyType_Fini(interp);

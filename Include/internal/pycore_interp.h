@@ -141,6 +141,12 @@ struct _Py_frame_state {
     int numfree;
 };
 
+struct _Py_traceback_state {
+    PyTracebackObject *free_list;
+    /* number of tracebacks currently in free_list */
+    int numfree;
+};
+
 #ifndef _PyAsyncGen_MAXFREELIST
 #  define _PyAsyncGen_MAXFREELIST 80
 #endif
@@ -305,6 +311,7 @@ struct _is {
     struct _Py_list_state list;
     struct _Py_dict_state dict_state;
     struct _Py_frame_state frame;
+    struct _Py_traceback_state traceback;
     struct _Py_async_gen_state async_gen;
     struct _Py_context_state context;
     struct _Py_exc_state exc_state;

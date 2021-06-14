@@ -2,6 +2,7 @@
 /* Traceback implementation */
 
 #include "Python.h"
+#include "pycore_object.h"        
 
 #include "code.h"
 #include "frameobject.h"          // PyFrame_GetBack()
@@ -33,6 +34,13 @@ class TracebackType "PyTracebackObject *" "&PyTraceback_Type"
 
 #include "clinic/traceback.c.h"
 
+static struct _Py_traceback_state *
+get_traceback_state(void)
+{
+    PyInterpreterState *interp = _PyInterpreterState_GET();
+    return &interp->traceback;
+}
+
 static PyObject *
 tb_create_raw(PyTracebackObject *next, PyFrameObject *frame, int lasti,
               int lineno)
@@ -43,7 +51,30 @@ tb_create_raw(PyTracebackObject *next, PyFrameObject *frame, int lasti,
         PyErr_BadInternalCall();
         return NULL;
     }
-    tb = PyObject_GC_New(PyTracebackObject, &PyTraceBack_Type);
+    struct _Py_traceback_state *state = get_traceback_state();
+    if (state->free_list == NULL)
+    {
+        tb = PyObject_GC_New(PyTracebackObject, &PyTraceBack_Type);
+        if (tb != NULL) {
+            Py_XINCREF(next);
+            tb->tb_next = next;
+            Py_XINCREF(frame);
+            tb->tb_frame = frame;
+            tb->tb_lasti = lasti;
+            tb->tb_lineno = lineno;
+            PyObject_GC_Track(tb);
+        }
+    } else {
+#ifdef Py_DEBUG
+        // tb_create_raw() must not be called after _PyTraceback_Fini()
+        assert(state->numfree != -1);
+#endif
+        assert(state->numfree > 0);
+        --state->numfree;
+        tb = state->free_list;
+        state->free_list = state->free_list->tb_next;
+        _Py_NewReference((PyObject *)tb);
+    }
     if (tb != NULL) {
         Py_XINCREF(next);
         tb->tb_next = next;
@@ -51,9 +82,42 @@ tb_create_raw(PyTracebackObject *next, PyFrameObject *frame, int lasti,
         tb->tb_frame = frame;
         tb->tb_lasti = lasti;
         tb->tb_lineno = lineno;
-        PyObject_GC_Track(tb);
     }
     return (PyObject *)tb;
+}
+
+/* Clear out the free list */
+void
+_PyTraceback_ClearFreeList(PyInterpreterState *interp)
+{
+    struct _Py_traceback_state *state = &interp->traceback;
+    while (state->free_list != NULL) {
+        PyTracebackObject *tb = state->free_list;
+        state->free_list = state->free_list->tb_next;
+        PyObject_GC_Del(tb);
+        --state->numfree;
+    }
+    assert(state->numfree == 0);
+}
+
+void
+_PyTraceback_Fini(PyInterpreterState *interp)
+{
+    _PyTraceback_ClearFreeList(interp);
+#ifdef Py_DEBUG
+    struct _Py_traceback_state *state = &interp->frame;
+    state->numfree = -1;
+#endif
+}
+
+/* Print summary info about the state of the optimized allocator */
+void
+_PyTraceback_DebugMallocStats(FILE *out)
+{
+    struct _Py_traceback_state *state = get_traceback_state();
+    _PyDebugAllocatorStats(out,
+                           "free PyTracebackObject",
+                           state->numfree, sizeof(PyTracebackObject));
 }
 
 /*[clinic input]
@@ -158,6 +222,9 @@ static PyGetSetDef tb_getsetters[] = {
     {NULL}      /* Sentinel */
 };
 
+/* max value for numfree */
+#define PyTraceback_MAXFREELIST 200
+
 static void
 tb_dealloc(PyTracebackObject *tb)
 {
@@ -165,7 +232,19 @@ tb_dealloc(PyTracebackObject *tb)
     Py_TRASHCAN_BEGIN(tb, tb_dealloc)
     Py_XDECREF(tb->tb_next);
     Py_XDECREF(tb->tb_frame);
-    PyObject_GC_Del(tb);
+    struct _Py_traceback_state *state = get_traceback_state();
+#ifdef Py_DEBUG
+    // traceback_dealloc() must not be called after _PyTraceback_Fini()
+    assert(state->numfree != -1);
+#endif
+    if (state->numfree < PyTraceback_MAXFREELIST) {
+        ++state->numfree;
+        tb->tb_next = state->free_list;
+        state->free_list = tb;
+    }
+    else {
+        PyObject_GC_Del(tb);
+    }
     Py_TRASHCAN_END
 }
 
