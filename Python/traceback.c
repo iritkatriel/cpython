@@ -55,15 +55,6 @@ tb_create_raw(PyTracebackObject *next, PyFrameObject *frame, int lasti,
     if (state->free_list == NULL)
     {
         tb = PyObject_GC_New(PyTracebackObject, &PyTraceBack_Type);
-        if (tb != NULL) {
-            Py_XINCREF(next);
-            tb->tb_next = next;
-            Py_XINCREF(frame);
-            tb->tb_frame = frame;
-            tb->tb_lasti = lasti;
-            tb->tb_lineno = lineno;
-            PyObject_GC_Track(tb);
-        }
     } else {
 #ifdef Py_DEBUG
         // tb_create_raw() must not be called after _PyTraceback_Fini()
@@ -73,7 +64,7 @@ tb_create_raw(PyTracebackObject *next, PyFrameObject *frame, int lasti,
         --state->numfree;
         tb = state->free_list;
         state->free_list = state->free_list->tb_next;
-        _Py_NewReference((PyObject *)tb);
+        Py_INCREF((PyObject *)tb);
     }
     if (tb != NULL) {
         Py_XINCREF(next);
@@ -82,6 +73,7 @@ tb_create_raw(PyTracebackObject *next, PyFrameObject *frame, int lasti,
         tb->tb_frame = frame;
         tb->tb_lasti = lasti;
         tb->tb_lineno = lineno;
+        PyObject_GC_Track(tb);
     }
     return (PyObject *)tb;
 }
@@ -105,7 +97,7 @@ _PyTraceback_Fini(PyInterpreterState *interp)
 {
     _PyTraceback_ClearFreeList(interp);
 #ifdef Py_DEBUG
-    struct _Py_traceback_state *state = &interp->frame;
+    struct _Py_traceback_state *state = &interp->traceback;
     state->numfree = -1;
 #endif
 }
@@ -231,7 +223,9 @@ tb_dealloc(PyTracebackObject *tb)
     PyObject_GC_UnTrack(tb);
     Py_TRASHCAN_BEGIN(tb, tb_dealloc)
     Py_XDECREF(tb->tb_next);
+    tb->tb_next = NULL;
     Py_XDECREF(tb->tb_frame);
+    tb->tb_frame = NULL;
     struct _Py_traceback_state *state = get_traceback_state();
 #ifdef Py_DEBUG
     // traceback_dealloc() must not be called after _PyTraceback_Fini()
