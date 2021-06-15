@@ -64,6 +64,7 @@ tb_create_raw(PyTracebackObject *next, PyFrameObject *frame, int lasti,
         --state->numfree;
         tb = state->free_list;
         state->free_list = state->free_list->tb_next;
+        tb->tb_next = NULL;
         Py_INCREF((PyObject *)tb);
     }
     if (tb != NULL) {
@@ -220,7 +221,9 @@ static PyGetSetDef tb_getsetters[] = {
 static void
 tb_dealloc(PyTracebackObject *tb)
 {
-    PyObject_GC_UnTrack(tb);
+    if (_PyObject_GC_IS_TRACKED(tb)) {
+        _PyObject_GC_UNTRACK(tb);
+    }
     Py_TRASHCAN_BEGIN(tb, tb_dealloc)
     Py_XDECREF(tb->tb_next);
     tb->tb_next = NULL;
