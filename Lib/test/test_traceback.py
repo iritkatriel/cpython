@@ -1372,6 +1372,36 @@ class TestTracebackException(unittest.TestCase):
         exc = traceback.TracebackException(Exception, e, tb)
         self.assertEqual(exc.stack[0].locals, None)
 
+    def test_hide_frames(self):
+        def f():
+            1/0
+        def g():
+            try:
+                f()
+            except:
+                return sys.exc_info()
+        exc_info = g()
+
+        def get_output(skip_func=None):
+            output = StringIO()
+            te = traceback.TracebackException(
+                *exc_info, hide_frames=skip_func).print(file=output)
+            return output.getvalue().split('\n')
+
+        default = get_output()
+        skip_none = get_output(lambda f: False)
+        skip_all = get_output(lambda f: True)
+        skip_g = get_output(lambda f: f.f_code.co_name == 'g')
+        self.assertEqual(default, skip_none)
+        self.assertEqual(skip_all, ['ZeroDivisionError: division by zero', ''])
+
+        for l in skip_g:
+            default.remove(l)
+        # Only the lines for g's frame should remain:
+        self.assertEqual(len(default), 2)
+        self.assertRegex(default[0], ', line [0-9]*, in g')
+        self.assertRegex(default[1], '    f()')
+
     def test_traceback_header(self):
         # do not print a traceback header if exc_traceback is None
         # see issue #24695

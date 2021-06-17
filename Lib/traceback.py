@@ -477,7 +477,7 @@ class TracebackException:
 
     def __init__(self, exc_type, exc_value, exc_traceback, *, limit=None,
             lookup_lines=True, capture_locals=False, compact=False,
-            _seen=None):
+            hide_frames=None, _seen=None):
         # NB: we need to accept exc_traceback, exc_value, exc_traceback to
         # permit backwards compat with the existing API, otherwise we
         # need stub thunk objects just to glue it together.
@@ -487,9 +487,15 @@ class TracebackException:
             _seen = set()
         _seen.add(id(exc_value))
 
-        # TODO: locals.
+        tb_gen = walk_tb(exc_traceback)
+        if hide_frames is not None:
+            def tb_filter(tb_entry):
+                # tb_entry is a (frame, lineno) pair
+                return not hide_frames(tb_entry[0])
+            tb_gen = filter(tb_filter, tb_gen)
+
         self.stack = StackSummary.extract(
-            walk_tb(exc_traceback), limit=limit, lookup_lines=lookup_lines,
+            tb_gen, limit=limit, lookup_lines=lookup_lines,
             capture_locals=capture_locals)
         self.exc_type = exc_type
         # Capture now to permit freeing resources: only complication is in the
