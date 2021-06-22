@@ -1372,7 +1372,7 @@ class TestTracebackException(unittest.TestCase):
         exc = traceback.TracebackException(Exception, e, tb)
         self.assertEqual(exc.stack[0].locals, None)
 
-    def test_hide_frames(self):
+    def test_hide_frame(self):
         def f():
             1/0
         def g():
@@ -1385,7 +1385,7 @@ class TestTracebackException(unittest.TestCase):
         def get_output(skip_func=None):
             output = StringIO()
             te = traceback.TracebackException(
-                *exc_info, hide_frames=skip_func).print(file=output)
+                *exc_info, hide_frame=skip_func).print(file=output)
             return output.getvalue().split('\n')
 
         default = get_output()
