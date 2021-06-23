@@ -1,1 +1,1 @@
-Added the ``hide_frames`` parameter to the constructor of :class:`traceback.TracebackException`.
+Added the ``frame_filter`` parameter to :class:`TracebackException`, to allow fine-grained control over the content of a formatted traceback.

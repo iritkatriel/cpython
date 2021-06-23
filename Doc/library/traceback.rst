@@ -212,7 +212,7 @@ The module also defines the following classes:
 :class:`TracebackException` objects are created from actual exceptions to
 capture data for later printing in a lightweight fashion.
 
-.. class:: TracebackException(exc_type, exc_value, exc_traceback, *, limit=None, lookup_lines=True, capture_locals=False, compact=False, hide_frame=None)
+.. class:: TracebackException(exc_type, exc_value, exc_traceback, *, limit=None, lookup_lines=True, capture_locals=False, compact=False, frame_filter=None)
 
    Capture an exception for later rendering. *limit*, *lookup_lines* and
    *capture_locals* are as for the :class:`StackSummary` class.
@@ -222,8 +222,9 @@ capture data for later printing in a lightweight fashion.
    ``__context__`` field is calculated only if ``__cause__`` is ``None`` and
    ``__suppress_context__`` is false.
 
-   The *hide_frame* argument is a function that takes a frame and returns true if
-   this frame should not be included in the traceback.
+   The *frame_filter* argument is a function that takes a frame and returns
+   true if the frame should be included in the traceback, and false if it
+   should be excluded.
 
    Note that when locals are captured, they are also shown in the traceback.
 
@@ -267,7 +268,7 @@ capture data for later printing in a lightweight fashion.
 
       For syntax errors - the compiler error message.
 
-   .. classmethod:: from_exception(exc, *, limit=None, lookup_lines=True, capture_locals=False, compact=False, hide_frame=None)
+   .. classmethod:: from_exception(exc, *, limit=None, lookup_lines=True, capture_locals=False, compact=False, frame_filter=None)
 
       Capture an exception for later rendering. The meanings of the keyword
       arguments are the same as explained above for the
@@ -312,7 +313,7 @@ capture data for later printing in a lightweight fashion.
       Added the *compact* parameter.
 
    .. versionchanged:: 3.11
-      Added the *hide_frame* parameter.
+      Added the *frame_filter* parameter.
 
 
 :class:`StackSummary` Objects

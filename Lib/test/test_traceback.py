@@ -1372,7 +1372,7 @@ class TestTracebackException(unittest.TestCase):
         exc = traceback.TracebackException(Exception, e, tb)
         self.assertEqual(exc.stack[0].locals, None)
 
-    def test_hide_frame(self):
+    def test_frame_filter(self):
         def f():
             1/0
         def g():
@@ -1382,16 +1382,16 @@ class TestTracebackException(unittest.TestCase):
                 return sys.exc_info()
         exc_info = g()
 
-        def get_output(skip_func=None):
+        def get_output(frame_filter=None):
             output = StringIO()
             te = traceback.TracebackException(
-                *exc_info, hide_frame=skip_func).print(file=output)
+                *exc_info, frame_filter=frame_filter).print(file=output)
             return output.getvalue().split('\n')
 
         default = get_output()
-        skip_none = get_output(lambda f: False)
-        skip_all = get_output(lambda f: True)
-        skip_g = get_output(lambda f: f.f_code.co_name == 'g')
+        skip_none = get_output(lambda f: True)
+        skip_all = get_output(lambda f: False)
+        skip_g = get_output(lambda f: f.f_code.co_name != 'g')
         self.assertEqual(default, skip_none)
         self.assertEqual(skip_all, ['ZeroDivisionError: division by zero', ''])
 
