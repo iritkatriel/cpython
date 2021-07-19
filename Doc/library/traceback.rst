@@ -449,9 +449,7 @@ exception and traceback:
        print("*** print_tb:")
        traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
        print("*** print_exception:")
-       # exc_type below is ignored on 3.5 and later
-       traceback.print_exception(exc_type, exc_value, exc_traceback,
-                                 limit=2, file=sys.stdout)
+       traceback.print_exception(exc_value, limit=2, file=sys.stdout)
        print("*** print_exc:")
        traceback.print_exc(limit=2, file=sys.stdout)
        print("*** format_exc, first and last line:")
@@ -459,9 +457,7 @@ exception and traceback:
        print(formatted_lines[0])
        print(formatted_lines[-1])
        print("*** format_exception:")
-       # exc_type below is ignored on 3.5 and later
-       print(repr(traceback.format_exception(exc_type, exc_value,
-                                             exc_traceback)))
+       print(repr(traceback.format_exception(exc_value)))
        print("*** extract_tb:")
        print(repr(traceback.extract_tb(exc_traceback)))
        print("*** format_tb:")
@@ -552,5 +548,5 @@ This last example demonstrates the final few formatting functions:
    ['  File "spam.py", line 3, in <module>\n    spam.eggs()\n',
     '  File "eggs.py", line 42, in eggs\n    return "bacon"\n']
    >>> an_error = IndexError('tuple index out of range')
-   >>> traceback.format_exception_only(type(an_error), an_error)
+   >>> traceback.format_exception_only(an_error)
    ['IndexError: tuple index out of range\n']
