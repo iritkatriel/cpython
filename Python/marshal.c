@@ -660,14 +660,87 @@ PyMarshal_WriteObjectToFile(PyObject *x, FILE *fp, int version)
     w_flush(&wf);
 }
 
-
-struct context {
+typedef struct hydration_context {
+    PyObject_HEAD
     PyObject *obj;  // Python bytes(-like) object containing the data
     const char *buf;  // Pointer to first byte
     Py_ssize_t len;  // Number of bytes
     PyObject *refs;  // List of shared values
     PyCodeObject *code;  // If not NULL, code object to be updated
         // TODO: the latter is neither re-entrant nor thread-safe :-(
+} _PyHydrationContext;
+
+static void
+hydration_ctx_dealloc(_PyHydrationContext *self)
+{
+    Py_XDECREF(self->obj);
+    Py_XDECREF(self->refs);
+    Py_XDECREF(self->code);
+    // TODO: why does this segfault?
+    // Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+PyTypeObject _PyHydrationContext_Type;
+
+_PyHydrationContext *
+_PyHydrationContext_new(
+    PyObject *obj, char *s, Py_ssize_t n, PyObject *refs)
+{
+    _PyHydrationContext *ctx = PyObject_New(
+        _PyHydrationContext, &_PyHydrationContext_Type);
+    if (ctx == NULL) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+    Py_INCREF(obj);
+    ctx->obj = obj;
+    ctx->buf = s;
+    ctx->len = n;
+    ctx->code = NULL;
+    Py_INCREF(refs);
+    ctx->refs = refs;
+    return ctx;
+}
+
+PyTypeObject _PyHydrationContext_Type = {
+    PyVarObject_HEAD_INIT(&PyType_Type, 0)
+    "HydrationContext",
+    sizeof(_PyHydrationContext),
+    0,
+    (destructor)hydration_ctx_dealloc,  /* tp_dealloc */
+    0,                                  /* tp_vectorcall_offset */
+    0,                                  /* tp_getattr */
+    0,                                  /* tp_setattr */
+    0,                                  /* tp_as_async */
+    0,                                  /* tp_repr */
+    0,                                  /* tp_as_number */
+    0,                                  /* tp_as_sequence */
+    0,                                  /* tp_as_mapping */
+    0,                                  /* tp_hash */
+    0,                                  /* tp_call */
+    0,                                  /* tp_str */
+    0,                                  /* tp_getattro */
+    0,                                  /* tp_setattro */
+    0,                                  /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT,                 /* tp_flags */
+    0,                                  /* tp_doc */
+    0,                                  /* tp_traverse */
+    0,                                  /* tp_clear */
+    0,                                  /* tp_richcompare */
+    0,                                  /* tp_weaklistoffset */
+    0,                                  /* tp_iter */
+    0,                                  /* tp_iternext */
+    0,                                  /* tp_methods */
+    0,                                  /* tp_members */
+    0,                                  /* tp_getset */
+    0,                                  /* tp_base */
+    0,                                  /* tp_dict */
+    0,                                  /* tp_descr_get */
+    0,                                  /* tp_descr_set */
+    0,                                  /* tp_dictoffset */
+    0,                                  /* tp_init */
+    0,                                  /* tp_alloc */
+    0,                                  /* tp_new */
 };
 
 typedef struct {
@@ -680,7 +753,7 @@ typedef struct {
     Py_ssize_t buf_size;
     PyObject *refs;  /* a list */
     Py_ssize_t refs_pos;  /* Where in refs to insert/append */
-    struct context *ctx;
+    _PyHydrationContext *ctx;
 } RFILE;
 
 static const char *
@@ -1954,28 +2027,25 @@ marshal_loads_impl(PyObject *module, Py_buffer *bytes, int lazy)
     if (lazy < 0)
         lazy = getenv("LAZY") && *getenv("LAZY");  // TODO: Rename?
     if (lazy) {
-        rf.ctx = PyMem_Malloc(sizeof(struct context));
+        rf.ctx = _PyHydrationContext_new(
+            bytes->obj, s, n, rf.refs);
+        Py_DECREF(rf.refs);
         if (rf.ctx == NULL) {
             PyErr_NoMemory();
             return NULL;
         }
-        Py_INCREF(bytes->obj);
-        rf.ctx->obj = bytes->obj;
-        rf.ctx->buf = s;
-        rf.ctx->len = n;
-        rf.ctx->code = NULL;
-        Py_INCREF(rf.refs);
-        rf.ctx->refs = rf.refs;
     }
     result = read_object(&rf);
-    Py_DECREF(rf.refs);
+    if (lazy) {
+        Py_DECREF(rf.ctx);
+    }
     return result;
 }
 
 PyCodeObject *
 _PyCode_Hydrate(PyCodeObject *code)
 {
-    struct context *ctx = code->co_hydra_context;
+    _PyHydrationContext *ctx = code->co_hydra_context;
     if (ctx == NULL) {
         // Not dehydrated
         assert(_PyCode_IsHydrated(code));
@@ -1998,12 +2068,13 @@ _PyCode_Hydrate(PyCodeObject *code)
     rf.end = s + n;
     rf.depth = 0;
     rf.refs = ctx->refs;
+    Py_XINCREF(rf.refs);
     rf.refs_pos = code->co_hydra_refs_pos;
     rf.ctx = ctx;
     ctx->code = code;
 
     PyObject *result = read_object(&rf);
-
+    Py_XDECREF(ctx);
     ctx->code = NULL;
     assert(result == NULL || PyCode_Check(result));
     return (PyCodeObject *)result;

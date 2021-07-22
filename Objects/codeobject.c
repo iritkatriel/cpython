@@ -365,6 +365,7 @@ init_code(PyCodeObject *co, struct _PyCodeConstructor *con)
 
     /* hydration */
     co->co_hydra_context = con->hydra_context;
+    Py_XINCREF(co->co_hydra_context);
     co->co_hydra_offset = con->hydra_offset;
     co->co_hydra_refs_pos = con->hydra_refs_pos;
 
@@ -1427,6 +1428,7 @@ code_dealloc(PyCodeObject *co)
         PyMem_Free(co->co_quickened);
         _Py_QuickenedCount--;
     }
+    Py_XDECREF(co->co_hydra_context);
     PyObject_Free(co);
 }
 

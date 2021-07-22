@@ -243,7 +243,7 @@ struct _PyCodeConstructor {
     PyObject *exceptiontable;
 
     /* Hydration */
-    struct context *hydra_context;  // Hydration context
+    struct hydration_context *hydra_context;  // Hydration context
     Py_ssize_t hydra_offset;  // Index in data stream where to start
     Py_ssize_t hydra_refs_pos;  // Where to reset refs_pos
 };
