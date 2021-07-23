@@ -296,7 +296,7 @@ _PyCode_Validate(struct _PyCodeConstructor *con)
 }
 
 static void
-init_code(PyCodeObject *co, struct _PyCodeConstructor *con)
+init_code(PyCodeObject *co, struct _PyCodeConstructor *con, bool is_new)
 {
     if (con->localsplusnames) {
         int nlocalsplus = (int)PyTuple_GET_SIZE(con->localsplusnames);
@@ -318,6 +318,11 @@ init_code(PyCodeObject *co, struct _PyCodeConstructor *con)
         co->co_nfreevars = 0;
     }
 
+    if(!is_new) {
+        Py_XDECREF(co->co_filename);
+        Py_XDECREF(co->co_name);
+        Py_XDECREF(co->co_qualname);
+    }
     Py_INCREF(con->filename);
     co->co_filename = con->filename;
     Py_INCREF(con->name);
@@ -420,7 +425,8 @@ _PyCode_New(struct _PyCodeConstructor *con)
         PyErr_NoMemory();
         return NULL;
     }
-    init_code(co, con);
+
+    init_code(co, con, true);
 
     return co;
 }
@@ -442,7 +448,7 @@ _PyCode_Update(struct _PyCodeConstructor *con, PyCodeObject *code)
         con->columntable = Py_None;
     }
 
-    init_code(code, con);  // TODO: This leaks!
+    init_code(code, con, false);
 
     return code;
 }
