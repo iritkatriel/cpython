@@ -296,7 +296,7 @@ _PyCode_Validate(struct _PyCodeConstructor *con)
 }
 
 static void
-init_code(PyCodeObject *co, struct _PyCodeConstructor *con, bool is_new)
+init_code(PyCodeObject *co, struct _PyCodeConstructor *con)
 {
     if (con->localsplusnames) {
         int nlocalsplus = (int)PyTuple_GET_SIZE(con->localsplusnames);
@@ -318,17 +318,13 @@ init_code(PyCodeObject *co, struct _PyCodeConstructor *con, bool is_new)
         co->co_nfreevars = 0;
     }
 
-    if(!is_new) {
-        Py_XDECREF(co->co_filename);
-        Py_XDECREF(co->co_name);
-        Py_XDECREF(co->co_qualname);
-    }
     Py_INCREF(con->filename);
-    co->co_filename = con->filename;
+    Py_XSETREF(co->co_filename, con->filename);
     Py_INCREF(con->name);
-    co->co_name = con->name;
+    Py_XSETREF(co->co_name, con->name);
     Py_INCREF(con->qualname);
-    co->co_qualname = con->qualname;
+    Py_XSETREF(co->co_qualname, con->qualname);
+
     co->co_flags = con->flags;
 
     Py_XINCREF(con->code);
@@ -425,8 +421,11 @@ _PyCode_New(struct _PyCodeConstructor *con)
         PyErr_NoMemory();
         return NULL;
     }
+    co->co_filename = NULL;
+    co->co_name = NULL;
+    co->co_qualname = NULL;
 
-    init_code(co, con, true);
+    init_code(co, con);
 
     return co;
 }
@@ -448,7 +447,7 @@ _PyCode_Update(struct _PyCodeConstructor *con, PyCodeObject *code)
         con->columntable = Py_None;
     }
 
-    init_code(code, con, false);
+    init_code(code, con);
 
     return code;
 }
