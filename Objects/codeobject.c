@@ -319,11 +319,11 @@ init_code(PyCodeObject *co, struct _PyCodeConstructor *con)
     }
 
     Py_INCREF(con->filename);
-    Py_XSETREF(co->co_filename, con->filename);
+    co->co_filename = con->filename;
     Py_INCREF(con->name);
-    Py_XSETREF(co->co_name, con->name);
+    co->co_name = con->name;
     Py_INCREF(con->qualname);
-    Py_XSETREF(co->co_qualname, con->qualname);
+    co->co_qualname = con->qualname;
 
     co->co_flags = con->flags;
 
@@ -446,6 +446,10 @@ _PyCode_Update(struct _PyCodeConstructor *con, PyCodeObject *code)
         con->endlinetable = Py_None;
         con->columntable = Py_None;
     }
+
+    Py_XDECREF(code->co_filename);
+    Py_XDECREF(code->co_name);
+    Py_XDECREF(code->co_qualname);
 
     init_code(code, con);
 
