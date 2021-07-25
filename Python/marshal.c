@@ -325,7 +325,6 @@ w_ref(PyObject *v, char *flag, WFILE *p)
     if (p->version < 3 || p->hashtable == NULL)
         return 0; /* not writing object references */
 
-    // TODO: is this enough? what if v is a list containing a code object?
     if (PyCode_Check(v))
         return 0; /* never sharing code objects */
 
