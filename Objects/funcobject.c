@@ -2,6 +2,7 @@
 /* Function object implementation */
 
 #include "Python.h"
+#include "pycore_code.h" // Hydration
 #include "pycore_object.h"
 #include "pycore_tupleobject.h"
 #include "code.h"
@@ -11,7 +12,7 @@ PyObject *
 PyFunction_NewWithQualName(PyObject *code, PyObject *globals, PyObject *qualname)
 {
     PyFunctionObject *op;
-    PyObject *doc, *consts, *module;
+    PyObject *module;
     static PyObject *__name__ = NULL;
 
     if (__name__ == NULL) {
@@ -51,16 +52,7 @@ PyFunction_NewWithQualName(PyObject *code, PyObject *globals, PyObject *qualname
     op->vectorcall = _PyFunction_Vectorcall;
     op->func_module = module;
 
-    consts = ((PyCodeObject *)code)->co_consts;
-    if (PyTuple_Size(consts) >= 1) {
-        doc = PyTuple_GetItem(consts, 0);
-        if (!PyUnicode_Check(doc))
-            doc = Py_None;
-    }
-    else
-        doc = Py_None;
-    Py_INCREF(doc);
-    op->func_doc = doc;
+    op->func_doc = NULL;
 
     op->func_dict = NULL;
     op->func_annotations = NULL;
@@ -241,7 +233,6 @@ PyFunction_SetAnnotations(PyObject *op, PyObject *annotations)
 
 static PyMemberDef func_memberlist[] = {
     {"__closure__",   T_OBJECT,     OFF(func_closure), READONLY},
-    {"__doc__",       T_OBJECT,     OFF(func_doc), 0},
     {"__globals__",   T_OBJECT,     OFF(func_globals), READONLY},
     {"__module__",    T_OBJECT,     OFF(func_module), 0},
     {NULL}  /* Sentinel */
@@ -447,6 +438,37 @@ func_set_annotations(PyFunctionObject *op, PyObject *value, void *Py_UNUSED(igno
     return 0;
 }
 
+static PyObject *
+func_get_doc(PyFunctionObject *op, void *Py_UNUSED(ignored))
+{
+    PyObject *doc = op->func_doc;
+    if (doc == NULL) {
+        PyCodeObject *code = (PyCodeObject *)op->func_code;
+        if (!_PyCode_IsHydrated(code)) {
+            if (_PyCode_Hydrate(code) == NULL) {
+                return NULL;
+            }
+        }
+        if (PyTuple_CheckExact(code->co_consts)
+                && PyTuple_GET_SIZE(code->co_consts) >= 1) {
+            doc = PyTuple_GET_ITEM(code->co_consts, 0);
+        }
+    }
+    if (doc == NULL) {
+        doc = Py_None;
+    }
+    Py_INCREF(doc);
+    return doc;
+}
+
+static int
+func_set_doc(PyFunctionObject *op, PyObject *value, void *Py_UNUSED(ignored))
+{
+    Py_XINCREF(value);
+    Py_XSETREF(op->func_doc, value);
+    return 0;
+}
+
 static PyGetSetDef func_getsetlist[] = {
     {"__code__", (getter)func_get_code, (setter)func_set_code},
     {"__defaults__", (getter)func_get_defaults,
@@ -458,6 +480,7 @@ static PyGetSetDef func_getsetlist[] = {
     {"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict},
     {"__name__", (getter)func_get_name, (setter)func_set_name},
     {"__qualname__", (getter)func_get_qualname, (setter)func_set_qualname},
+    {"__doc__", (getter)func_get_doc, (setter)func_set_doc},
     {NULL} /* Sentinel */
 };
 

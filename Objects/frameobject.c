@@ -1,6 +1,7 @@
 /* Frame object implementation */
 
 #include "Python.h"
+#include "pycore_code.h"
 #include "pycore_object.h"
 #include "pycore_gc.h"       // _PyObject_GC_IS_TRACKED()
 
@@ -881,7 +882,7 @@ _PyFrame_New_NoTrack(PyThreadState *tstate, PyCodeObject *code,
     if (builtins == NULL) {
         return NULL;
     }
-
+    assert(PyCode_Check(code) && _PyCode_IsHydrated(code));
     PyFrameObject *f = frame_alloc(code);
     if (f == NULL) {
         Py_DECREF(builtins);

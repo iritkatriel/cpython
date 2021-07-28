@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include "ast.h"
 #undef Yield   /* undefine macro conflicting with <winbase.h> */
+#include "pycore_code.h"         // Hydration
 #include "pycore_object.h"
 #include "pycore_pyerrors.h"
 #include "pycore_pystate.h"      // _PyThreadState_GET()
@@ -938,7 +939,13 @@ builtin_eval_impl(PyObject *module, PyObject *source, PyObject *globals,
             return NULL;
         }
 
-        if (PyCode_GetNumFree((PyCodeObject *)source) > 0) {
+        PyCodeObject *code = (PyCodeObject *)source;
+        if (!_PyCode_IsHydrated(code)) {
+            if (!_PyCode_Hydrate(code)) {
+                return NULL;
+            }
+        }
+        if (PyCode_GetNumFree(code) > 0) {
             PyErr_SetString(PyExc_TypeError,
                 "code object passed to eval() may not contain free variables");
             return NULL;
@@ -1026,7 +1033,13 @@ builtin_exec_impl(PyObject *module, PyObject *source, PyObject *globals,
             return NULL;
         }
 
-        if (PyCode_GetNumFree((PyCodeObject *)source) > 0) {
+        PyCodeObject *code = (PyCodeObject *)source;
+        if (!_PyCode_IsHydrated(code)) {
+            if (!_PyCode_Hydrate(code)) {
+                return NULL;
+            }
+        }
+        if (PyCode_GetNumFree(code) > 0) {
             PyErr_SetString(PyExc_TypeError,
                 "code object passed to exec() may not "
                 "contain free variables");
