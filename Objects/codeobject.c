@@ -44,6 +44,9 @@ intern_strings(PyObject *tuple)
 {
     Py_ssize_t i;
 
+    if (tuple == NULL)
+        return 0;
+
     for (i = PyTuple_GET_SIZE(tuple); --i >= 0; ) {
         PyObject *v = PyTuple_GET_ITEM(tuple, i);
         if (v == NULL || !PyUnicode_CheckExact(v)) {
@@ -60,6 +63,9 @@ intern_strings(PyObject *tuple)
 static int
 intern_string_constants(PyObject *tuple, int *modified)
 {
+    if (tuple == NULL)
+        return 0;
+
     for (Py_ssize_t i = PyTuple_GET_SIZE(tuple); --i >= 0; ) {
         PyObject *v = PyTuple_GET_ITEM(tuple, i);
         if (PyUnicode_CheckExact(v)) {
@@ -113,96 +119,57 @@ intern_string_constants(PyObject *tuple, int *modified)
     return 0;
 }
 
-PyCodeObject *
-PyCode_NewWithPosOnlyArgs(int argcount, int posonlyargcount, int kwonlyargcount,
+int
+init_code(PyCodeObject *co, int argcount, int posonlyargcount, int kwonlyargcount,
                           int nlocals, int stacksize, int flags,
                           PyObject *code, PyObject *consts, PyObject *names,
                           PyObject *varnames, PyObject *freevars, PyObject *cellvars,
                           PyObject *filename, PyObject *name, int firstlineno,
-                          PyObject *linetable)
-{
-    PyCodeObject *co;
+                          PyObject *linetable, struct hydration_context *hydra_context,
+                          Py_ssize_t hydra_offset, Py_ssize_t hydra_refs_pos) {
+
     Py_ssize_t *cell2arg = NULL;
-    Py_ssize_t i, n_cellvars, n_varnames, total_args;
-
-    /* Check argument types */
-    if (argcount < posonlyargcount || posonlyargcount < 0 ||
-        kwonlyargcount < 0 || nlocals < 0 ||
-        stacksize < 0 || flags < 0 ||
-        code == NULL || !PyBytes_Check(code) ||
-        consts == NULL || !PyTuple_Check(consts) ||
-        names == NULL || !PyTuple_Check(names) ||
-        varnames == NULL || !PyTuple_Check(varnames) ||
-        freevars == NULL || !PyTuple_Check(freevars) ||
-        cellvars == NULL || !PyTuple_Check(cellvars) ||
-        name == NULL || !PyUnicode_Check(name) ||
-        filename == NULL || !PyUnicode_Check(filename) ||
-        linetable == NULL || !PyBytes_Check(linetable)) {
-        PyErr_BadInternalCall();
-        return NULL;
-    }
-
-    /* Ensure that strings are ready Unicode string */
-    if (PyUnicode_READY(name) < 0) {
-        return NULL;
-    }
-    if (PyUnicode_READY(filename) < 0) {
-        return NULL;
-    }
-
-    if (intern_strings(names) < 0) {
-        return NULL;
-    }
-    if (intern_strings(varnames) < 0) {
-        return NULL;
-    }
-    if (intern_strings(freevars) < 0) {
-        return NULL;
-    }
-    if (intern_strings(cellvars) < 0) {
-        return NULL;
-    }
-    if (intern_string_constants(consts, NULL) < 0) {
-        return NULL;
-    }
+    Py_ssize_t i, n_cellvars=0, n_varnames=0, total_args=0;
 
     /* Make sure that code is indexable with an int, this is
        a long running assumption in ceval.c and many parts of
        the interpreter. */
-    if (PyBytes_GET_SIZE(code) > INT_MAX) {
+    if (code && PyBytes_GET_SIZE(code) > INT_MAX) {
         PyErr_SetString(PyExc_OverflowError, "co_code larger than INT_MAX");
-        return NULL;
+        return -1;
     }
 
-    /* Check for any inner or outer closure references */
-    n_cellvars = PyTuple_GET_SIZE(cellvars);
-    if (!n_cellvars && !PyTuple_GET_SIZE(freevars)) {
-        flags |= CO_NOFREE;
-    } else {
-        flags &= ~CO_NOFREE;
+    if (cellvars) {
+        /* Check for any inner or outer closure references */
+        n_cellvars = PyTuple_GET_SIZE(cellvars);
+        if (!n_cellvars && !PyTuple_GET_SIZE(freevars)) {
+            flags |= CO_NOFREE;
+        } else {
+            flags &= ~CO_NOFREE;
+        }
     }
 
-    n_varnames = PyTuple_GET_SIZE(varnames);
-    if (argcount <= n_varnames && kwonlyargcount <= n_varnames) {
-        /* Never overflows. */
-        total_args = (Py_ssize_t)argcount + (Py_ssize_t)kwonlyargcount +
-                      ((flags & CO_VARARGS) != 0) + ((flags & CO_VARKEYWORDS) != 0);
+    if (varnames) {
+        n_varnames = PyTuple_GET_SIZE(varnames);
+        if (argcount <= n_varnames && kwonlyargcount <= n_varnames) {
+            /* Never overflows. */
+            total_args = (Py_ssize_t)argcount + (Py_ssize_t)kwonlyargcount +
+                          ((flags & CO_VARARGS) != 0) + ((flags & CO_VARKEYWORDS) != 0);
+        }
+        else {
+            total_args = n_varnames + 1;
+        }
+        if (total_args > n_varnames) {
+            PyErr_SetString(PyExc_ValueError, "code: varnames is too small");
+            return -1;
+        }
     }
-    else {
-        total_args = n_varnames + 1;
-    }
-    if (total_args > n_varnames) {
-        PyErr_SetString(PyExc_ValueError, "code: varnames is too small");
-        return NULL;
-    }
-
-    /* Create mapping between cells and arguments if needed. */
     if (n_cellvars) {
         bool used_cell2arg = false;
         cell2arg = PyMem_NEW(Py_ssize_t, n_cellvars);
         if (cell2arg == NULL) {
             PyErr_NoMemory();
-            return NULL;
+            return -1;
         }
         /* Find cells which are also arguments. */
         for (i = 0; i < n_cellvars; i++) {
@@ -214,7 +181,7 @@ PyCode_NewWithPosOnlyArgs(int argcount, int posonlyargcount, int kwonlyargcount,
                 int cmp = PyUnicode_Compare(cell, arg);
                 if (cmp == -1 && PyErr_Occurred()) {
                     PyMem_Free(cell2arg);
-                    return NULL;
+                    return -1;
                 }
                 if (cmp == 0) {
                     cell2arg[i] = j;
@@ -228,38 +195,41 @@ PyCode_NewWithPosOnlyArgs(int argcount, int posonlyargcount, int kwonlyargcount,
             cell2arg = NULL;
         }
     }
-    co = PyObject_New(PyCodeObject, &PyCode_Type);
-    if (co == NULL) {
-        if (cell2arg)
-            PyMem_Free(cell2arg);
-        return NULL;
-    }
+    co->co_cell2arg = cell2arg;
+
     co->co_argcount = argcount;
     co->co_posonlyargcount = posonlyargcount;
     co->co_kwonlyargcount = kwonlyargcount;
     co->co_nlocals = nlocals;
     co->co_stacksize = stacksize;
     co->co_flags = flags;
-    Py_INCREF(code);
+    Py_XINCREF(code);
     co->co_code = code;
-    Py_INCREF(consts);
+    Py_XINCREF(consts);
     co->co_consts = consts;
-    Py_INCREF(names);
+    Py_XINCREF(names);
     co->co_names = names;
-    Py_INCREF(varnames);
+    Py_XINCREF(varnames);
     co->co_varnames = varnames;
-    Py_INCREF(freevars);
+    Py_XINCREF(freevars);
     co->co_freevars = freevars;
-    Py_INCREF(cellvars);
+    Py_XINCREF(cellvars);
     co->co_cellvars = cellvars;
-    co->co_cell2arg = cell2arg;
     Py_INCREF(filename);
     co->co_filename = filename;
     Py_INCREF(name);
     co->co_name = name;
     co->co_firstlineno = firstlineno;
-    Py_INCREF(linetable);
+    // These may be NULL, and will then be set by hydration
+    Py_XINCREF(linetable);
     co->co_linetable = linetable;
+
+    /* Hydration */
+    Py_XINCREF(hydra_context);
+    co->co_hydra_context = hydra_context;
+    co->co_hydra_offset = hydra_offset;
+    co->co_hydra_refs_pos = hydra_refs_pos;
+
     co->co_zombieframe = NULL;
     co->co_weakreflist = NULL;
     co->co_extra = NULL;
@@ -268,6 +238,81 @@ PyCode_NewWithPosOnlyArgs(int argcount, int posonlyargcount, int kwonlyargcount,
     co->co_opcache = NULL;
     co->co_opcache_flag = 0;
     co->co_opcache_size = 0;
+    return 0;
+}
+
+PyCodeObject *
+PyCode_NewWithPosOnlyArgs(int argcount, int posonlyargcount, int kwonlyargcount,
+                          int nlocals, int stacksize, int flags,
+                          PyObject *code, PyObject *consts, PyObject *names,
+                          PyObject *varnames, PyObject *freevars, PyObject *cellvars,
+                          PyObject *filename, PyObject *name, int firstlineno,
+                          PyObject *linetable, struct hydration_context *hydra_context,
+                          Py_ssize_t hydra_offset, Py_ssize_t hydra_refs_pos)
+{
+    PyCodeObject *co;
+
+    /* Check argument types */
+    if (argcount < posonlyargcount || posonlyargcount < 0 ||
+        kwonlyargcount < 0 || nlocals < 0 ||
+        stacksize < 0 || flags < 0 ) {
+        PyErr_BadInternalCall(); return NULL;
+    }
+    if (name == NULL || !PyUnicode_Check(name))
+        { PyErr_BadInternalCall(); return NULL;}
+    if (varnames != NULL && !PyTuple_Check(varnames))
+        { PyErr_BadInternalCall(); return NULL;}
+    if (freevars != NULL && !PyTuple_Check(freevars))
+        { PyErr_BadInternalCall(); return NULL;}
+    if (cellvars != NULL && !PyTuple_Check(cellvars))
+        { PyErr_BadInternalCall(); return NULL;}
+    if (filename == NULL || !PyUnicode_Check(filename))
+        { PyErr_BadInternalCall(); return NULL;}
+    if ((code != NULL && !PyBytes_Check(code)))
+        { PyErr_BadInternalCall(); return NULL;}
+    if ((consts != NULL && !PyTuple_Check(consts)))
+        { PyErr_BadInternalCall(); return NULL;}
+    if ((names != NULL && !PyTuple_Check(names)))
+        { PyErr_BadInternalCall(); return NULL;}
+    if (linetable != NULL && !PyBytes_Check(linetable)) {
+        { PyErr_BadInternalCall(); return NULL;}
+    }
+    /* Ensure that strings are ready Unicode string */
+    if (name && PyUnicode_READY(name) < 0) {
+        return NULL;
+    }
+    if (filename && PyUnicode_READY(filename) < 0) {
+        return NULL;
+    }
+
+    if (names && intern_strings(names) < 0) {
+        return NULL;
+    }
+    if (varnames && intern_strings(varnames) < 0) {
+        return NULL;
+    }
+    if (freevars && intern_strings(freevars) < 0) {
+        return NULL;
+    }
+    if (cellvars && intern_strings(cellvars) < 0) {
+        return NULL;
+    }
+    if (consts && intern_string_constants(consts, NULL) < 0) {
+        return NULL;
+    }
+
+    /* Create mapping between cells and arguments if needed. */
+    co = PyObject_New(PyCodeObject, &PyCode_Type);
+    if (co == NULL)
+        return NULL;
+
+    if (init_code(co, argcount, posonlyargcount, kwonlyargcount,
+              nlocals, stacksize, flags, code, consts, names,
+              varnames, freevars, cellvars, filename, name,
+              firstlineno, linetable, hydra_context,
+              hydra_offset, hydra_refs_pos) == -1) {
+        return NULL;
+    }
     return co;
 }
 
@@ -282,8 +327,68 @@ PyCode_New(int argcount, int kwonlyargcount,
     return PyCode_NewWithPosOnlyArgs(argcount, 0, kwonlyargcount, nlocals,
                                      stacksize, flags, code, consts, names,
                                      varnames, freevars, cellvars, filename,
-                                     name, firstlineno, linetable);
+                                     name, firstlineno, linetable, NULL, 0, 0);
 }
+
+void
+_PyCode_UpdateFilenames(PyCodeObject *co, PyObject *oldname, PyObject *newname)
+{
+    PyObject *constants, *tmp;
+    Py_ssize_t i, n;
+
+    if (PyUnicode_Compare(co->co_filename, oldname))
+        return;
+
+    Py_INCREF(newname);
+    Py_XSETREF(co->co_filename, newname);
+
+    constants = co->co_consts;
+    n = constants != NULL ? PyTuple_GET_SIZE(constants) : 0;
+    for (i = 0; i < n; i++) {
+        tmp = PyTuple_GET_ITEM(constants, i);
+        if (PyCode_Check(tmp))
+            _PyCode_UpdateFilenames((PyCodeObject *)tmp,
+                oldname, newname);
+    }
+}
+
+PyCodeObject *
+_PyCode_Update(PyCodeObject *co,
+               int argcount, int posonlyargcount, int kwonlyargcount,
+               int nlocals, int stacksize, int flags,
+               PyObject *code, PyObject *consts, PyObject *names,
+               PyObject *varnames, PyObject *freevars, PyObject *cellvars,
+               PyObject *filename, PyObject *name, int firstlineno,
+               PyObject *linetable, struct hydration_context *hydra_context,
+               Py_ssize_t hydra_offset, Py_ssize_t hydra_refs_pos)
+{
+//    if (_PyCode_Validate(con) != 0) {
+//        PyErr_SetString(PyExc_SystemError, "_PyCode_Update(): invalid input");
+//        return NULL;
+//    }
+
+    // There's no need to intern stuff, marshal took care of that
+
+    PyObject *newname = co->co_filename;
+    Py_DECREF(co->co_name);
+
+    if (init_code(co, argcount, posonlyargcount, kwonlyargcount,
+              nlocals, stacksize, flags, code, consts, names,
+              varnames, freevars, cellvars, filename, name,
+              firstlineno, linetable, hydra_context,
+              hydra_offset, hydra_refs_pos) == -1) {
+        Py_DECREF(newname);
+        return NULL;
+    }
+
+    assert(newname);
+    _PyCode_UpdateFilenames(co, co->co_filename, newname);
+    Py_DECREF(newname);
+
+    return co;
+}
+
+
 
 int
 _PyCode_InitOpcache(PyCodeObject *co)
@@ -369,7 +474,8 @@ PyCode_NewEmpty(const char *filename, const char *funcname, int firstlineno)
                 filename_ob,                    /* filename */
                 funcname_ob,                    /* name */
                 firstlineno,                    /* firstlineno */
-                emptystring                     /* linetable */
+                emptystring,                    /* linetable */
+                NULL, 0, 0                     /* hydration stuff */
                 );
 
 failed:
@@ -618,7 +724,8 @@ code_new_impl(PyTypeObject *type, int argcount, int posonlyargcount,
                                                code, consts, ournames,
                                                ourvarnames, ourfreevars,
                                                ourcellvars, filename,
-                                               name, firstlineno, linetable);
+                                               name, firstlineno, linetable,
+                                               NULL, 0, 0);
   cleanup:
     Py_XDECREF(ournames);
     Py_XDECREF(ourvarnames);
@@ -663,6 +770,7 @@ code_dealloc(PyCodeObject *co)
     Py_XDECREF(co->co_filename);
     Py_XDECREF(co->co_name);
     Py_XDECREF(co->co_linetable);
+    Py_XDECREF(co->co_hydra_context);
     if (co->co_cell2arg != NULL)
         PyMem_Free(co->co_cell2arg);
     if (co->co_zombieframe != NULL)
@@ -758,7 +866,7 @@ code_replace_impl(PyCodeObject *self, int co_argcount,
         co_argcount, co_posonlyargcount, co_kwonlyargcount, co_nlocals,
         co_stacksize, co_flags, (PyObject*)co_code, co_consts, co_names,
         co_varnames, co_freevars, co_cellvars, co_filename, co_name,
-        co_firstlineno, (PyObject*)co_linetable);
+        co_firstlineno, (PyObject*)co_linetable, NULL, 0, 0);
 }
 
 static PyObject *
@@ -927,6 +1035,18 @@ code_richcompare(PyObject *self, PyObject *other, int op)
     co = (PyCodeObject *)self;
     cp = (PyCodeObject *)other;
 
+    // Must hydrate before we touch other fields
+    if (!_PyCode_IsHydrated(co)) {
+        if (_PyCode_Hydrate(co) == NULL) {
+            return NULL;
+        }
+    }
+    if (!_PyCode_IsHydrated(cp)) {
+        if (_PyCode_Hydrate(cp) == NULL) {
+            return NULL;
+        }
+    }
+
     eq = PyObject_RichCompareBool(co->co_name, cp->co_name, Py_EQ);
     if (!eq) goto unequal;
     eq = co->co_argcount == cp->co_argcount;
@@ -989,25 +1109,12 @@ code_richcompare(PyObject *self, PyObject *other, int op)
 static Py_hash_t
 code_hash(PyCodeObject *co)
 {
-    Py_hash_t h, h0, h1, h2, h3, h4, h5, h6;
-    h0 = PyObject_Hash(co->co_name);
-    if (h0 == -1) return -1;
-    h1 = PyObject_Hash(co->co_code);
-    if (h1 == -1) return -1;
-    h2 = PyObject_Hash(co->co_consts);
-    if (h2 == -1) return -1;
-    h3 = PyObject_Hash(co->co_names);
-    if (h3 == -1) return -1;
-    h4 = PyObject_Hash(co->co_varnames);
-    if (h4 == -1) return -1;
-    h5 = PyObject_Hash(co->co_freevars);
-    if (h5 == -1) return -1;
-    h6 = PyObject_Hash(co->co_cellvars);
-    if (h6 == -1) return -1;
-    h = h0 ^ h1 ^ h2 ^ h3 ^ h4 ^ h5 ^ h6 ^
-        co->co_argcount ^ co->co_posonlyargcount ^ co->co_kwonlyargcount ^
-        co->co_nlocals ^ co->co_flags;
-    if (h == -1) h = -2;
+    // Hash only fields that are set even on dehydrated code objects.
+    Py_hash_t h = 0 ^
+         co->co_argcount ^ co->co_posonlyargcount ^ co->co_kwonlyargcount ^
+        co->co_flags ^ co->co_firstlineno;
+    if (h == -1)
+        h = -2;
     return h;
 }
 
@@ -1197,6 +1304,19 @@ static struct PyMethodDef code_methods[] = {
     {NULL, NULL}                /* sentinel */
 };
 
+static PyObject *
+code_getattr(PyObject *self, PyObject *attr)
+{
+    PyCodeObject *code = (PyCodeObject *)self;
+    // Ensure code object is hydrated
+    if (!_PyCode_IsHydrated(code)) {
+        if (_PyCode_Hydrate(code) == NULL) {
+            return NULL;
+        }
+    }
+    return PyObject_GenericGetAttr(self, attr);
+}
+
 PyTypeObject PyCode_Type = {
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
     "code",
@@ -1214,7 +1334,7 @@ PyTypeObject PyCode_Type = {
     (hashfunc)code_hash,                /* tp_hash */
     0,                                  /* tp_call */
     0,                                  /* tp_str */
-    PyObject_GenericGetAttr,            /* tp_getattro */
+    code_getattr,                       /* tp_getattro */
     0,                                  /* tp_setattro */
     0,                                  /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT,                 /* tp_flags */

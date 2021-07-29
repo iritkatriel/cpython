@@ -118,34 +118,54 @@ exit:
 }
 
 PyDoc_STRVAR(marshal_loads__doc__,
-"loads($module, bytes, /)\n"
+"loads($module, bytes, /, lazy=-1)\n"
 "--\n"
 "\n"
 "Convert the bytes-like object to a value.\n"
+"\n"
+"  lazy\n"
+"    Force lazy-loading\n"
 "\n"
 "If no valid value is found, raise EOFError, ValueError or TypeError.  Extra\n"
 "bytes in the input are ignored.");
 
 #define MARSHAL_LOADS_METHODDEF    \
-    {"loads", (PyCFunction)marshal_loads, METH_O, marshal_loads__doc__},
+    {"loads", (PyCFunction)(void(*)(void))marshal_loads, METH_FASTCALL|METH_KEYWORDS, marshal_loads__doc__},
 
 static PyObject *
-marshal_loads_impl(PyObject *module, Py_buffer *bytes);
+marshal_loads_impl(PyObject *module, Py_buffer *bytes, int lazy);
 
 static PyObject *
-marshal_loads(PyObject *module, PyObject *arg)
+marshal_loads(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
     PyObject *return_value = NULL;
+    static const char * const _keywords[] = {"", "lazy", NULL};
+    static _PyArg_Parser _parser = {NULL, _keywords, "loads", 0};
+    PyObject *argsbuf[2];
+    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
     Py_buffer bytes = {NULL, NULL};
+    int lazy = -1;
 
-    if (PyObject_GetBuffer(arg, &bytes, PyBUF_SIMPLE) != 0) {
+    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 2, 0, argsbuf);
+    if (!args) {
+        goto exit;
+    }
+    if (PyObject_GetBuffer(args[0], &bytes, PyBUF_SIMPLE) != 0) {
         goto exit;
     }
     if (!PyBuffer_IsContiguous(&bytes, 'C')) {
-        _PyArg_BadArgument("loads", "argument", "contiguous buffer", arg);
+        _PyArg_BadArgument("loads", "argument 1", "contiguous buffer", args[0]);
         goto exit;
     }
-    return_value = marshal_loads_impl(module, &bytes);
+    if (!noptargs) {
+        goto skip_optional_pos;
+    }
+    lazy = _PyLong_AsInt(args[1]);
+    if (lazy == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+skip_optional_pos:
+    return_value = marshal_loads_impl(module, &bytes, lazy);
 
 exit:
     /* Cleanup for bytes */
@@ -155,4 +175,4 @@ exit:
 
     return return_value;
 }
-/*[clinic end generated code: output=68b78f38bfe0c06d input=a9049054013a1b77]*/
+/*[clinic end generated code: output=9b52d51f7bc8c1db input=a9049054013a1b77]*/

@@ -2,6 +2,7 @@
 
 #include "Python.h"
 #include "pycore_ceval.h"         // _PyEval_BuiltinsFromGlobals()
+#include "pycore_code.h"          // _PyCode_IsHydrated()
 #include "pycore_moduleobject.h"  // _PyModule_GetDict()
 #include "pycore_object.h"        // _PyObject_GC_UNTRACK()
 
@@ -834,13 +835,20 @@ _PyFrame_New_NoTrack(PyThreadState *tstate, PyFrameConstructor *con, PyObject *l
     assert(con->fc_code != NULL);
     assert(locals == NULL || PyMapping_Check(locals));
 
-    PyFrameObject *f = frame_alloc((PyCodeObject *)con->fc_code);
+    assert(PyCode_Check(con->fc_code));
+    PyCodeObject *code = (PyCodeObject *)con->fc_code;
+    assert(_PyCode_IsHydrated(code));
+
+    PyFrameObject *f = frame_alloc(code);
+
     if (f == NULL) {
         return NULL;
     }
 
     f->f_back = (PyFrameObject*)Py_XNewRef(tstate->frame);
+    assert(PyCode_Check(con->fc_code));
     f->f_code = (PyCodeObject *)Py_NewRef(con->fc_code);
+    assert(_PyCode_IsHydrated(f->f_code));
     f->f_builtins = Py_NewRef(con->fc_builtins);
     f->f_globals = Py_NewRef(con->fc_globals);
     f->f_locals = Py_XNewRef(locals);

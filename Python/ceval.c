@@ -1121,6 +1121,11 @@ PyEval_EvalCode(PyObject *co, PyObject *globals, PyObject *locals)
     if (builtins == NULL) {
         return NULL;
     }
+    if (PyCode_Check(co) && !_PyCode_IsHydrated((PyCodeObject *)co)) {
+        if (_PyCode_Hydrate((PyCodeObject *)co) == NULL) {
+            return NULL;
+        }
+    }
     PyFrameConstructor desc = {
         .fc_globals = globals,
         .fc_builtins = builtins,
@@ -1664,6 +1669,12 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
 
     if (PyDTrace_FUNCTION_ENTRY_ENABLED())
         dtrace_function_entry(f);
+
+    if (!_PyCode_IsHydrated(co)) {
+        if (_PyCode_Hydrate(co) == NULL) {
+            goto exit_eval_frame;
+        }
+    }
 
     names = co->co_names;
     consts = co->co_consts;
@@ -5032,6 +5043,12 @@ make_coro(PyFrameConstructor *con, PyFrameObject *f)
 {
     assert (((PyCodeObject *)con->fc_code)->co_flags & (CO_GENERATOR | CO_COROUTINE | CO_ASYNC_GENERATOR));
     PyObject *gen;
+    if(!_PyCode_IsHydrated((PyCodeObject *)con->fc_code)) {
+        // Needed to set co_nlocalsplus
+        if (_PyCode_Hydrate((PyCodeObject *)con->fc_code) == NULL) {
+            return NULL;
+        }
+    }
     int is_coro = ((PyCodeObject *)con->fc_code)->co_flags & CO_COROUTINE;
 
     /* Don't need to keep the reference to f_back, it will be set
@@ -5062,6 +5079,13 @@ _PyEval_Vector(PyThreadState *tstate, PyFrameConstructor *con,
                PyObject* const* args, size_t argcount,
                PyObject *kwnames)
 {
+    PyCodeObject *code = (PyCodeObject *)con->fc_code;
+    if(!_PyCode_IsHydrated(code)) {
+        // Needed to set co_nlocalsplus
+        if (_PyCode_Hydrate(code) == NULL) {
+            return NULL;
+        }
+    }
     PyFrameObject *f = _PyEval_MakeFrameVector(
         tstate, con, locals, args, argcount, kwnames);
     if (f == NULL) {

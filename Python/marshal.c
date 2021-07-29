@@ -12,6 +12,7 @@
 #include "longintrepr.h"
 #include "code.h"
 #include "marshal.h"
+#include "pycore_code.h"
 #include "pycore_hashtable.h"
 
 /*[clinic input]
@@ -88,6 +89,8 @@ typedef struct {
     _Py_hashtable_t *hashtable;
     int version;
 } WFILE;
+
+#define count_refs(p) ((p)->hashtable ? (p)->hashtable->nentries : 0)
 
 #define w_byte(c, p) do {                               \
         if ((p)->ptr != (p)->end || w_reserve((p), 1))  \
@@ -177,6 +180,32 @@ w_long(long x, WFILE *p)
     w_byte((char)((x>>16) & 0xff), p);
     w_byte((char)((x>>24) & 0xff), p);
 }
+
+static void
+w_reserve_backpatch(WFILE *p, Py_ssize_t *p_pos, Py_ssize_t *p_nrefs)
+{
+    *p_pos = p->ptr ? p->ptr - p->buf : 0;
+    *p_nrefs = count_refs(p);
+    w_long(0, p);  // size in bytes INCLUDING THESE TWO FIELDS
+    w_long(0, p);  // number of refs to add if skipping
+}
+
+static void
+w_backpatch(WFILE *p, Py_ssize_t pos, Py_ssize_t old_nrefs)
+{
+    if (!p->ptr) {
+        return;
+    }
+    Py_ssize_t save_pos = p->ptr - p->buf;
+    p->ptr = p->buf + pos;  // "Seek" to pos
+    Py_ssize_t size = save_pos - pos;  // Size INCLUDING THESE TWO FIELDS
+    w_long((long)size, p);
+    Py_ssize_t new_nrefs = count_refs(p);
+    w_long((long)(new_nrefs - old_nrefs), p);
+    p->ptr = p->buf + save_pos;  // Restore original pos
+}
+
+
 
 #define SIZE32_MAX  0x7FFFFFFF
 
@@ -508,23 +537,38 @@ w_complex_object(PyObject *v, char flag, WFILE *p)
     }
     else if (PyCode_Check(v)) {
         PyCodeObject *co = (PyCodeObject *)v;
+        if (!_PyCode_IsHydrated(co)) {
+            if (_PyCode_Hydrate(co) == NULL) {
+                w_byte(TYPE_UNKNOWN, p);
+                p->depth--;
+                p->error = WFERR_UNMARSHALLABLE;
+                return;
+            }
+        }
         W_TYPE(TYPE_CODE, p);
+        Py_ssize_t start_pos = 0;
+        Py_ssize_t start_nrefs = 0;
+        w_reserve_backpatch(p, &start_pos, &start_nrefs);
         w_long(co->co_argcount, p);
         w_long(co->co_posonlyargcount, p);
         w_long(co->co_kwonlyargcount, p);
         w_long(co->co_nlocals, p);
         w_long(co->co_stacksize, p);
         w_long(co->co_flags, p);
+
+        // These fields reordered so it's easier to skip later fields
+        w_long(co->co_firstlineno, p);
+        w_object(co->co_name, p);
+        w_object(co->co_filename, p);
+
         w_object(co->co_code, p);
-        w_object(co->co_consts, p);
         w_object(co->co_names, p);
         w_object(co->co_varnames, p);
         w_object(co->co_freevars, p);
         w_object(co->co_cellvars, p);
-        w_object(co->co_filename, p);
-        w_object(co->co_name, p);
-        w_long(co->co_firstlineno, p);
         w_object(co->co_linetable, p);
+        w_object(co->co_consts, p);
+        w_backpatch(p, start_pos, start_nrefs);
     }
     else if (PyObject_CheckBuffer(v)) {
         /* Write unknown bytes-like objects as a bytes object */
@@ -613,6 +657,91 @@ PyMarshal_WriteObjectToFile(PyObject *x, FILE *fp, int version)
     w_flush(&wf);
 }
 
+typedef struct hydration_context {
+    PyObject_HEAD
+    PyObject *obj;  // Python bytes(-like) object containing the data
+    const char *buf;  // Pointer to first byte
+    Py_ssize_t len;  // Number of bytes
+    PyObject *refs;  // List of shared values
+    PyCodeObject *code;  // If not NULL, code object to be updated
+        // TODO: the latter is neither re-entrant nor thread-safe :-(
+} _PyHydrationContext;
+
+
+static void
+hydration_ctx_dealloc(_PyHydrationContext *self)
+{
+    Py_XDECREF(self->obj);
+    Py_XDECREF(self->refs);
+    Py_XDECREF(self->code);
+    PyObject_Free(self);
+}
+
+
+PyTypeObject _PyHydrationContext_Type;
+
+_PyHydrationContext *
+_PyHydrationContext_new(
+    PyObject *obj, char *s, Py_ssize_t n, PyObject *refs)
+{
+    _PyHydrationContext *ctx = PyObject_New(
+        _PyHydrationContext, &_PyHydrationContext_Type);
+    if (ctx == NULL) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+    Py_INCREF(obj);
+    ctx->obj = obj;
+    ctx->buf = s;
+    ctx->len = n;
+    ctx->code = NULL;
+    Py_INCREF(refs);
+    ctx->refs = refs;
+    return ctx;
+}
+
+PyTypeObject _PyHydrationContext_Type = {
+    PyVarObject_HEAD_INIT(&PyType_Type, 0)
+    "HydrationContext",
+    sizeof(_PyHydrationContext),
+    0,
+    (destructor)hydration_ctx_dealloc,  /* tp_dealloc */
+    0,                                  /* tp_vectorcall_offset */
+    0,                                  /* tp_getattr */
+    0,                                  /* tp_setattr */
+    0,                                  /* tp_as_async */
+    0,                                  /* tp_repr */
+    0,                                  /* tp_as_number */
+    0,                                  /* tp_as_sequence */
+    0,                                  /* tp_as_mapping */
+    0,                                  /* tp_hash */
+    0,                                  /* tp_call */
+    0,                                  /* tp_str */
+    0,                                  /* tp_getattro */
+    0,                                  /* tp_setattro */
+    0,                                  /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT,                 /* tp_flags */
+    0,                                  /* tp_doc */
+    0,                                  /* tp_traverse */
+    0,                                  /* tp_clear */
+    0,                                  /* tp_richcompare */
+    0,                                  /* tp_weaklistoffset */
+    0,                                  /* tp_iter */
+    0,                                  /* tp_iternext */
+    0,                                  /* tp_methods */
+    0,                                  /* tp_members */
+    0,                                  /* tp_getset */
+    0,                                  /* tp_base */
+    0,                                  /* tp_dict */
+    0,                                  /* tp_descr_get */
+    0,                                  /* tp_descr_set */
+    0,                                  /* tp_dictoffset */
+    0,                                  /* tp_init */
+    0,                                  /* tp_alloc */
+    0,                                  /* tp_new */
+};
+
+
 typedef struct {
     FILE *fp;
     int depth;
@@ -622,6 +751,8 @@ typedef struct {
     char *buf;
     Py_ssize_t buf_size;
     PyObject *refs;  /* a list */
+    Py_ssize_t refs_pos;  /* Where in refs to insert/append */
+    _PyHydrationContext *ctx;
 } RFILE;
 
 static const char *
@@ -879,13 +1010,23 @@ static Py_ssize_t
 r_ref_reserve(int flag, RFILE *p)
 {
     if (flag) { /* currently only FLAG_REF is defined */
-        Py_ssize_t idx = PyList_GET_SIZE(p->refs);
+        Py_ssize_t idx = p->refs_pos;
         if (idx >= 0x7ffffffe) {
             PyErr_SetString(PyExc_ValueError, "bad marshal data (index list too large)");
             return -1;
         }
-        if (PyList_Append(p->refs, Py_None) < 0)
-            return -1;
+        Py_ssize_t n = PyList_GET_SIZE(p->refs);
+        if (idx == n) {
+            if (PyList_Append(p->refs, Py_None) < 0)
+                return -1;
+        }
+        else {
+            assert(idx < n);
+            Py_INCREF(Py_None);
+            if (PyList_SetItem(p->refs, idx, Py_None) < 0)
+                return -1;
+        }
+        p->refs_pos += 1;
         return idx;
     } else
         return 0;
@@ -921,10 +1062,24 @@ r_ref(PyObject *o, int flag, RFILE *p)
     assert(flag & FLAG_REF);
     if (o == NULL)
         return NULL;
-    if (PyList_Append(p->refs, o) < 0) {
-        Py_DECREF(o); /* release the new object */
-        return NULL;
+    Py_ssize_t idx = p->refs_pos;
+    // (Why is there no overflow check here like in r_ref_reserve()?)
+    Py_ssize_t n = PyList_GET_SIZE(p->refs);
+    if (idx == n) {
+        if (PyList_Append(p->refs, o) < 0) {
+            Py_DECREF(o); /* release the new object */
+            return NULL;
+        }
     }
+    else {
+        assert(idx < n);
+        Py_INCREF(o);
+        if (PyList_SetItem(p->refs, idx, o) < 0) {
+            Py_DECREF(o); /* release the new object */
+            return NULL;
+        }
+    }
+    p->refs_pos += 1;
     return o;
 }
 
@@ -956,7 +1111,6 @@ r_object(RFILE *p)
 
     flag = code & FLAG_REF;
     type = code & ~FLAG_REF;
-
 #define R_REF(O) do{\
     if (flag) \
         O = r_ref(O, flag, p);\
@@ -1301,22 +1455,29 @@ r_object(RFILE *p)
 
     case TYPE_CODE:
         {
+            int datasize;
+            int nrefs;
             int argcount;
             int posonlyargcount;
             int kwonlyargcount;
             int nlocals;
             int stacksize;
             int flags;
+            int firstlineno;
+            PyObject *name = NULL;
             PyObject *code = NULL;
+            PyObject *filename = NULL;
             PyObject *consts = NULL;
             PyObject *names = NULL;
             PyObject *varnames = NULL;
             PyObject *freevars = NULL;
             PyObject *cellvars = NULL;
-            PyObject *filename = NULL;
-            PyObject *name = NULL;
-            int firstlineno;
             PyObject *linetable = NULL;
+            struct hydration_context *hydra_context = NULL;
+            Py_ssize_t hydra_offset=-1;
+            Py_ssize_t hydra_refs_pos=-1;
+            Py_ssize_t first_ref = -1;
+            PyCodeObject *to_update = NULL;
 
             idx = r_ref_reserve(flag, p);
             if (idx < 0)
@@ -1325,13 +1486,22 @@ r_object(RFILE *p)
             v = NULL;
 
             /* XXX ignore long->int overflows for now */
+            const char *save_ptr = p->ptr;
+            Py_ssize_t save_refs_pos = p->refs_pos;
+
+            datasize = (int)r_long(p);
+            if (PyErr_Occurred())
+                goto code_error;
+            nrefs = (int)r_long(p);
+            if (PyErr_Occurred())
+                goto code_error;
+
             argcount = (int)r_long(p);
             if (PyErr_Occurred())
                 goto code_error;
             posonlyargcount = (int)r_long(p);
-            if (PyErr_Occurred()) {
+            if (PyErr_Occurred())
                 goto code_error;
-            }
             kwonlyargcount = (int)r_long(p);
             if (PyErr_Occurred())
                 goto code_error;
@@ -1344,45 +1514,93 @@ r_object(RFILE *p)
             flags = (int)r_long(p);
             if (PyErr_Occurred())
                 goto code_error;
-            code = r_object(p);
-            if (code == NULL)
-                goto code_error;
-            consts = r_object(p);
-            if (consts == NULL)
-                goto code_error;
-            names = r_object(p);
-            if (names == NULL)
-                goto code_error;
-            varnames = r_object(p);
-            if (varnames == NULL)
-                goto code_error;
-            freevars = r_object(p);
-            if (freevars == NULL)
-                goto code_error;
-            cellvars = r_object(p);
-            if (cellvars == NULL)
+
+            firstlineno = (int)r_long(p);
+            if (firstlineno == -1 && PyErr_Occurred())
+                break;
+            name = r_object(p);
+            if (name == NULL)
                 goto code_error;
             filename = r_object(p);
             if (filename == NULL)
                 goto code_error;
-            name = r_object(p);
-            if (name == NULL)
-                goto code_error;
-            firstlineno = (int)r_long(p);
-            if (firstlineno == -1 && PyErr_Occurred())
-                break;
-            linetable = r_object(p);
-            if (linetable == NULL)
-                goto code_error;
 
-            v = (PyObject *) PyCode_NewWithPosOnlyArgs(
-                            argcount, posonlyargcount, kwonlyargcount,
-                            nlocals, stacksize, flags,
-                            code, consts, names, varnames,
-                            freevars, cellvars, filename, name,
-                            firstlineno, linetable);
+            if (flag == 0 && p->ctx != NULL && p->ctx->code == NULL) {
+                // Return a dehydrated code object
+                hydra_context = p->ctx;
+                hydra_offset = save_ptr - 1 - p->ctx->buf;  // Back up over typecode
+                hydra_refs_pos = save_refs_pos;
+                p->ptr = save_ptr + datasize;
+                while (p->refs_pos < save_refs_pos + nrefs) {
+                    Py_ssize_t ref = r_ref_reserve(FLAG_REF, p);
+                    if (first_ref < 0)
+                        first_ref = ref;
+                }
+                // We'll call r_ref_insert() below
+            }
+            else {
+                if (p->ctx != NULL && p->ctx->code != NULL) {
+                    // Rehydrating
+                    to_update = p->ctx->code;
+                    p->ctx->code = NULL;
+                }
+                code = r_object(p);
+                if (code == NULL)
+                    goto code_error;
+                names = r_object(p);
+                if (names == NULL)
+                    goto code_error;
+                varnames = r_object(p);
+                if (varnames == NULL)
+                    goto code_error;
+                freevars = r_object(p);
+                if (freevars == NULL)
+                    goto code_error;
+                cellvars = r_object(p);
+                if (cellvars == NULL)
+                    goto code_error;
+                linetable = r_object(p);
+                if (linetable == NULL)
+                    goto code_error;
+                consts = r_object(p);
+                if (consts == NULL)
+                    goto code_error;
+             };
+
+            if (to_update != NULL) {
+                v = (PyObject *)_PyCode_Update(to_update,
+                       argcount, posonlyargcount, kwonlyargcount,
+                       nlocals, stacksize, flags,
+                       code, consts, names,
+                       varnames, freevars, cellvars,
+                       filename, name, firstlineno,
+                       linetable, hydra_context,
+                       hydra_offset, hydra_refs_pos);
+            }
+            else {
+                v = (PyObject *)PyCode_NewWithPosOnlyArgs(
+                       argcount, posonlyargcount, kwonlyargcount,
+                       nlocals, stacksize, flags,
+                       code, consts, names,
+                       varnames, freevars, cellvars,
+                       filename, name, firstlineno,
+                       linetable, hydra_context,
+                       hydra_offset, hydra_refs_pos);
+            }
+            if (v == NULL) {
+                printf("Failed to create code object\n");  // TODO: delete
+                goto code_error;
+            }
+
+            if (first_ref >= 0) {
+                // Overwrite skipped references with v
+                assert(p->ctx != NULL && p->ctx->code == NULL);
+                while (first_ref < p->refs_pos) {
+                    r_ref_insert(v, first_ref++, FLAG_REF, p);
+                }
+            }
+
             v = r_ref_insert(v, idx, flag, p);
-
           code_error:
             Py_XDECREF(code);
             Py_XDECREF(consts);
@@ -1405,9 +1623,32 @@ r_object(RFILE *p)
             PyErr_SetString(PyExc_ValueError, "bad marshal data (invalid reference)");
             break;
         }
-        v = PyList_GET_ITEM(p->refs, n);
+        // A dehydrated code object in refs is a placeholder.
+        // To find the real object we need to hydrate it
+        // (which updates refs in place).
+        // This may happen multiple times if it is deeply hidden.
+        for (;;) {
+            v = PyList_GET_ITEM(p->refs, n);
+            if (!PyCode_Check(v))
+                break;
+            PyCodeObject *code = (PyCodeObject *)v;
+            if (_PyCode_IsHydrated(code)) {
+                // printf("Not dehydrated!\n");
+                break;
+            }
+            // printf("It's a dehydrated code object! %s - %d - %s\n",
+            //        PyUnicode_AsUTF8(code->co_filename),
+            //        code->co_firstlineno,
+            //        PyUnicode_AsUTF8(code->co_qualname));
+            v = (PyObject *)_PyCode_Hydrate(code);
+            if (v == NULL)
+                break;
+        }
+        if (v == NULL)
+            break;
+
         if (v == Py_None) {
-            PyErr_SetString(PyExc_ValueError, "bad marshal data (invalid reference)");
+            PyErr_SetString(PyExc_ValueError, "bad marshal data (None in refs)");
             break;
         }
         Py_INCREF(v);
@@ -1433,7 +1674,7 @@ read_object(RFILE *p)
         fprintf(stderr, "XXX readobject called with exception set\n");
         return NULL;
     }
-    if (p->ptr && p->end) {
+    if (p->ptr && p->end && (p->ctx == NULL || p->ctx->code == NULL)) {
         if (PySys_Audit("marshal.loads", "y#", p->ptr, (Py_ssize_t)(p->end - p->ptr)) < 0) {
             return NULL;
         }
@@ -1458,6 +1699,8 @@ PyMarshal_ReadShortFromFile(FILE *fp)
     rf.fp = fp;
     rf.end = rf.ptr = NULL;
     rf.buf = NULL;
+    rf.refs_pos = 0;
+    rf.ctx = NULL;
     res = r_short(&rf);
     if (rf.buf != NULL)
         PyMem_Free(rf.buf);
@@ -1473,6 +1716,8 @@ PyMarshal_ReadLongFromFile(FILE *fp)
     rf.readable = NULL;
     rf.ptr = rf.end = NULL;
     rf.buf = NULL;
+    rf.refs_pos = 0;
+    rf.ctx = NULL;
     res = r_long(&rf);
     if (rf.buf != NULL)
         PyMem_Free(rf.buf);
@@ -1538,6 +1783,9 @@ PyMarshal_ReadObjectFromFile(FILE *fp)
     rf.refs = PyList_New(0);
     if (rf.refs == NULL)
         return NULL;
+    PyObject_GC_UnTrack(rf.refs);
+    rf.refs_pos = 0;
+    rf.ctx = NULL;
     result = read_object(&rf);
     Py_DECREF(rf.refs);
     if (rf.buf != NULL)
@@ -1559,6 +1807,9 @@ PyMarshal_ReadObjectFromString(const char *str, Py_ssize_t len)
     rf.refs = PyList_New(0);
     if (rf.refs == NULL)
         return NULL;
+    PyObject_GC_UnTrack(rf.refs);
+    rf.refs_pos = 0;
+    rf.ctx = NULL;
     result = read_object(&rf);
     Py_DECREF(rf.refs);
     if (rf.buf != NULL)
@@ -1691,6 +1942,9 @@ marshal_load(PyObject *module, PyObject *file)
         rf.ptr = rf.end = NULL;
         rf.buf = NULL;
         if ((rf.refs = PyList_New(0)) != NULL) {
+            PyObject_GC_UnTrack(rf.refs);
+            rf.refs_pos = 0;
+            rf.ctx = NULL;
             result = read_object(&rf);
             Py_DECREF(rf.refs);
             if (rf.buf != NULL)
@@ -1729,6 +1983,8 @@ marshal.loads
 
     bytes: Py_buffer
     /
+    lazy: int = -1
+        Force lazy-loading
 
 Convert the bytes-like object to a value.
 
@@ -1737,8 +1993,8 @@ bytes in the input are ignored.
 [clinic start generated code]*/
 
 static PyObject *
-marshal_loads_impl(PyObject *module, Py_buffer *bytes)
-/*[clinic end generated code: output=9fc65985c93d1bb1 input=6f426518459c8495]*/
+marshal_loads_impl(PyObject *module, Py_buffer *bytes, int lazy)
+/*[clinic end generated code: output=9a1f2325db169b0d input=8077b0a0ac374313]*/
 {
     RFILE rf;
     char *s = bytes->buf;
@@ -1751,10 +2007,69 @@ marshal_loads_impl(PyObject *module, Py_buffer *bytes)
     rf.depth = 0;
     if ((rf.refs = PyList_New(0)) == NULL)
         return NULL;
+    PyObject_GC_UnTrack(rf.refs);
+    rf.refs_pos = 0;
+    rf.ctx = NULL;
+    if (lazy < 0)
+        lazy = getenv("LAZY") && *getenv("LAZY");  // TODO: Rename?
+    if (lazy) {
+        rf.ctx = _PyHydrationContext_new(
+            bytes->obj, s, n, rf.refs);
+        if (rf.ctx == NULL) {
+            PyErr_NoMemory();
+            return NULL;
+        }
+    }
     result = read_object(&rf);
-    Py_DECREF(rf.refs);
+    Py_XDECREF(rf.ctx);
+    Py_XDECREF(rf.refs);
     return result;
 }
+
+
+PyCodeObject *
+_PyCode_Hydrate(PyCodeObject *code)
+{
+    _PyHydrationContext *ctx = code->co_hydra_context;
+    if (ctx == NULL) {
+        // Not dehydrated
+        assert(_PyCode_IsHydrated(code));
+        return code;
+    }
+
+    assert(!_PyCode_IsHydrated(code));
+    if (ctx->code != NULL) {
+        PyErr_SetString(PyExc_SystemError, "Cannot hydrate recursively");
+        return NULL;
+    }
+
+    const char *s = ctx->buf;
+    Py_ssize_t n = ctx->len;
+
+    RFILE rf;
+    rf.fp = NULL;
+    rf.readable = NULL;
+    rf.ptr = s + code->co_hydra_offset;
+    rf.end = s + n;
+    rf.depth = 0;
+    rf.refs = ctx->refs;
+    Py_XINCREF(rf.refs);
+    rf.refs_pos = code->co_hydra_refs_pos;
+    rf.ctx = ctx;
+    Py_INCREF(code);
+    ctx->code = code;
+
+    PyObject *result = read_object(&rf);
+    Py_XDECREF(rf.refs);
+    assert(result == NULL || code->co_hydra_context == NULL);
+    Py_XDECREF(code->co_hydra_context);
+    code->co_hydra_context = NULL;
+    Py_XDECREF(ctx->code);
+    ctx->code = NULL;
+    assert(result == NULL || PyCode_Check(result));
+    return (PyCodeObject *)result;
+}
+
 
 static PyMethodDef marshal_methods[] = {
     MARSHAL_DUMP_METHODDEF
