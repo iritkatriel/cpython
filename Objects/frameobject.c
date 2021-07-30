@@ -837,7 +837,11 @@ _PyFrame_New_NoTrack(PyThreadState *tstate, PyFrameConstructor *con, PyObject *l
 
     assert(PyCode_Check(con->fc_code));
     PyCodeObject *code = (PyCodeObject *)con->fc_code;
-    assert(_PyCode_IsHydrated(code));
+    if (!_PyCode_IsHydrated(code)) {
+        if (_PyCode_Hydrate(code) == NULL) {
+            return NULL;
+        }
+    }
 
     PyFrameObject *f = frame_alloc(code);
 
@@ -846,9 +850,7 @@ _PyFrame_New_NoTrack(PyThreadState *tstate, PyFrameConstructor *con, PyObject *l
     }
 
     f->f_back = (PyFrameObject*)Py_XNewRef(tstate->frame);
-    assert(PyCode_Check(con->fc_code));
-    f->f_code = (PyCodeObject *)Py_NewRef(con->fc_code);
-    assert(_PyCode_IsHydrated(f->f_code));
+    f->f_code = (PyCodeObject *)Py_NewRef(code);
     f->f_builtins = Py_NewRef(con->fc_builtins);
     f->f_globals = Py_NewRef(con->fc_globals);
     f->f_locals = Py_XNewRef(locals);
