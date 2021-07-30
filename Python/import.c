@@ -836,7 +836,7 @@ update_code_filenames(PyCodeObject *co, PyObject *oldname, PyObject *newname)
     Py_XSETREF(co->co_filename, newname);
 
     constants = co->co_consts;
-    n = PyTuple_GET_SIZE(constants);
+    n = constants != NULL ? PyTuple_GET_SIZE(constants) : 0;
     for (i = 0; i < n; i++) {
         tmp = PyTuple_GET_ITEM(constants, i);
         if (PyCode_Check(tmp))
