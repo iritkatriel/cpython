@@ -5968,7 +5968,8 @@ makecode(struct compiler *c, struct assembler *a)
                                    posonlyargcount, kwonlyargcount, nlocals_int,
                                    maxdepth, flags, bytecode, consts, names,
                                    varnames, freevars, cellvars, c->c_filename,
-                                   c->u->u_name, c->u->u_firstlineno, a->a_lnotab);
+                                   c->u->u_name, c->u->u_firstlineno, a->a_lnotab,
+                                   NULL, 0, 0);
  error:
     Py_XDECREF(consts);
     Py_XDECREF(names);

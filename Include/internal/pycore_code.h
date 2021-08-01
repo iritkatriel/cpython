@@ -19,6 +19,33 @@ struct _PyOpcache {
 
 /* Private API */
 int _PyCode_InitOpcache(PyCodeObject *co);
+PyCodeObject * _PyCode_Update(PyCodeObject *,
+               int argcount, int posonlyargcount, int kwonlyargcount,
+               int nlocals, int stacksize, int flags,
+               PyObject *code, PyObject *consts, PyObject *names,
+               PyObject *varnames, PyObject *freevars, PyObject *cellvars,
+               PyObject *filename, PyObject *name, int firstlineno,
+               PyObject *lnotab, struct hydration_context *hydra_context,
+               Py_ssize_t hydra_offset, Py_ssize_t hydra_refs_pos);
+PyCodeObject *
+PyCode_NewWithPosOnlyArgs(
+        int argcount, int posonlyargcount, int kwonlyargcount,
+        int nlocals, int stacksize, int flags,
+        PyObject *code, PyObject *consts, PyObject *names,
+        PyObject *varnames, PyObject *freevars, PyObject *cellvars,
+        PyObject *filename, PyObject *name, int firstlineno,
+        PyObject *lnotab, struct hydration_context *hydra_context,
+        Py_ssize_t hydra_offset, Py_ssize_t hydra_refs_pos);
+
+/* Hydration */
+
+static inline int
+_PyCode_IsHydrated(PyCodeObject *code)
+{
+    return code->co_consts != NULL;
+}
+
+PyCodeObject *_PyCode_Hydrate(PyCodeObject *code);
 
 
 #ifdef __cplusplus

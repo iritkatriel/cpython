@@ -823,6 +823,12 @@ static int unpack_iterable(PyThreadState *, PyObject *, int, int, PyObject **);
 PyObject *
 PyEval_EvalCode(PyObject *co, PyObject *globals, PyObject *locals)
 {
+    if (PyCode_Check(co) && !_PyCode_IsHydrated((PyCodeObject *)co)) {
+        if (_PyCode_Hydrate((PyCodeObject *)co) == NULL) {
+            return NULL;
+        }
+    }
+
     return PyEval_EvalCodeEx(co,
                       globals, locals,
                       (PyObject **)NULL, 0,
@@ -1296,6 +1302,13 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
         dtrace_function_entry(f);
 
     co = f->f_code;
+
+    if (!_PyCode_IsHydrated(co)) {
+        if (_PyCode_Hydrate(co) == NULL) {
+            goto exit_eval_frame;
+        }
+    }
+
     names = co->co_names;
     consts = co->co_consts;
     fastlocals = f->f_localsplus;
@@ -4300,6 +4313,13 @@ _PyEval_EvalCode(PyThreadState *tstate,
     /* Handle generator/coroutine/asynchronous generator */
     if (co->co_flags & (CO_GENERATOR | CO_COROUTINE | CO_ASYNC_GENERATOR)) {
         PyObject *gen;
+        if(!_PyCode_IsHydrated(co)) {
+            // Needed to set co_nlocalsplus
+            if (_PyCode_Hydrate(co) == NULL) {
+                return NULL;
+            }
+         }
+
         int is_coro = co->co_flags & CO_COROUTINE;
 
         /* Don't need to keep the reference to f_back, it will be set

@@ -223,7 +223,7 @@ class TestTracemallocEnabled(unittest.TestCase):
     def test_get_traced_memory(self):
         # Python allocates some internals objects, so the test must tolerate
         # a small difference between the expected size and the real usage
-        max_error = 2048
+        max_error = 2100
 
         # allocate one object
         obj_size = 1024 * 1024

@@ -1,6 +1,7 @@
 /* Frame object implementation */
 
 #include "Python.h"
+#include "pycore_code.h"          // _PyCode_IsHydrated()
 #include "pycore_object.h"
 #include "pycore_gc.h"       // _PyObject_GC_IS_TRACKED()
 
@@ -882,7 +883,15 @@ _PyFrame_New_NoTrack(PyThreadState *tstate, PyCodeObject *code,
         return NULL;
     }
 
+    assert(PyCode_Check(code));
+    if (!_PyCode_IsHydrated(code)) {
+        if (_PyCode_Hydrate(code) == NULL) {
+            return NULL;
+        }
+    }
+
     PyFrameObject *f = frame_alloc(code);
+
     if (f == NULL) {
         Py_DECREF(builtins);
         return NULL;
@@ -893,6 +902,7 @@ _PyFrame_New_NoTrack(PyThreadState *tstate, PyCodeObject *code,
     Py_XINCREF(back);
     f->f_back = back;
     Py_INCREF(code);
+    f->f_code = code;
     Py_INCREF(globals);
     f->f_globals = globals;
     /* Most functions have CO_NEWLOCALS and CO_OPTIMIZED set. */
