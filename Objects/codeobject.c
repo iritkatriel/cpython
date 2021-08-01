@@ -39,6 +39,9 @@ all_name_chars(PyObject *o)
     return 1;
 }
 
+int num_pycode_new = 0;
+int num_pycode_update = 0;
+
 static int
 intern_strings(PyObject *tuple)
 {
@@ -253,6 +256,7 @@ PyCodeObject *PyCode_NewWithPosOnlyArgs(
            Py_ssize_t hydra_offset, Py_ssize_t hydra_refs_pos)
 {
     PyCodeObject *co;
+    num_pycode_new++;
 
     /* Check argument types */
     if (argcount < posonlyargcount || posonlyargcount < 0 ||
@@ -364,6 +368,7 @@ _PyCode_Update(PyCodeObject *co,
                PyObject *lnotab, struct hydration_context *hydra_context,
                Py_ssize_t hydra_offset, Py_ssize_t hydra_refs_pos)
 {
+    num_pycode_update++;
 //    if (_PyCode_Validate(con) != 0) {
 //        PyErr_SetString(PyExc_SystemError, "_PyCode_Update(): invalid input");
 //        return NULL;

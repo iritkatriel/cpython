@@ -17,6 +17,7 @@ struct _PyOpcache {
     char optimized;
 };
 
+
 /* Private API */
 int _PyCode_InitOpcache(PyCodeObject *co);
 PyCodeObject * _PyCode_Update(PyCodeObject *,
