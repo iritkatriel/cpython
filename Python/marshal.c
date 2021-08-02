@@ -97,6 +97,7 @@ typedef struct {
             *(p)->ptr++ = (c);                          \
     } while(0)
 
+
 static void
 w_flush(WFILE *p)
 {
@@ -2039,7 +2040,6 @@ marshal_loads_impl(PyObject *module, Py_buffer *bytes, int lazy)
     return result;
 }
 
-int num_hydrate = 0;
 
 PyCodeObject *
 _PyCode_Hydrate(PyCodeObject *code)
@@ -2051,7 +2051,6 @@ _PyCode_Hydrate(PyCodeObject *code)
         return code;
     }
 
-    num_hydrate++;
     assert(!_PyCode_IsHydrated(code));
     if (ctx->code != NULL) {
         PyErr_SetString(PyExc_SystemError, "Cannot hydrate recursively");

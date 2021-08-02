@@ -137,9 +137,9 @@ is_tstate_valid(PyThreadState *tstate)
 }
 #endif
 
-extern int num_pycode_new;
+extern int num_pycode_new_hydrated;
+extern int num_pycode_new_dehydrated;
 extern int num_pycode_update;
-extern int num_hydrate;
 
 /* This can set eval_breaker to 0 even though gil_drop_request became
    1.  We believe this is all right because the eval loop will release
@@ -347,7 +347,9 @@ _PyEval_Fini(void)
 
     fprintf(stderr, "\n");
 #endif
-    fprintf(stderr, "PyCode_New: %d   PyCode_Update: %d  Hydrate: %d\n", num_pycode_new, num_pycode_update, num_hydrate);
+    fprintf(stderr,
+            "PyCode_New hydrated: %d  PyCode_New dehydrated: %d  PyCode_Update: %d\n",
+            num_pycode_new_hydrated, num_pycode_new_dehydrated, num_pycode_update);
 }
 
 void

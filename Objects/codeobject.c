@@ -39,7 +39,8 @@ all_name_chars(PyObject *o)
     return 1;
 }
 
-int num_pycode_new = 0;
+int num_pycode_new_hydrated = 0;
+int num_pycode_new_dehydrated = 0;
 int num_pycode_update = 0;
 
 static int
@@ -256,7 +257,6 @@ PyCodeObject *PyCode_NewWithPosOnlyArgs(
            Py_ssize_t hydra_offset, Py_ssize_t hydra_refs_pos)
 {
     PyCodeObject *co;
-    num_pycode_new++;
 
     /* Check argument types */
     if (argcount < posonlyargcount || posonlyargcount < 0 ||
@@ -317,6 +317,12 @@ PyCodeObject *PyCode_NewWithPosOnlyArgs(
               firstlineno, lnotab, hydra_context,
               hydra_offset, hydra_refs_pos) == -1) {
         return NULL;
+    }
+    if (_PyCode_IsHydrated(co)) {
+        num_pycode_new_hydrated++;
+    }
+    else {
+        num_pycode_new_dehydrated++;
     }
     return co;
 }
