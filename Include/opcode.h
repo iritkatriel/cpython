@@ -161,6 +161,7 @@ extern "C" {
 #define STORE_FAST__STORE_FAST   87
 
 #define MAKE_INT_BIAS             5
+
 #ifdef NEED_OPCODE_JUMP_TABLES
 static uint32_t _PyOpcode_RelativeJump[8] = {
     0U,
