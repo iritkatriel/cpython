@@ -167,6 +167,12 @@ _PyLong_Copy(PyLongObject *src)
     return (PyObject *)result;
 }
 
+PyObject *
+_PyLong_GetSmallInt(Py_ssize_t ival)
+{
+    return get_small_int((sdigit)ival);
+}
+
 /* Create a new int object from a C long int */
 
 PyObject *
