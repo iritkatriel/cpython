@@ -25,7 +25,7 @@
 
 #include "Python.h"
 #include "pycore_ast.h"           // _PyAST_GetDocString()
-#include "pycore_compile.h"       // _PyFuture_FromAST()
+#include "pycore_compile.h"       // _PyFuture_FromAST(), _PY_MAKE_INT_BIAS
 #include "pycore_code.h"          // _PyCode_New()
 #include "pycore_pymem.h"         // _PyMem_IsPtrFreed()
 #include "pycore_long.h"          // _PyLong_GetZero()
@@ -1480,7 +1480,7 @@ compiler_addop_load_const(struct compiler *c, PyObject *o)
         if (PyErr_Occurred()) {
             PyErr_Clear();
         } else {
-            arg += MAKE_INT_BIAS;
+            arg += _PY_MAKE_INT_BIAS;
             if (arg >= 0 && arg < 256) {
                 return compiler_addop_i(c, MAKE_INT, arg);
             }
@@ -8116,7 +8116,7 @@ optimize_basic_block(struct compiler *c, basicblock *bb, PyObject *consts)
                                 goto error;
                             }
                         } else if (inst->i_opcode == MAKE_INT) {
-                            is_true = oparg - MAKE_INT_BIAS;
+                            is_true = oparg - _PY_MAKE_INT_BIAS;
                         }
                         assert(is_true != -1);
                         inst->i_opcode = NOP;
@@ -8138,7 +8138,7 @@ optimize_basic_block(struct compiler *c, basicblock *bb, PyObject *consts)
                                 goto error;
                             }
                         } else if (inst->i_opcode == MAKE_INT) {
-                            is_true = oparg - MAKE_INT_BIAS;
+                            is_true = oparg - _PY_MAKE_INT_BIAS;
                         }
                         assert(is_true != -1);
                         jump_if_true = nextop == JUMP_IF_TRUE_OR_POP;

@@ -8,6 +8,8 @@ extern "C" {
 #  error "this header requires Py_BUILD_CORE define"
 #endif
 
+#define _PY_MAKE_INT_BIAS _PY_NSMALLNEGINTS
+
 struct _arena;   // Type defined in pycore_pyarena.h
 struct _mod;     // Type defined in pycore_ast.h
 
