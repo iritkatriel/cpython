@@ -1702,6 +1702,12 @@ check_eval_breaker:
             DISPATCH();
         }
 
+        TARGET(MAKE_INT): {
+            PyObject *value = _PyLong_GetSmallInt(oparg - MAKE_INT_BIAS);
+            PUSH(value);
+            DISPATCH();
+        }
+
         TARGET(STORE_FAST): {
             PREDICTED(STORE_FAST);
             PyObject *value = POP();
@@ -4495,12 +4501,6 @@ check_eval_breaker:
             }
 
             PUSH((PyObject *)func);
-            DISPATCH();
-        }
-
-        TARGET(MAKE_INT): {
-            PyObject *value = PyLong_FromLong(oparg - MAKE_INT_BIAS);
-            PUSH(value);
             DISPATCH();
         }
 

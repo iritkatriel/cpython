@@ -92,6 +92,9 @@ PyAPI_FUNC(PyLongObject *) _PyLong_New(Py_ssize_t);
 /* Return a copy of src. */
 PyAPI_FUNC(PyObject *) _PyLong_Copy(PyLongObject *src);
 
+/* Lookup the small int cache. */
+PyAPI_FUNC(PyObject *) _PyLong_GetSmallInt(Py_ssize_t);
+
 #ifdef __cplusplus
 }
 #endif
