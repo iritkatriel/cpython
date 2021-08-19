@@ -7,7 +7,6 @@ import io
 
 from opcode import *
 from opcode import __all__ as _opcodes_all
-from opcode import config as opcode_config
 
 __all__ = ["code_info", "dis", "disassemble", "distb", "disco",
            "findlinestarts", "findlabels", "show_code",
@@ -28,7 +27,7 @@ MAKE_FUNCTION = opmap['MAKE_FUNCTION']
 MAKE_FUNCTION_FLAGS = ('defaults', 'kwdefaults', 'annotations', 'closure')
 
 MAKE_INT = opmap['MAKE_INT']
-MAKE_INT_BIAS = opcode_config['MAKE_INT_BIAS']
+MAKE_INT_BIAS = -sys.int_info.first_small_int
 
 def _try_compile(source, name):
     """Attempts to compile the given source, first as an expression and

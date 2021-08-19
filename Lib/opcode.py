@@ -15,6 +15,8 @@ __all__ = ["cmp_op", "hasconst", "hasname", "hasjrel", "hasjabs",
 # Both our chickens and eggs are allayed.
 #     --Larry Hastings, 2013/11/23
 
+import sys
+
 try:
     from _opcode import stack_effect
     __all__.append('stack_effect')
@@ -32,14 +34,12 @@ hascompare = []
 hasfree = []
 hasnargs = [] # unused
 
-config = {}
-
 opmap = {}
 opname = ['<%r>' % (op,) for op in range(256)]
 
 def is_immediate_const(v):
     if isinstance(v, int):
-        oparg = v + config['MAKE_INT_BIAS']
+        oparg = v - sys.int_info.first_small_int
         return oparg >= 0 and oparg <= 255
     return False
 
@@ -189,7 +189,6 @@ def_op('CALL_FUNCTION', 131)    # #args
 def_op('MAKE_FUNCTION', 132)    # Flags
 def_op('BUILD_SLICE', 133)      # Number of items
 def_op('MAKE_INT', 134)         # the int value + MAKE_INT_BIAS (for common negatives)
-config['MAKE_INT_BIAS'] = 5
 
 def_op('MAKE_CELL', 135)
 hasfree.append(135)

@@ -27,12 +27,14 @@
 #include "pycore_ast.h"           // _PyAST_GetDocString()
 #include "pycore_compile.h"       // _PyFuture_FromAST(), _PY_MAKE_INT_BIAS
 #include "pycore_code.h"          // _PyCode_New()
+#include "pycore_interp.h"        // _PY_NSMALLNEGINTS, _PY_NSMALLPOSINTS
 #include "pycore_pymem.h"         // _PyMem_IsPtrFreed()
 #include "pycore_long.h"          // _PyLong_GetZero()
 #include "pycore_symtable.h"      // PySTEntryObject
 
 #define NEED_OPCODE_JUMP_TABLES
 #include "opcode.h"               // EXTENDED_ARG
+
 #include "wordcode_helpers.h"     // instrsize()
 
 
@@ -1481,7 +1483,8 @@ compiler_addop_load_const(struct compiler *c, PyObject *o)
             PyErr_Clear();
         } else {
             arg += _PY_MAKE_INT_BIAS;
-            if (arg >= 0 && arg < 256) {
+            if (arg >= 0 && arg <= 255) {
+                assert(arg < _PY_NSMALLNEGINTS + _PY_NSMALLPOSINTS);
                 return compiler_addop_i(c, MAKE_INT, arg);
             }
         }
