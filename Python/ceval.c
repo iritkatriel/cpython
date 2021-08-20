@@ -14,9 +14,8 @@
 #include "pycore_call.h"          // _PyObject_FastCallDictTstate()
 #include "pycore_ceval.h"         // _PyEval_SignalAsyncExc()
 #include "pycore_code.h"
-#include "pycore_compile.h"       // _PY_MAKE_INT_BIAS
 #include "pycore_initconfig.h"    // _PyStatus_OK()
-#include "pycore_long.h"          // _PyLong_GetZero()
+#include "pycore_long.h"          // _PyLong_GetZero(), _PyLong_SmallIntLookiup_internal()
 #include "pycore_object.h"        // _PyObject_GC_TRACK()
 #include "pycore_moduleobject.h"
 #include "pycore_pyerrors.h"      // _PyErr_Fetch()
@@ -1703,7 +1702,8 @@ check_eval_breaker:
         }
 
         TARGET(MAKE_INT): {
-            PyObject *value = _PyLong_GetSmallInt(oparg - _PY_MAKE_INT_BIAS);
+            PyObject *value = _PyLong_SmallIntLookiup_internal(oparg);
+            Py_INCREF(value);
             PUSH(value);
             DISPATCH();
         }
