@@ -5,6 +5,7 @@ import types
 import collections
 import io
 
+import opcode
 from opcode import *
 from opcode import __all__ as _opcodes_all
 
@@ -26,8 +27,7 @@ FORMAT_VALUE_CONVERTERS = (
 MAKE_FUNCTION = opmap['MAKE_FUNCTION']
 MAKE_FUNCTION_FLAGS = ('defaults', 'kwdefaults', 'annotations', 'closure')
 
-MAKE_INT = opmap['MAKE_INT']
-MAKE_INT_BIAS = -sys.int_info.first_small_int
+LOAD_COMMON_CONST = opmap['LOAD_COMMON_CONST']
 
 def _try_compile(source, name):
     """Attempts to compile the given source, first as an expression and
@@ -427,8 +427,8 @@ def _get_instructions_bytes(code, varname_from_oparg=None,
             elif op == MAKE_FUNCTION:
                 argrepr = ', '.join(s for i, s in enumerate(MAKE_FUNCTION_FLAGS)
                                     if arg & (1<<i))
-            elif op == MAKE_INT:
-                argval -= MAKE_INT_BIAS
+            elif op == LOAD_COMMON_CONST:
+                argval = opcode.get_common_const_value(arg)
                 argrepr = repr(argval)
         yield Instruction(opname[op], op,
                           arg, argval, argrepr,

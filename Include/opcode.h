@@ -113,7 +113,7 @@ extern "C" {
 #define CALL_FUNCTION           131
 #define MAKE_FUNCTION           132
 #define BUILD_SLICE             133
-#define MAKE_INT                134
+#define LOAD_COMMON_CONST       134
 #define MAKE_CELL               135
 #define LOAD_CLOSURE            136
 #define LOAD_DEREF              137

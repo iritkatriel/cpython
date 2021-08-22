@@ -294,6 +294,10 @@ struct _is {
        -_PY_NSMALLNEGINTS (inclusive) to _PY_NSMALLPOSINTS (not inclusive).
     */
     PyLongObject* small_ints[_PY_NSMALLNEGINTS + _PY_NSMALLPOSINTS];
+    /* Common constants are preallocated in this array so that they
+       can be shared between code object and loaded via the
+       The LOAD_COMMON_CONST opcode */
+    PyObject* common_consts[256];
     struct _Py_bytes_state bytes;
     struct _Py_unicode_state unicode;
     struct _Py_float_state float_state;

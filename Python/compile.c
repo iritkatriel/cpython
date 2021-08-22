@@ -25,16 +25,14 @@
 
 #include "Python.h"
 #include "pycore_ast.h"           // _PyAST_GetDocString()
-#include "pycore_compile.h"       // _PyFuture_FromAST(), _PY_MAKE_INT_BIAS
+#include "pycore_compile.h"       // _PyFuture_FromAST()
 #include "pycore_code.h"          // _PyCode_New()
-#include "pycore_interp.h"        // _PY_NSMALLNEGINTS, _PY_NSMALLPOSINTS
 #include "pycore_pymem.h"         // _PyMem_IsPtrFreed()
 #include "pycore_long.h"          // _PyLong_GetZero()
 #include "pycore_symtable.h"      // PySTEntryObject
 
 #define NEED_OPCODE_JUMP_TABLES
 #include "opcode.h"               // EXTENDED_ARG
-
 #include "wordcode_helpers.h"     // instrsize()
 
 
@@ -1111,6 +1109,8 @@ stack_effect(int opcode, int oparg, int jump)
             return 0;
         case LOAD_CONST:
             return 1;
+        case LOAD_COMMON_CONST:
+            return 1;
         case LOAD_NAME:
             return 1;
         case BUILD_TUPLE:
@@ -1199,8 +1199,6 @@ stack_effect(int opcode, int oparg, int jump)
         case MAKE_FUNCTION:
             return 0 - ((oparg & 0x01) != 0) - ((oparg & 0x02) != 0) -
                 ((oparg & 0x04) != 0) - ((oparg & 0x08) != 0);
-        case MAKE_INT:
-            return 1;
         case BUILD_SLICE:
             if (oparg == 3)
                 return -2;
@@ -1477,19 +1475,14 @@ compiler_add_const(struct compiler *c, PyObject *o)
 static int
 compiler_addop_load_const(struct compiler *c, PyObject *o)
 {
-    if (PyLong_CheckExact(o)) {
-        Py_ssize_t arg = PyLong_AsLong(o);
-        if (PyErr_Occurred()) {
-            PyErr_Clear();
-        } else {
-            arg += _PY_MAKE_INT_BIAS;
-            if (arg >= 0 && arg <= 255) {
-                assert(arg < _PY_NSMALLNEGINTS + _PY_NSMALLPOSINTS);
-                return compiler_addop_i(c, MAKE_INT, arg);
-            }
-        }
+    Py_ssize_t arg = _Py_GetCommonConstIndex(o);
+    if (arg != -1) {
+        assert(arg >= 0 && arg <= 255);
+        return compiler_addop_i(c, LOAD_COMMON_CONST, arg);
     }
-    Py_ssize_t arg = compiler_add_const(c, o);
+    if (PyErr_Occurred())
+        return 0;
+    arg = compiler_add_const(c, o);
     if (arg < 0)
         return 0;
     return compiler_addop_i(c, LOAD_CONST, arg);
@@ -8102,26 +8095,27 @@ optimize_basic_block(struct compiler *c, basicblock *bb, PyObject *consts)
             target = &nop;
         }
         switch (inst->i_opcode) {
-            /* Remove LOAD_CONST/MAKE_INT const; conditional jump */
+            /* Remove LOAD_CONST/LOAD_COMMON_CONST const; conditional jump */
             case LOAD_CONST:
-            case MAKE_INT:
+            case LOAD_COMMON_CONST:
             {
-                PyObject* cnt;
+                PyObject* cnt = NULL;;
                 int is_true = -1;
                 int jump_if_true;
+                PyInterpreterState *interp = _PyInterpreterState_GET();
                 switch(nextop) {
                     case POP_JUMP_IF_FALSE:
                     case POP_JUMP_IF_TRUE:
                         if (inst->i_opcode == LOAD_CONST) {
                             cnt = PyList_GET_ITEM(consts, oparg);
-                            is_true = PyObject_IsTrue(cnt);
-                            if (is_true == -1) {
-                                goto error;
-                            }
-                        } else if (inst->i_opcode == MAKE_INT) {
-                            is_true = oparg - _PY_MAKE_INT_BIAS;
+                        } else if (inst->i_opcode == LOAD_COMMON_CONST) {
+                            cnt = interp->common_consts[oparg];
+                            assert(cnt != NULL);
                         }
-                        assert(is_true != -1);
+                        is_true = PyObject_IsTrue(cnt);
+                        if (is_true == -1) {
+                            goto error;
+                        }
                         inst->i_opcode = NOP;
                         jump_if_true = nextop == POP_JUMP_IF_TRUE;
                         if (is_true == jump_if_true) {
@@ -8136,14 +8130,14 @@ optimize_basic_block(struct compiler *c, basicblock *bb, PyObject *consts)
                     case JUMP_IF_TRUE_OR_POP:
                         if (inst->i_opcode == LOAD_CONST) {
                             cnt = PyList_GET_ITEM(consts, oparg);
-                            is_true = PyObject_IsTrue(cnt);
-                            if (is_true == -1) {
-                                goto error;
-                            }
-                        } else if (inst->i_opcode == MAKE_INT) {
-                            is_true = oparg - _PY_MAKE_INT_BIAS;
+                        } else if (inst->i_opcode == LOAD_COMMON_CONST) {
+                            cnt = interp->common_consts[oparg];
+                            assert(cnt != NULL);
                         }
-                        assert(is_true != -1);
+                        is_true = PyObject_IsTrue(cnt);
+                        if (is_true == -1) {
+                            goto error;
+                        }
                         jump_if_true = nextop == JUMP_IF_TRUE_OR_POP;
                         if (is_true == jump_if_true) {
                             bb->b_instr[i+1].i_opcode = JUMP_ABSOLUTE;

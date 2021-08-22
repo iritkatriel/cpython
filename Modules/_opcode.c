@@ -76,6 +76,42 @@ _opcode_stack_effect_impl(PyObject *module, int opcode, PyObject *oparg,
 
 /*[clinic input]
 
+_opcode.get_common_const_value
+
+    i : Py_ssize_t
+
+Return the interpreter's i-th common const
+[clinic start generated code]*/
+
+static PyObject *
+_opcode_get_common_const_value_impl(PyObject *module, Py_ssize_t i)
+/*[clinic end generated code: output=39d908a293f8fd5d input=98cd19dce8788dab]*/
+{
+    return _Py_GetCommonConstValue(i);
+}
+
+/*[clinic input]
+
+_opcode.is_common_const
+
+    obj: object
+
+Return True if obj is a common const, False otherwise
+[clinic start generated code]*/
+
+static PyObject *
+_opcode_is_common_const_impl(PyObject *module, PyObject *obj)
+/*[clinic end generated code: output=900a95239b18710e input=e2897e0e252cfbfb]*/
+{
+    Py_ssize_t ret = _Py_GetCommonConstIndex(obj);
+    if (PyErr_Occurred())
+        PyErr_Clear();
+    return Py_NewRef(ret == -1 ? Py_False : Py_True);
+}
+
+
+/*[clinic input]
+
 _opcode.get_specialization_stats
 
 Return the specialization stats
@@ -96,6 +132,8 @@ static PyMethodDef
 opcode_functions[] =  {
     _OPCODE_STACK_EFFECT_METHODDEF
     _OPCODE_GET_SPECIALIZATION_STATS_METHODDEF
+    _OPCODE_GET_COMMON_CONST_VALUE_METHODDEF
+    _OPCODE_IS_COMMON_CONST_METHODDEF
     {NULL, NULL, 0, NULL}
 };
 

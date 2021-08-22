@@ -57,6 +57,81 @@ exit:
     return return_value;
 }
 
+PyDoc_STRVAR(_opcode_get_common_const_value__doc__,
+"get_common_const_value($module, /, i)\n"
+"--\n"
+"\n"
+"Return the interpreter\'s i-th common const");
+
+#define _OPCODE_GET_COMMON_CONST_VALUE_METHODDEF    \
+    {"get_common_const_value", (PyCFunction)(void(*)(void))_opcode_get_common_const_value, METH_FASTCALL|METH_KEYWORDS, _opcode_get_common_const_value__doc__},
+
+static PyObject *
+_opcode_get_common_const_value_impl(PyObject *module, Py_ssize_t i);
+
+static PyObject *
+_opcode_get_common_const_value(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    PyObject *return_value = NULL;
+    static const char * const _keywords[] = {"i", NULL};
+    static _PyArg_Parser _parser = {NULL, _keywords, "get_common_const_value", 0};
+    PyObject *argsbuf[1];
+    Py_ssize_t i;
+
+    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 1, 0, argsbuf);
+    if (!args) {
+        goto exit;
+    }
+    {
+        Py_ssize_t ival = -1;
+        PyObject *iobj = _PyNumber_Index(args[0]);
+        if (iobj != NULL) {
+            ival = PyLong_AsSsize_t(iobj);
+            Py_DECREF(iobj);
+        }
+        if (ival == -1 && PyErr_Occurred()) {
+            goto exit;
+        }
+        i = ival;
+    }
+    return_value = _opcode_get_common_const_value_impl(module, i);
+
+exit:
+    return return_value;
+}
+
+PyDoc_STRVAR(_opcode_is_common_const__doc__,
+"is_common_const($module, /, obj)\n"
+"--\n"
+"\n"
+"Return True if obj is a common const, False otherwise");
+
+#define _OPCODE_IS_COMMON_CONST_METHODDEF    \
+    {"is_common_const", (PyCFunction)(void(*)(void))_opcode_is_common_const, METH_FASTCALL|METH_KEYWORDS, _opcode_is_common_const__doc__},
+
+static PyObject *
+_opcode_is_common_const_impl(PyObject *module, PyObject *obj);
+
+static PyObject *
+_opcode_is_common_const(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    PyObject *return_value = NULL;
+    static const char * const _keywords[] = {"obj", NULL};
+    static _PyArg_Parser _parser = {NULL, _keywords, "is_common_const", 0};
+    PyObject *argsbuf[1];
+    PyObject *obj;
+
+    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 1, 0, argsbuf);
+    if (!args) {
+        goto exit;
+    }
+    obj = args[0];
+    return_value = _opcode_is_common_const_impl(module, obj);
+
+exit:
+    return return_value;
+}
+
 PyDoc_STRVAR(_opcode_get_specialization_stats__doc__,
 "get_specialization_stats($module, /)\n"
 "--\n"
@@ -74,4 +149,4 @@ _opcode_get_specialization_stats(PyObject *module, PyObject *Py_UNUSED(ignored))
 {
     return _opcode_get_specialization_stats_impl(module);
 }
-/*[clinic end generated code: output=1699b4b1488b49c1 input=a9049054013a1b77]*/
+/*[clinic end generated code: output=a4443c0dba53c55f input=a9049054013a1b77]*/

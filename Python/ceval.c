@@ -15,7 +15,7 @@
 #include "pycore_ceval.h"         // _PyEval_SignalAsyncExc()
 #include "pycore_code.h"
 #include "pycore_initconfig.h"    // _PyStatus_OK()
-#include "pycore_long.h"          // _PyLong_GetZero(), _PyLong_SmallIntLookiup_internal()
+#include "pycore_long.h"          // _PyLong_GetZero()
 #include "pycore_object.h"        // _PyObject_GC_TRACK()
 #include "pycore_moduleobject.h"
 #include "pycore_pyerrors.h"      // _PyErr_Fetch()
@@ -1523,6 +1523,8 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, InterpreterFrame *frame, int thr
     if (PyDTrace_FUNCTION_ENTRY_ENABLED())
         dtrace_function_entry(frame);
 
+    PyObject **common_consts = tstate->interp->common_consts;
+
     PyCodeObject *co = frame->f_code;
     /* Increment the warmup counter and quicken if warm enough
      * _Py_Quicken is idempotent so we don't worry about overflow */
@@ -1702,8 +1704,9 @@ check_eval_breaker:
             DISPATCH();
         }
 
-        TARGET(MAKE_INT): {
-            PyObject *value = _PyLong_SmallIntLookiup_internal(oparg);
+        TARGET(LOAD_COMMON_CONST): {
+            PyObject *value = common_consts[oparg];
+            assert(value);
             Py_INCREF(value);
             PUSH(value);
             DISPATCH();

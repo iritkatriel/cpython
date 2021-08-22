@@ -220,6 +220,11 @@ struct _PyCodeConstructor {
     PyObject *exceptiontable;
 };
 
+PyAPI_FUNC(int) _Py_InitCommonConsts(void);
+PyAPI_FUNC(void) _Py_ClearCommonConsts(void);
+PyAPI_FUNC(PyObject*) _Py_GetCommonConstValue(Py_ssize_t index);
+PyAPI_FUNC(Py_ssize_t) _Py_GetCommonConstIndex(PyObject* obj);
+
 // Using an "arguments struct" like this is helpful for maintainability
 // in a case such as this with many parameters.  It does bear a risk:
 // if the struct changes and callers are not updated properly then the

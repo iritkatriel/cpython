@@ -995,6 +995,9 @@
     <ClCompile Include="..\Python\codecs.c">
       <Filter>Python</Filter>
     </ClCompile>
+    <ClCompile Include="..\Python\common_consts.c">
+      <Filter>Python</Filter>
+    </ClCompile>
     <ClCompile Include="..\Python\compile.c">
       <Filter>Python</Filter>
     </ClCompile>

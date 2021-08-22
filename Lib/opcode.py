@@ -15,8 +15,6 @@ __all__ = ["cmp_op", "hasconst", "hasname", "hasjrel", "hasjabs",
 # Both our chickens and eggs are allayed.
 #     --Larry Hastings, 2013/11/23
 
-import sys
-
 try:
     from _opcode import stack_effect
     __all__.append('stack_effect')
@@ -37,11 +35,12 @@ hasnargs = [] # unused
 opmap = {}
 opname = ['<%r>' % (op,) for op in range(256)]
 
-def is_immediate_const(v):
-    if isinstance(v, int):
-        oparg = v - sys.int_info.first_small_int
-        return oparg >= 0 and oparg <= 255
-    return False
+_common_consts_list = None
+
+def get_common_const_value(index):
+    # can't import this at module scope, see poem above
+    import _opcode
+    return _opcode.get_common_const_value(index)
 
 def def_op(name, op):
     opname[op] = name
@@ -188,7 +187,7 @@ def_op('RAISE_VARARGS', 130)    # Number of raise arguments (1, 2, or 3)
 def_op('CALL_FUNCTION', 131)    # #args
 def_op('MAKE_FUNCTION', 132)    # Flags
 def_op('BUILD_SLICE', 133)      # Number of items
-def_op('MAKE_INT', 134)         # the int value + MAKE_INT_BIAS (for common negatives)
+def_op('LOAD_COMMON_CONST', 134) # index in the interp's common_consts array
 
 def_op('MAKE_CELL', 135)
 hasfree.append(135)

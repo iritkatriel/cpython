@@ -34,18 +34,6 @@ static inline PyObject* _PyLong_GetZero(void)
 static inline PyObject* _PyLong_GetOne(void)
 { return __PyLong_GetSmallInt_internal(1); }
 
-
-static inline PyObject* _PyLong_SmallIntLookiup_internal(size_t index)
-{
-    PyInterpreterState *interp = _PyInterpreterState_GET();
-    assert(0 <= index && index < _PY_NSMALLNEGINTS + _PY_NSMALLPOSINTS);
-    PyObject *obj = (PyObject*)interp->small_ints[index];
-    // must not be called before _PyLong_Init() nor after _PyLong_Fini().
-    assert(obj != NULL);
-    return obj;
-}
-
-
 #ifdef __cplusplus
 }
 #endif

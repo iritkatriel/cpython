@@ -167,12 +167,6 @@ _PyLong_Copy(PyLongObject *src)
     return (PyObject *)result;
 }
 
-PyObject *
-_PyLong_GetSmallInt(Py_ssize_t ival)
-{
-    return get_small_int((sdigit)ival);
-}
-
 /* Create a new int object from a C long int */
 
 PyObject *
@@ -5716,12 +5710,10 @@ PyDoc_STRVAR(int_info__doc__,
 \n\
 A named tuple that holds information about Python's\n\
 internal representation of integers.  The attributes are read only.");
-// TODO: update docs about int_info
+
 static PyStructSequence_Field int_info_fields[] = {
     {"bits_per_digit", "size of a digit in bits"},
     {"sizeof_digit", "size in bytes of the C type used to represent a digit"},
-    {"first_small_int", "smallest integer in the small-int singleton cache"},
-    {"last_small_int", "largest integer in the small-int singleton cache"},
     {NULL, NULL}
 };
 
@@ -5729,7 +5721,7 @@ static PyStructSequence_Desc int_info_desc = {
     "sys.int_info",   /* name */
     int_info__doc__,  /* doc */
     int_info_fields,  /* fields */
-    4                 /* number of fields */
+    2                 /* number of fields */
 };
 
 PyObject *
@@ -5744,10 +5736,6 @@ PyLong_GetInfo(void)
                               PyLong_FromLong(PyLong_SHIFT));
     PyStructSequence_SET_ITEM(int_info, field++,
                               PyLong_FromLong(sizeof(digit)));
-    PyStructSequence_SET_ITEM(int_info, field++,
-                              PyLong_FromLong(-NSMALLNEGINTS));
-    PyStructSequence_SET_ITEM(int_info, field++,
-                              PyLong_FromLong(NSMALLPOSINTS - 1));
     if (PyErr_Occurred()) {
         Py_CLEAR(int_info);
         return NULL;

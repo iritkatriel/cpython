@@ -1,6 +1,6 @@
 import dis
 from itertools import combinations, product
-import opcode
+import _opcode
 import unittest
 
 from test.support.bytecode_helper import BytecodeTestCase
@@ -229,9 +229,9 @@ class TestTranforms(BytecodeTestCase):
             ('a = 13 | 7', 15),                 # binary or
             ):
             code = compile(line, '', 'single')
-            if opcode.is_immediate_const(elem):
+            if _opcode.is_common_const(elem):
                 assert isinstance(elem, int)
-                self.assertInBytecode(code, 'MAKE_INT', elem)
+                self.assertInBytecode(code, 'LOAD_COMMON_CONST', elem)
             else:
                 self.assertInBytecode(code, 'LOAD_CONST', elem)
             for instr in dis.get_instructions(code):
@@ -240,7 +240,7 @@ class TestTranforms(BytecodeTestCase):
 
         # Verify that unfoldables are skipped
         code = compile('a=2+"b"', '', 'single')
-        self.assertInBytecode(code, 'MAKE_INT', 2)
+        self.assertInBytecode(code, 'LOAD_COMMON_CONST', 2)
         self.assertInBytecode(code, 'LOAD_CONST', 'b')
         self.check_lnotab(code)
 
@@ -282,7 +282,6 @@ class TestTranforms(BytecodeTestCase):
         self.check_lnotab(code)
 
     def test_folding_of_unaryops_on_constants(self):
-
         for line, elem in (
             ('-0.5', -0.5),                     # unary negative
             ('-0.0', -0.0),                     # -0.0
@@ -292,9 +291,9 @@ class TestTranforms(BytecodeTestCase):
             ('+1', 1),                          # unary positive
         ):
             code = compile(line, '', 'single')
-            if opcode.is_immediate_const(elem):
+            if _opcode.is_common_const(elem):
                 assert isinstance(elem, int)
-                self.assertInBytecode(code, 'MAKE_INT', elem)
+                self.assertInBytecode(code, 'LOAD_COMMON_CONST', elem)
             else:
                 self.assertInBytecode(code, 'LOAD_CONST', elem)
             for instr in dis.get_instructions(code):

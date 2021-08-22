@@ -2,6 +2,7 @@
 
 #include "Python.h"
 
+#include "pycore_code.h"          // _Py_InitCommonConsts()
 #include "pycore_ceval.h"         // _PyEval_FiniGIL()
 #include "pycore_context.h"       // _PyContext_Init()
 #include "pycore_fileutils.h"     // _Py_ResetForceASCII()
@@ -829,6 +830,10 @@ pycore_interp_init(PyThreadState *tstate)
     status = pycore_init_builtins(tstate);
     if (_PyStatus_EXCEPTION(status)) {
         goto done;
+    }
+
+    if (_Py_InitCommonConsts() < 0) {
+        return _PyStatus_ERR("can't init common_consts");
     }
 
     const PyConfig *config = _PyInterpreterState_GetConfig(interp);
@@ -1816,6 +1821,9 @@ Py_FinalizeEx(void)
 
     /* Destroy the database used by _PyImport_{Fixup,Find}Extension */
     _PyImport_Fini();
+
+    /* Free common const */
+    _Py_ClearCommonConsts();
 
     /* unload faulthandler module */
     _PyFaulthandler_Fini();
