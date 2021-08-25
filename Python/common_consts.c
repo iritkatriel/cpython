@@ -133,10 +133,10 @@ _Py_InitCommonConsts(void)
 
     if ((0)) {
         ret += add_common_float(index++, 0.0);
-        ret += add_common_float(index++, 0.5);
-        ret += add_common_float(index++, 1.0);
-        ret += add_common_float(index++, 2.0);
     }
+    ret += add_common_float(index++, 0.5);
+    ret += add_common_float(index++, 1.0);
+    ret += add_common_float(index++, 2.0);
 
     // TODO: the tuples
     // (), ('dtype',), ('match',), (None,), ('index',), ('name',), ('axis',), ('primary_key',), (1, 2, 3),

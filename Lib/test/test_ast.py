@@ -1729,13 +1729,17 @@ class ConstantTests(unittest.TestCase):
     def test_load_const(self):
         consts = [None,
                   True, False,
-                  2.0,
+                  2.1,
                   3j,
                   "unicode",
                   b'bytes',
                   (1, 2, 3)]
 
-        code = '\n'.join(['x={!r}'.format(const) for const in consts])
+        common_consts = [1, 2.0, 'a']
+
+        all_consts = consts + common_consts
+
+        code = '\n'.join(['x={!r}'.format(const) for const in all_consts])
         code += '\nx = ...'
         consts.extend((Ellipsis, None))
 
@@ -1744,7 +1748,7 @@ class ConstantTests(unittest.TestCase):
                          consts)
 
         # Replace expression nodes with constants
-        for assign, const in zip(tree.body, consts):
+        for assign, const in zip(tree.body, all_consts):
             assert isinstance(assign, ast.Assign), ast.dump(assign)
             new_node = ast.Constant(value=const)
             ast.copy_location(new_node, assign.value)

@@ -73,9 +73,20 @@ class IsCommonConstTests(unittest.TestCase):
         self.assertTrue(_opcode.is_common_const(-1))
         self.assertTrue(_opcode.is_common_const(0))
         self.assertTrue(_opcode.is_common_const(20))
-        self.assertTrue(_opcode.is_common_const(231))
-        self.assertFalse(_opcode.is_common_const(232))
+        self.assertTrue(_opcode.is_common_const(228))
+        self.assertFalse(_opcode.is_common_const(229))
         self.assertFalse(_opcode.is_common_const(1010))
+
+    def test_floats(self):
+        self.assertFalse(_opcode.is_common_const(-1.0))
+        self.assertFalse(_opcode.is_common_const(-0.5))
+        self.assertFalse(_opcode.is_common_const(-0.0))
+        self.assertFalse(_opcode.is_common_const(0.0))
+        self.assertTrue(_opcode.is_common_const(0.5))
+        self.assertTrue(_opcode.is_common_const(1.0))
+        self.assertTrue(_opcode.is_common_const(2.0))
+        self.assertFalse(_opcode.is_common_const(2.2))
+        self.assertFalse(_opcode.is_common_const(100.0))
 
     def test_strings(self):
         common_strings = [
@@ -96,7 +107,6 @@ class IsCommonConstTests(unittest.TestCase):
 
     def test_other_types(self):
         values = [
-            1.0,
             (1, 2),
             lambda x: 1,
         ]
