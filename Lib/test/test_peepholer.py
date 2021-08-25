@@ -241,7 +241,11 @@ class TestTranforms(BytecodeTestCase):
         # Verify that unfoldables are skipped
         code = compile('a=2+"b"', '', 'single')
         self.assertInBytecode(code, 'LOAD_COMMON_CONST', 2)
-        self.assertInBytecode(code, 'LOAD_CONST', 'b')
+        self.assertInBytecode(code, 'LOAD_COMMON_CONST', 'b')
+        self.check_lnotab(code)
+        code = compile('g=2000+"f"', '', 'single')
+        self.assertInBytecode(code, 'LOAD_CONST', 2000)
+        self.assertInBytecode(code, 'LOAD_CONST', 'f')
         self.check_lnotab(code)
 
         # Verify that large sequences do not result from folding

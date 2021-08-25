@@ -83,7 +83,7 @@ add_common_float(int index, double v)
 static int
 add_common_string(int index, const char *s)
 {
-    PyObject *obj = PyUnicode_FromString(s);
+    PyObject *obj = PyUnicode_InternFromString(s);
     if (!obj)
         return -1;
     int ret = add_common_const(index, obj);
@@ -111,27 +111,25 @@ _Py_InitCommonConsts(void)
         ret += add_common_const(index++, PyExc_AssertionError);
     }
 
-    if ((0)) {
-        ret += add_common_string(index++, "");
-        ret += add_common_string(index++, " ");
-        ret += add_common_string(index++, "a");
-        ret += add_common_string(index++, "b");
-        ret += add_common_string(index++, "c");
-        ret += add_common_string(index++, "x");
-        ret += add_common_string(index++, "A");
-        ret += add_common_string(index++, "B");
-        ret += add_common_string(index++, "foo");
-        ret += add_common_string(index++, "bar");
-        ret += add_common_string(index++, "data");
-        ret += add_common_string(index++, "id");
-        ret += add_common_string(index++, "name");
-        ret += add_common_string(index++, "return");
-        ret += add_common_string(index++, "utf-8");
-        ret += add_common_string(index++, "__main__");
-        ret += add_common_string(index++, "/");
-        ret += add_common_string(index++, ".");
-        ret += add_common_string(index++, "\n");
-    }
+    ret += add_common_string(index++, "");
+    ret += add_common_string(index++, " ");
+    ret += add_common_string(index++, "a");
+    ret += add_common_string(index++, "b");
+    ret += add_common_string(index++, "c");
+    ret += add_common_string(index++, "x");
+    ret += add_common_string(index++, "A");
+    ret += add_common_string(index++, "B");
+    ret += add_common_string(index++, "foo");
+    ret += add_common_string(index++, "bar");
+    ret += add_common_string(index++, "data");
+    ret += add_common_string(index++, "id");
+    ret += add_common_string(index++, "name");
+    ret += add_common_string(index++, "return");
+    ret += add_common_string(index++, "utf-8");
+    ret += add_common_string(index++, "__main__");
+    ret += add_common_string(index++, "/");
+    ret += add_common_string(index++, ".");
+    ret += add_common_string(index++, "\n");
 
     if ((0)) {
         ret += add_common_float(index++, 0.0);
@@ -152,7 +150,7 @@ _Py_InitCommonConsts(void)
         ret += add_common_int(index++, j);
     }
 
-    return ret > 0 ? -1: 0;
+    return ret < 0 ? -1: 0;
 }
 
 void

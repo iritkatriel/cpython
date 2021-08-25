@@ -687,8 +687,8 @@ if 1:
         check_different_constants(300, 300.0)
         check_different_constants(+0.0, -0.0)
         check_different_constants((0,), (0.0,))
-        check_different_constants('a', b'a')
-        check_different_constants(('a',), (b'a',))
+        check_different_constants('k', b'k')
+        check_different_constants(('k',), (b'k',))
 
         # check_different_constants() cannot be used because repr(-0j) is
         # '(-0-0j)', but when '(-0-0j)' is evaluated to 0j: we loose the sign.

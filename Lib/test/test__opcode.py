@@ -73,14 +73,30 @@ class IsCommonConstTests(unittest.TestCase):
         self.assertTrue(_opcode.is_common_const(-1))
         self.assertTrue(_opcode.is_common_const(0))
         self.assertTrue(_opcode.is_common_const(20))
-        self.assertTrue(_opcode.is_common_const(250))
-        self.assertFalse(_opcode.is_common_const(251))
+        self.assertTrue(_opcode.is_common_const(231))
+        self.assertFalse(_opcode.is_common_const(232))
         self.assertFalse(_opcode.is_common_const(1010))
+
+    def test_strings(self):
+        common_strings = [
+            "", " ", "a", "b", "c", "x", "A", "B", "foo", "bar",
+            "data", "id", "name", "return", "utf-8", "__main__",
+            "/", ".", "\n",
+        ]
+
+        uncommon_strings = [
+            "X", "1", "1.0", "main", "def"
+        ]
+
+        for s in common_strings:
+            self.assertTrue(_opcode.is_common_const(s))
+
+        for s in uncommon_strings:
+            self.assertFalse(_opcode.is_common_const(s))
 
     def test_other_types(self):
         values = [
             1.0,
-            "1",
             (1, 2),
             lambda x: 1,
         ]
