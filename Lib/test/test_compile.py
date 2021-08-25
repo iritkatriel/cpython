@@ -1,6 +1,7 @@
 import dis
 import math
 import os
+import _opcode
 import unittest
 import sys
 import ast
@@ -587,6 +588,8 @@ if 1:
         self.assertEqual(namespace['x'], 12)
 
     def check_constant(self, func, expected):
+        if _opcode.is_common_const(expected):
+            return
         for const in func.__code__.co_consts:
             if repr(const) == repr(expected):
                 break
@@ -614,6 +617,7 @@ if 1:
         check_same_constant(None)
         check_same_constant(300)
         check_same_constant(0.0)
+        check_same_constant(-0.0)
         check_same_constant(b'abc')
         check_same_constant('abc')
 

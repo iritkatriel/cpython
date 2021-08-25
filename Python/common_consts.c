@@ -18,7 +18,15 @@ obj_to_key(PyObject *obj)
     PyObject *obj_type = PyObject_Type(obj);
     if (!obj_type)
         return NULL;
-    key = PyTuple_Pack(2, obj_type, obj);
+    if (PyFloat_CheckExact(obj)) {
+        double v = PyFloat_AsDouble(obj);
+        if (!PyErr_Occurred()) {
+            PyObject *sign = (copysign(1., v) == 1.) ? Py_True : Py_False;
+            key = PyTuple_Pack(3, obj_type, obj, sign);
+        }
+    } else {
+        key = PyTuple_Pack(2, obj_type, obj);
+    }
     Py_DECREF(obj_type);
     if (! key) {
         return NULL;
@@ -131,9 +139,7 @@ _Py_InitCommonConsts(void)
     ret += add_common_string(index++, ".");
     ret += add_common_string(index++, "\n");
 
-    if ((0)) {
-        ret += add_common_float(index++, 0.0);
-    }
+    ret += add_common_float(index++, 0.0);
     ret += add_common_float(index++, 0.5);
     ret += add_common_float(index++, 1.0);
     ret += add_common_float(index++, 2.0);
