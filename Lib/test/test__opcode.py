@@ -66,6 +66,18 @@ class OpcodeTests(unittest.TestCase):
 
 
 class IsCommonConstTests(unittest.TestCase):
+
+    def test_singletons(self):
+        common_singletons = [None, True, False, ..., AssertionError]
+
+        uncommon_singletons = [TypeError, BaseException]
+
+        for v in common_singletons:
+            self.assertTrue(_opcode.is_common_const(v))
+
+        for v in uncommon_singletons:
+            self.assertFalse(_opcode.is_common_const(v))
+
     def test_ints(self):
         self.assertFalse(_opcode.is_common_const(-220))
         self.assertFalse(_opcode.is_common_const(-6))
@@ -73,8 +85,8 @@ class IsCommonConstTests(unittest.TestCase):
         self.assertTrue(_opcode.is_common_const(-1))
         self.assertTrue(_opcode.is_common_const(0))
         self.assertTrue(_opcode.is_common_const(20))
-        self.assertTrue(_opcode.is_common_const(227))
-        self.assertFalse(_opcode.is_common_const(228))
+        self.assertTrue(_opcode.is_common_const(222))
+        self.assertFalse(_opcode.is_common_const(223))
         self.assertFalse(_opcode.is_common_const(1010))
 
     def test_floats(self):

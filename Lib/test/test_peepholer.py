@@ -78,7 +78,7 @@ class TestTranforms(BytecodeTestCase):
             self.check_lnotab(code)
 
     def test_global_as_constant(self):
-        # LOAD_GLOBAL None/True/False  -->  LOAD_CONST None/True/False
+        # LOAD_GLOBAL None/True/False  -->  LOAD_COMMON_CONST None/True/False
         def f():
             x = None
             x = None
@@ -92,7 +92,7 @@ class TestTranforms(BytecodeTestCase):
 
         for func, elem in ((f, None), (g, True), (h, False)):
             self.assertNotInBytecode(func, 'LOAD_GLOBAL')
-            self.assertInBytecode(func, 'LOAD_CONST', elem)
+            self.assertInBytecode(func, 'LOAD_COMMON_CONST', elem)
             self.check_lnotab(func)
 
         def f():
@@ -100,7 +100,7 @@ class TestTranforms(BytecodeTestCase):
             return None
 
         self.assertNotInBytecode(f, 'LOAD_GLOBAL')
-        self.assertInBytecode(f, 'LOAD_CONST', None)
+        self.assertInBytecode(f, 'LOAD_COMMON_CONST', None)
         self.check_lnotab(f)
 
     def test_while_one(self):
@@ -117,7 +117,7 @@ class TestTranforms(BytecodeTestCase):
 
     def test_pack_unpack(self):
         for line, elem in (
-            ('a, = a,', 'LOAD_CONST',),
+            ('a, = a,', 'LOAD_COMMON_CONST',),
             ('a, b = a, b', 'ROT_TWO',),
             ('a, b, c = a, b, c', 'ROT_THREE',),
             ):
@@ -143,10 +143,13 @@ class TestTranforms(BytecodeTestCase):
         # Long tuples should be folded too.
         code = compile(repr(tuple(range(10000))),'','single')
         self.assertNotInBytecode(code, 'BUILD_TUPLE')
-        # One LOAD_CONST for the tuple, one for the None return value
+        # One LOAD_CONST for the tuple, one LOAD_COMMON_CONST for the None return value
         load_consts = [instr for instr in dis.get_instructions(code)
                               if instr.opname == 'LOAD_CONST']
-        self.assertEqual(len(load_consts), 2)
+        load_common_consts = [instr for instr in dis.get_instructions(code)
+                              if instr.opname == 'LOAD_COMMON_CONST']
+        self.assertEqual(len(load_consts), 1)
+        self.assertEqual(len(load_common_consts), 1)
         self.check_lnotab(code)
 
         # Bug 1053819:  Tuple of constants misidentified when presented with:

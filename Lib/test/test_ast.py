@@ -1727,21 +1727,18 @@ class ConstantTests(unittest.TestCase):
 
     @support.cpython_only
     def test_load_const(self):
-        consts = [None,
-                  True, False,
-                  2.1,
+        consts = [2.1,
                   3j,
                   "unicode",
                   b'bytes',
                   (1, 2, 3)]
 
-        common_consts = [1, 2.0, 'a']
+        common_consts = [None, True, False, 1, 2.0, 'a', Ellipsis]
 
         all_consts = consts + common_consts
 
         code = '\n'.join(['x={!r}'.format(const) for const in all_consts])
         code += '\nx = ...'
-        consts.extend((Ellipsis, None))
 
         tree = ast.parse(code)
         self.assertEqual(self.get_load_const(tree),

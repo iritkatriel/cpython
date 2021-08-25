@@ -110,13 +110,11 @@ _Py_InitCommonConsts(PyInterpreterState *interp)
         return -1;
     }
 
-    if ((0)) {
-        ret += add_common_const(interp, index++, Py_None);
-        ret += add_common_const(interp, index++, Py_True);
-        ret += add_common_const(interp, index++, Py_False);
-        ret += add_common_const(interp, index++, Py_Ellipsis);
-        ret += add_common_const(interp, index++, PyExc_AssertionError);
-    }
+    ret += add_common_const(interp, index++, Py_None);
+    ret += add_common_const(interp, index++, Py_True);
+    ret += add_common_const(interp, index++, Py_False);
+    ret += add_common_const(interp, index++, Py_Ellipsis);
+    ret += add_common_const(interp, index++, PyExc_AssertionError);
 
     ret += add_common_string(interp, index++, "");
     ret += add_common_string(interp, index++, " ");
