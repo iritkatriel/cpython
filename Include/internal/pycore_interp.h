@@ -298,6 +298,7 @@ struct _is {
        can be shared between code object and loaded via the
        The LOAD_COMMON_CONST opcode */
     PyObject* common_consts[256];
+    PyObject* common_const_to_index; /* dict mapping (type(v), v) --> index */
     struct _Py_bytes_state bytes;
     struct _Py_unicode_state unicode;
     struct _Py_float_state float_state;

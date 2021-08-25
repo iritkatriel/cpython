@@ -832,7 +832,7 @@ pycore_interp_init(PyThreadState *tstate)
         goto done;
     }
 
-    if (_Py_InitCommonConsts() < 0) {
+    if (_Py_InitCommonConsts(interp) < 0) {
         return _PyStatus_ERR("can't init common_consts");
     }
 
@@ -1647,6 +1647,7 @@ finalize_interp_types(PyInterpreterState *interp)
     // Call _PyUnicode_ClearInterned() before _PyDict_Fini() since it uses
     // a dict internally.
     _PyUnicode_ClearInterned(interp);
+    _Py_ClearCommonConsts(interp);
 
     _PyDict_Fini(interp);
     _PyList_Fini(interp);
@@ -1821,9 +1822,6 @@ Py_FinalizeEx(void)
 
     /* Destroy the database used by _PyImport_{Fixup,Find}Extension */
     _PyImport_Fini();
-
-    /* Free common const */
-    _Py_ClearCommonConsts();
 
     /* unload faulthandler module */
     _PyFaulthandler_Fini();

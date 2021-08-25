@@ -220,8 +220,8 @@ struct _PyCodeConstructor {
     PyObject *exceptiontable;
 };
 
-PyAPI_FUNC(int) _Py_InitCommonConsts(void);
-PyAPI_FUNC(void) _Py_ClearCommonConsts(void);
+PyAPI_FUNC(int) _Py_InitCommonConsts(PyInterpreterState *interp);
+PyAPI_FUNC(void) _Py_ClearCommonConsts(PyInterpreterState *interp);
 PyAPI_FUNC(PyObject*) _Py_GetCommonConstValue(Py_ssize_t index);
 PyAPI_FUNC(Py_ssize_t) _Py_GetCommonConstIndex(PyObject* obj);
 
