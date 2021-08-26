@@ -729,14 +729,6 @@ iterations of the loop.
     .. versionadded:: 3.11
 
 
-.. opcode:: LOAD_ASSERTION_ERROR
-
-   Pushes :exc:`AssertionError` onto the stack.  Used by the :keyword:`assert`
-   statement.
-
-   .. versionadded:: 3.9
-
-
 .. opcode:: LOAD_BUILD_CLASS
 
    Pushes :func:`builtins.__build_class__` onto the stack.  It is later called
@@ -857,6 +849,13 @@ All of the following opcodes use their arguments.
 .. opcode:: LOAD_CONST (consti)
 
    Pushes ``co_consts[consti]`` onto the stack.
+
+
+.. opcode:: LOAD_COMMON_CONST (consti)
+
+   Pushes ``common_consts[consti]`` onto the stack.
+
+   .. versionadded:: 3.11
 
 
 .. opcode:: LOAD_NAME (namei)

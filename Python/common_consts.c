@@ -7,9 +7,6 @@
    list via the LOAD_COMMON_CONST opcode
  */
 
-
-
-
 static PyObject*
 obj_to_key(PyObject *obj)
 {

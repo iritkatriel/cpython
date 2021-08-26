@@ -147,7 +147,7 @@ def bug1333982(x=[]):
     pass
 
 dis_bug1333982 = """\
-%3d           0 LOAD_ASSERTION_ERROR
+%3d           0 LOAD_COMMON_CONST        4 (<class 'AssertionError'>)
               2 LOAD_CONST               1 (<code object <listcomp> at 0x..., file "%s", line %d>)
               4 MAKE_FUNCTION            0
               6 LOAD_FAST                0 (x)

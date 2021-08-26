@@ -1239,8 +1239,6 @@ stack_effect(int opcode, int oparg, int jump)
             return (oparg & FVS_MASK) == FVS_HAVE_SPEC ? -1 : 0;
         case LOAD_METHOD:
             return 1;
-        case LOAD_ASSERTION_ERROR:
-            return 1;
         case LIST_TO_TUPLE:
             return 0;
         case GEN_START:
@@ -3561,7 +3559,7 @@ compiler_assert(struct compiler *c, stmt_ty s)
         return 0;
     if (!compiler_jump_if(c, s->v.Assert.test, end, 1))
         return 0;
-    ADDOP(c, LOAD_ASSERTION_ERROR);
+    compiler_addop_load_const(c, PyExc_AssertionError);
     if (s->v.Assert.msg) {
         VISIT(c, expr, s->v.Assert.msg);
         ADDOP_I(c, CALL_FUNCTION, 1);
