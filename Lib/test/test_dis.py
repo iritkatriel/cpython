@@ -39,7 +39,7 @@ class _C:
 
 dis_c_instance_method = """\
 %3d           0 LOAD_FAST                1 (x)
-              2 LOAD_COMMON_CONST       34 (1)
+              2 LOAD_COMMON_CONST       43 (1)
               4 COMPARE_OP               2 (==)
               6 LOAD_FAST                0 (self)
               8 STORE_ATTR               0 (x)
@@ -49,7 +49,7 @@ dis_c_instance_method = """\
 
 dis_c_instance_method_bytes = """\
           0 LOAD_FAST                1 (1)
-          2 LOAD_COMMON_CONST       34 (1)
+          2 LOAD_COMMON_CONST       43 (1)
           4 COMPARE_OP               2 (==)
           6 LOAD_FAST                0 (0)
           8 STORE_ATTR               0 (0)
@@ -59,7 +59,7 @@ dis_c_instance_method_bytes = """\
 
 dis_c_class_method = """\
 %3d           0 LOAD_FAST                1 (x)
-              2 LOAD_COMMON_CONST       34 (1)
+              2 LOAD_COMMON_CONST       43 (1)
               4 COMPARE_OP               2 (==)
               6 LOAD_FAST                0 (cls)
               8 STORE_ATTR               0 (x)
@@ -69,7 +69,7 @@ dis_c_class_method = """\
 
 dis_c_static_method = """\
 %3d           0 LOAD_FAST                0 (x)
-              2 LOAD_COMMON_CONST       34 (1)
+              2 LOAD_COMMON_CONST       43 (1)
               4 COMPARE_OP               2 (==)
               6 STORE_FAST               0 (x)
               8 LOAD_COMMON_CONST        0 (None)
@@ -98,7 +98,7 @@ dis_f = """\
               4 CALL_FUNCTION            1
               6 POP_TOP
 
-%3d           8 LOAD_COMMON_CONST       34 (1)
+%3d           8 LOAD_COMMON_CONST       43 (1)
              10 RETURN_VALUE
 """ % (_f.__code__.co_firstlineno + 1,
        _f.__code__.co_firstlineno + 2)
@@ -109,7 +109,7 @@ dis_f_co_code = """\
           2 LOAD_FAST                0 (0)
           4 CALL_FUNCTION            1
           6 POP_TOP
-          8 LOAD_COMMON_CONST       34 (1)
+          8 LOAD_COMMON_CONST       43 (1)
          10 RETURN_VALUE
 """
 
@@ -121,9 +121,9 @@ def bug708901():
 
 dis_bug708901 = """\
 %3d           0 LOAD_GLOBAL              0 (range)
-              2 LOAD_COMMON_CONST       34 (1)
+              2 LOAD_COMMON_CONST       43 (1)
 
-%3d           4 LOAD_COMMON_CONST       43 (10)
+%3d           4 LOAD_COMMON_CONST       52 (10)
 
 %3d           6 CALL_FUNCTION            2
               8 GET_ITER
@@ -154,7 +154,7 @@ dis_bug1333982 = """\
               8 GET_ITER
              10 CALL_FUNCTION            1
 
-%3d          12 LOAD_COMMON_CONST       34 (1)
+%3d          12 LOAD_COMMON_CONST       43 (1)
 
 %3d          14 BINARY_ADD
              16 CALL_FUNCTION            1
@@ -208,7 +208,7 @@ expr_str = "x + 1"
 
 dis_expr_str = """\
   1           0 LOAD_NAME                0 (x)
-              2 LOAD_COMMON_CONST       34 (1)
+              2 LOAD_COMMON_CONST       43 (1)
               4 BINARY_ADD
               6 RETURN_VALUE
 """
@@ -226,7 +226,7 @@ simple_stmt_str = "x = x + 1"
 
 dis_simple_stmt_str = """\
   1           0 LOAD_NAME                0 (x)
-              2 LOAD_COMMON_CONST       34 (1)
+              2 LOAD_COMMON_CONST       43 (1)
               4 BINARY_ADD
               6 STORE_NAME               0 (x)
               8 LOAD_COMMON_CONST        0 (None)
@@ -243,7 +243,7 @@ lst[fun(0)]: int = 1
 
 dis_annot_stmt_str = """\
   2           0 SETUP_ANNOTATIONS
-              2 LOAD_COMMON_CONST       34 (1)
+              2 LOAD_COMMON_CONST       43 (1)
               4 STORE_NAME               0 (x)
               6 LOAD_NAME                1 (int)
               8 LOAD_NAME                2 (__annotations__)
@@ -251,16 +251,16 @@ dis_annot_stmt_str = """\
              12 STORE_SUBSCR
 
   3          14 LOAD_NAME                3 (fun)
-             16 LOAD_COMMON_CONST       34 (1)
+             16 LOAD_COMMON_CONST       43 (1)
              18 CALL_FUNCTION            1
              20 LOAD_NAME                2 (__annotations__)
              22 LOAD_CONST               0 ('y')
              24 STORE_SUBSCR
 
-  4          26 LOAD_COMMON_CONST       34 (1)
+  4          26 LOAD_COMMON_CONST       43 (1)
              28 LOAD_NAME                4 (lst)
              30 LOAD_NAME                3 (fun)
-             32 LOAD_COMMON_CONST       33 (0)
+             32 LOAD_COMMON_CONST       42 (0)
              34 CALL_FUNCTION            1
              36 STORE_SUBSCR
              38 LOAD_NAME                1 (int)
@@ -276,13 +276,13 @@ while 1:
 # Trailing newline has been deliberately omitted
 
 dis_compound_stmt_str = """\
-  1           0 LOAD_COMMON_CONST       33 (0)
+  1           0 LOAD_COMMON_CONST       42 (0)
               2 STORE_NAME               0 (x)
 
   2           4 NOP
 
   3     >>    6 LOAD_NAME                0 (x)
-              8 LOAD_COMMON_CONST       34 (1)
+              8 LOAD_COMMON_CONST       43 (1)
              10 INPLACE_ADD
              12 STORE_NAME               0 (x)
 
@@ -292,8 +292,8 @@ dis_compound_stmt_str = """\
 dis_traceback = """\
 %3d           0 NOP
 
-%3d           2 LOAD_COMMON_CONST       34 (1)
-              4 LOAD_COMMON_CONST       33 (0)
+%3d           2 LOAD_COMMON_CONST       43 (1)
+              4 LOAD_COMMON_CONST       42 (0)
     -->       6 BINARY_TRUE_DIVIDE
               8 POP_TOP
 
@@ -402,7 +402,7 @@ dis_tryfinallyconst = """\
 %3d           4 LOAD_FAST                0 (b)
               6 CALL_FUNCTION            0
               8 POP_TOP
-             10 LOAD_COMMON_CONST       34 (1)
+             10 LOAD_COMMON_CONST       43 (1)
              12 RETURN_VALUE
              14 PUSH_EXC_INFO
              16 LOAD_FAST                0 (b)
@@ -590,7 +590,7 @@ class DisTests(unittest.TestCase):
         def expected(count, w):
             s = ['''\
            %*d LOAD_FAST                0 (x)
-           %*d LOAD_COMMON_CONST       34 (1)
+           %*d LOAD_COMMON_CONST       43 (1)
            %*d BINARY_ADD
            %*d STORE_FAST               0 (x)
 ''' % (w, 8*i, w, 8*i + 2, w, 8*i + 4, w, 8*i + 6)
@@ -1045,7 +1045,7 @@ expected_opinfo_inner = [
 
 expected_opinfo_jumpy = [
   Instruction(opname='LOAD_GLOBAL', opcode=116, arg=0, argval='range', argrepr='range', offset=0, starts_line=3, is_jump_target=False, positions=None),
-  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=43, argval=10, argrepr='10', offset=2, starts_line=None, is_jump_target=False, positions=None),
+  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=52, argval=10, argrepr='10', offset=2, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='CALL_FUNCTION', opcode=131, arg=1, argval=1, argrepr='', offset=4, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='GET_ITER', opcode=68, arg=None, argval=None, argrepr='', offset=6, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='FOR_ITER', opcode=93, arg=17, argval=44, argrepr='to 44', offset=8, starts_line=None, is_jump_target=True, positions=None),
@@ -1055,12 +1055,12 @@ expected_opinfo_jumpy = [
   Instruction(opname='CALL_FUNCTION', opcode=131, arg=1, argval=1, argrepr='', offset=16, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='POP_TOP', opcode=1, arg=None, argval=None, argrepr='', offset=18, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='LOAD_FAST', opcode=124, arg=0, argval='i', argrepr='i', offset=20, starts_line=5, is_jump_target=False, positions=None),
-  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=37, argval=4, argrepr='4', offset=22, starts_line=None, is_jump_target=False, positions=None),
+  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=46, argval=4, argrepr='4', offset=22, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='COMPARE_OP', opcode=107, arg=0, argval='<', argrepr='<', offset=24, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='POP_JUMP_IF_FALSE', opcode=114, arg=15, argval=30, argrepr='to 30', offset=26, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='JUMP_ABSOLUTE', opcode=113, arg=4, argval=8, argrepr='to 8', offset=28, starts_line=6, is_jump_target=False, positions=None),
   Instruction(opname='LOAD_FAST', opcode=124, arg=0, argval='i', argrepr='i', offset=30, starts_line=7, is_jump_target=True, positions=None),
-  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=39, argval=6, argrepr='6', offset=32, starts_line=None, is_jump_target=False, positions=None),
+  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=48, argval=6, argrepr='6', offset=32, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='COMPARE_OP', opcode=107, arg=4, argval='>', argrepr='>', offset=34, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='POP_JUMP_IF_FALSE', opcode=114, arg=21, argval=42, argrepr='to 42', offset=36, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='POP_TOP', opcode=1, arg=None, argval=None, argrepr='', offset=38, starts_line=8, is_jump_target=False, positions=None),
@@ -1077,16 +1077,16 @@ expected_opinfo_jumpy = [
   Instruction(opname='CALL_FUNCTION', opcode=131, arg=1, argval=1, argrepr='', offset=60, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='POP_TOP', opcode=1, arg=None, argval=None, argrepr='', offset=62, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='LOAD_FAST', opcode=124, arg=0, argval='i', argrepr='i', offset=64, starts_line=13, is_jump_target=False, positions=None),
-  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=34, argval=1, argrepr='1', offset=66, starts_line=None, is_jump_target=False, positions=None),
+  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=43, argval=1, argrepr='1', offset=66, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='INPLACE_SUBTRACT', opcode=56, arg=None, argval=None, argrepr='', offset=68, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='STORE_FAST', opcode=125, arg=0, argval='i', argrepr='i', offset=70, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='LOAD_FAST', opcode=124, arg=0, argval='i', argrepr='i', offset=72, starts_line=14, is_jump_target=False, positions=None),
-  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=39, argval=6, argrepr='6', offset=74, starts_line=None, is_jump_target=False, positions=None),
+  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=48, argval=6, argrepr='6', offset=74, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='COMPARE_OP', opcode=107, arg=4, argval='>', argrepr='>', offset=76, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='POP_JUMP_IF_FALSE', opcode=114, arg=41, argval=82, argrepr='to 82', offset=78, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='JUMP_ABSOLUTE', opcode=113, arg=26, argval=52, argrepr='to 52', offset=80, starts_line=15, is_jump_target=False, positions=None),
   Instruction(opname='LOAD_FAST', opcode=124, arg=0, argval='i', argrepr='i', offset=82, starts_line=16, is_jump_target=True, positions=None),
-  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=37, argval=4, argrepr='4', offset=84, starts_line=None, is_jump_target=False, positions=None),
+  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=46, argval=4, argrepr='4', offset=84, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='COMPARE_OP', opcode=107, arg=0, argval='<', argrepr='<', offset=86, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='POP_JUMP_IF_FALSE', opcode=114, arg=46, argval=92, argrepr='to 92', offset=88, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='JUMP_ABSOLUTE', opcode=113, arg=52, argval=104, argrepr='to 104', offset=90, starts_line=17, is_jump_target=False, positions=None),
@@ -1097,8 +1097,8 @@ expected_opinfo_jumpy = [
   Instruction(opname='CALL_FUNCTION', opcode=131, arg=1, argval=1, argrepr='', offset=100, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='POP_TOP', opcode=1, arg=None, argval=None, argrepr='', offset=102, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='NOP', opcode=9, arg=None, argval=None, argrepr='', offset=104, starts_line=20, is_jump_target=True, positions=None),
-  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=34, argval=1, argrepr='1', offset=106, starts_line=21, is_jump_target=False, positions=None),
-  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=33, argval=0, argrepr='0', offset=108, starts_line=None, is_jump_target=False, positions=None),
+  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=43, argval=1, argrepr='1', offset=106, starts_line=21, is_jump_target=False, positions=None),
+  Instruction(opname='LOAD_COMMON_CONST', opcode=134, arg=42, argval=0, argrepr='0', offset=108, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='BINARY_TRUE_DIVIDE', opcode=27, arg=None, argval=None, argrepr='', offset=110, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='POP_TOP', opcode=1, arg=None, argval=None, argrepr='', offset=112, starts_line=None, is_jump_target=False, positions=None),
   Instruction(opname='JUMP_FORWARD', opcode=110, arg=15, argval=146, argrepr='to 146', offset=114, starts_line=None, is_jump_target=False, positions=None),

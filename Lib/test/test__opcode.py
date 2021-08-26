@@ -85,8 +85,8 @@ class IsCommonConstTests(unittest.TestCase):
         self.assertTrue(_opcode.is_common_const(-1))
         self.assertTrue(_opcode.is_common_const(0))
         self.assertTrue(_opcode.is_common_const(20))
-        self.assertTrue(_opcode.is_common_const(222))
-        self.assertFalse(_opcode.is_common_const(223))
+        self.assertTrue(_opcode.is_common_const(213))
+        self.assertFalse(_opcode.is_common_const(214))
         self.assertFalse(_opcode.is_common_const(1010))
 
     def test_floats(self):

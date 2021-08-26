@@ -129,9 +129,9 @@ class TestTranforms(BytecodeTestCase):
 
     def test_folding_of_tuples_of_constants(self):
         for line, elem in (
-            ('a = 1,2,3', (1, 2, 3)),
+            ('a = 1,2,3,4', (1, 2, 3, 4)),
             ('("a","b","c")', ('a', 'b', 'c')),
-            ('a,b,c = 1,2,3', (1, 2, 3)),
+            ('a,b,c = 1,2,3,4', (1, 2, 3, 4)),
             ('(None, 1, None)', (None, 1, None)),
             ('((1, 2), 3, 4)', ((1, 2), 3, 4)),
             ):
@@ -173,7 +173,7 @@ class TestTranforms(BytecodeTestCase):
     def test_folding_of_lists_of_constants(self):
         for line, elem in (
             # in/not in constants with BUILD_LIST should be folded to a tuple:
-            ('a in [1,2,3]', (1, 2, 3)),
+            ('a in [1,2,3,4]', (1, 2, 3, 4)),
             ('a not in ["a","b","c"]', ('a', 'b', 'c')),
             ('a in [None, 1, None]', (None, 1, None)),
             ('a not in [(1, 2), 3, 4]', ((1, 2), 3, 4)),

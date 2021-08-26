@@ -1731,9 +1731,19 @@ class ConstantTests(unittest.TestCase):
                   3j,
                   "unicode",
                   b'bytes',
-                  (1, 2, 3)]
+                  (1, 2, 3, 4)]
 
-        common_consts = [None, True, False, 1, 2.0, 'a', Ellipsis]
+        common_consts = [None,
+                         True,
+                         False,
+                         1,
+                         2.0,
+                         'a',
+                         Ellipsis,
+                         (),
+                         (None,),
+                         ("index",),
+                         (1, 2, 3)]
 
         all_consts = consts + common_consts
 

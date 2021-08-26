@@ -30,13 +30,15 @@ obj_to_key(PyObject *obj)
     return key;
 }
 
+/* This function steals a reference to obj */
 static int
 add_common_const(PyInterpreterState *interp, int index, PyObject *obj)
 {
     PyObject *key = NULL, *value = NULL;
     int ret = 0;
 
-    assert(obj);
+    if (!obj)
+        return -1;
     assert(index >= 0 && index < 256);
 
     /* Add to interpreter's list */
@@ -57,6 +59,7 @@ add_common_const(PyInterpreterState *interp, int index, PyObject *obj)
     ret = PyDict_SetItem(interp->common_const_to_index, key, value);
 
 done:
+    Py_DECREF(obj);
     Py_XDECREF(key);
     Py_XDECREF(value);
     return ret;
@@ -68,9 +71,7 @@ add_common_int(PyInterpreterState *interp, int index, int v)
     PyObject *obj = PyLong_FromLong(v);
     if (!obj)
         return -1;
-    int ret = add_common_const(interp, index, obj);
-    Py_DECREF(obj);
-    return ret;
+    return add_common_const(interp, index, obj);
 }
 
 static int
@@ -79,9 +80,7 @@ add_common_float(PyInterpreterState *interp, int index, double v)
     PyObject *obj = PyFloat_FromDouble(v);
     if (!obj)
         return -1;
-    int ret = add_common_const(interp, index, obj);
-    Py_DECREF(obj);
-    return ret;
+    return add_common_const(interp, index, obj);
 }
 
 static int
@@ -90,9 +89,7 @@ add_common_string(PyInterpreterState *interp, int index, const char *s)
     PyObject *obj = PyUnicode_InternFromString(s);
     if (!obj)
         return -1;
-    int ret = add_common_const(interp, index, obj);
-    Py_DECREF(obj);
-    return ret;
+    return add_common_const(interp, index, obj);
 }
 
 int
@@ -107,11 +104,11 @@ _Py_InitCommonConsts(PyInterpreterState *interp)
         return -1;
     }
 
-    ret += add_common_const(interp, index++, Py_None);
-    ret += add_common_const(interp, index++, Py_True);
-    ret += add_common_const(interp, index++, Py_False);
-    ret += add_common_const(interp, index++, Py_Ellipsis);
-    ret += add_common_const(interp, index++, PyExc_AssertionError);
+    ret += add_common_const(interp, index++, Py_NewRef(Py_None));
+    ret += add_common_const(interp, index++, Py_NewRef(Py_True));
+    ret += add_common_const(interp, index++, Py_NewRef(Py_False));
+    ret += add_common_const(interp, index++, Py_NewRef(Py_Ellipsis));
+    ret += add_common_const(interp, index++, Py_NewRef(PyExc_AssertionError));
 
     ret += add_common_string(interp, index++, "");
     ret += add_common_string(interp, index++, " ");
@@ -138,8 +135,19 @@ _Py_InitCommonConsts(PyInterpreterState *interp)
     ret += add_common_float(interp, index++, 1.0);
     ret += add_common_float(interp, index++, 2.0);
 
-    // TODO: the tuples
-    // (), ('dtype',), ('match',), (None,), ('index',), ('name',), ('axis',), ('primary_key',), (1, 2, 3),
+    /* The tuples:
+           (), (None,), ('dtype',), ('match',), ('index',),
+           ('name',), ('axis',), ('primary_key',), (1, 2, 3)
+    */
+    ret += add_common_const(interp, index++, PyTuple_New(0));
+    ret += add_common_const(interp, index++, Py_BuildValue("(O)", Py_None));
+    ret += add_common_const(interp, index++, Py_BuildValue("(s)", "dtype"));
+    ret += add_common_const(interp, index++, Py_BuildValue("(s)", "match"));
+    ret += add_common_const(interp, index++, Py_BuildValue("(s)", "index"));
+    ret += add_common_const(interp, index++, Py_BuildValue("(s)", "name"));
+    ret += add_common_const(interp, index++, Py_BuildValue("(s)", "axis"));
+    ret += add_common_const(interp, index++, Py_BuildValue("(s)", "primary_key"));
+    ret += add_common_const(interp, index++, Py_BuildValue("(iii)", 1, 2, 3));
 
     for(j=1; j < 6; j++) {
         ret += add_common_int(interp, index++, -j);
