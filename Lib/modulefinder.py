@@ -8,8 +8,11 @@ import os
 import io
 import sys
 
+import _opcode
+
 
 LOAD_CONST = dis.opmap['LOAD_CONST']
+LOAD_COMMON_CONST = dis.opmap['LOAD_COMMON_CONST']
 IMPORT_NAME = dis.opmap['IMPORT_NAME']
 STORE_NAME = dis.opmap['STORE_NAME']
 STORE_GLOBAL = dis.opmap['STORE_GLOBAL']
@@ -399,14 +402,24 @@ class ModuleFinder:
         consts = co.co_consts
         opargs = [(op, arg) for _, op, arg in dis._unpack_opargs(code)
                   if op != EXTENDED_ARG]
+
+        def get_const_value(op, arg, consts):
+            if op == LOAD_CONST:
+                return consts[arg]
+            assert op == LOAD_COMMON_CONST
+            return _opcode.get_common_const_value(arg)
+
         for i, (op, oparg) in enumerate(opargs):
             if op in STORE_OPS:
                 yield "store", (names[oparg],)
                 continue
+            load_const_opcodes = (LOAD_CONST, LOAD_COMMON_CONST)
             if (op == IMPORT_NAME and i >= 2
-                    and opargs[i-1][0] == opargs[i-2][0] == LOAD_CONST):
-                level = consts[opargs[i-2][1]]
-                fromlist = consts[opargs[i-1][1]]
+                    and opargs[i-1][0] in load_const_opcodes
+                    and opargs[i-2][0] in load_const_opcodes):
+
+                level = get_const_value(opargs[i-2][0], opargs[i-2][1], consts)
+                fromlist = get_const_value(opargs[i-1][0], opargs[i-1][1], consts)
                 if level == 0: # absolute import
                     yield "absolute_import", (fromlist, names[oparg])
                 else: # relative import
