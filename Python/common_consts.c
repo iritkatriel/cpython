@@ -7,28 +7,6 @@
    list via the LOAD_COMMON_CONST opcode
  */
 
-static PyObject*
-obj_to_key(PyObject *obj)
-{
-    PyObject *key = NULL;
-    PyObject *obj_type = PyObject_Type(obj);
-    if (!obj_type)
-        return NULL;
-    if (PyFloat_CheckExact(obj)) {
-        double v = PyFloat_AsDouble(obj);
-        if (!PyErr_Occurred()) {
-            PyObject *sign = (copysign(1., v) == 1.) ? Py_True : Py_False;
-            key = PyTuple_Pack(3, obj_type, obj, sign);
-        }
-    } else {
-        key = PyTuple_Pack(2, obj_type, obj);
-    }
-    Py_DECREF(obj_type);
-    if (! key) {
-        return NULL;
-    }
-    return key;
-}
 
 /* This function steals a reference to obj */
 static int
@@ -46,7 +24,7 @@ add_common_const(PyInterpreterState *interp, int index, PyObject *obj)
     interp->common_consts[index] = obj;
 
     /* Add to the object-to-index mapping */
-    key = obj_to_key(obj);
+    key = _PyCode_ConstantKey(obj);
     if (!key) {
         ret = -1;
         goto done;
@@ -77,6 +55,8 @@ add_common_int(PyInterpreterState *interp, int index, int v)
 static int
 add_common_float(PyInterpreterState *interp, int index, double v)
 {
+    assert(!Py_IS_NAN(v));
+    assert(!Py_IS_INFINITY(v));
     PyObject *obj = PyFloat_FromDouble(v);
     if (!obj)
         return -1;
@@ -182,7 +162,7 @@ _Py_GetCommonConstIndex(PyObject* obj)
     Py_ssize_t index = -1;
     PyObject *value;
     PyInterpreterState *interp = PyInterpreterState_Get();
-    PyObject *key = obj_to_key(obj);
+    PyObject *key = _PyCode_ConstantKey(obj);
 
     if (key) {
         value = PyDict_GetItemWithError(interp->common_const_to_index, key);
