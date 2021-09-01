@@ -7963,7 +7963,8 @@ fold_tuple_on_constants(struct compiler *c,
     assert(inst[n].i_oparg == n);
 
     for (int i = 0; i < n; i++) {
-        if (inst[i].i_opcode != LOAD_CONST) {
+        unsigned char opcode = inst[i].i_opcode;
+        if (opcode != LOAD_CONST && opcode != LOAD_COMMON_CONST) {
             return 0;
         }
     }
@@ -7975,7 +7976,12 @@ fold_tuple_on_constants(struct compiler *c,
     }
     for (int i = 0; i < n; i++) {
         int arg = inst[i].i_oparg;
-        PyObject *constant = PyList_GET_ITEM(consts, arg);
+        PyObject *constant;
+        if (inst[i].i_opcode == LOAD_CONST) {
+            constant = PyList_GET_ITEM(consts, arg);
+        } else {
+            constant = _Py_GetCommonConstValue(arg);
+        }
         Py_INCREF(constant);
         PyTuple_SET_ITEM(newconst, i, constant);
     }
@@ -7984,28 +7990,37 @@ fold_tuple_on_constants(struct compiler *c,
         return -1;
     }
 
-    Py_ssize_t index;
-    for (index = 0; index < PyList_GET_SIZE(consts); index++) {
-        if (PyList_GET_ITEM(consts, index) == newconst) {
-            break;
-        }
-    }
-    if (index == PyList_GET_SIZE(consts)) {
-        if ((size_t)index >= (size_t)INT_MAX - 1) {
-            Py_DECREF(newconst);
-            PyErr_SetString(PyExc_OverflowError, "too many constants");
+    unsigned char load_opcode;
+    Py_ssize_t index = _Py_GetCommonConstIndex(newconst);
+    if (index != -1) {
+        load_opcode = LOAD_COMMON_CONST;
+    } else {
+        if (PyErr_Occurred()) {
             return -1;
         }
-        if (PyList_Append(consts, newconst)) {
-            Py_DECREF(newconst);
-            return -1;
+        load_opcode = LOAD_CONST;
+        for (index = 0; index < PyList_GET_SIZE(consts); index++) {
+            if (PyList_GET_ITEM(consts, index) == newconst) {
+                break;
+            }
+        }
+        if (index == PyList_GET_SIZE(consts)) {
+            if ((size_t)index >= (size_t)INT_MAX - 1) {
+                Py_DECREF(newconst);
+                PyErr_SetString(PyExc_OverflowError, "too many constants");
+                return -1;
+            }
+            if (PyList_Append(consts, newconst)) {
+                Py_DECREF(newconst);
+                return -1;
+            }
         }
     }
     Py_DECREF(newconst);
     for (int i = 0; i < n; i++) {
         inst[i].i_opcode = NOP;
     }
-    inst[n].i_opcode = LOAD_CONST;
+    inst[n].i_opcode = load_opcode;
     inst[n].i_oparg = (int)index;
     return 0;
 }

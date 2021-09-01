@@ -129,6 +129,7 @@ class TestTranforms(BytecodeTestCase):
 
     def test_folding_of_tuples_of_constants(self):
         for line, elem in (
+            ('a = 1,2,3', (1, 2, 3)),
             ('a = 1,2,3,4', (1, 2, 3, 4)),
             ('("a","b","c")', ('a', 'b', 'c')),
             ('a,b,c = 1,2,3,4', (1, 2, 3, 4)),
@@ -136,7 +137,10 @@ class TestTranforms(BytecodeTestCase):
             ('((1, 2), 3, 4)', ((1, 2), 3, 4)),
             ):
             code = compile(line,'','single')
-            self.assertInBytecode(code, 'LOAD_CONST', elem)
+            if _opcode.is_common_const(elem):
+                self.assertInBytecode(code, 'LOAD_COMMON_CONST', elem)
+            else:
+                self.assertInBytecode(code, 'LOAD_CONST', elem)
             self.assertNotInBytecode(code, 'BUILD_TUPLE')
             self.check_lnotab(code)
 
