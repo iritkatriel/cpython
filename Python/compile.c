@@ -1108,6 +1108,7 @@ stack_effect(int opcode, int oparg, int jump)
         case DELETE_GLOBAL:
             return 0;
         case LOAD_CONST:
+        case LOAD_NONE:
             return 1;
         case LOAD_NAME:
             return 1;
@@ -1473,6 +1474,9 @@ compiler_add_const(struct compiler *c, PyObject *o)
 static int
 compiler_addop_load_const(struct compiler *c, PyObject *o)
 {
+    if (o == Py_None) {
+        return compiler_addop(c, LOAD_NONE);
+    }
     Py_ssize_t arg = compiler_add_const(c, o);
     if (arg < 0)
         return 0;

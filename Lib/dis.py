@@ -566,10 +566,10 @@ def _find_imports(co):
         if op == IMPORT_NAME and i >= 2:
             from_op = opargs[i-1]
             level_op = opargs[i-2]
-            if (from_op[0] in hasconst and level_op[0] in hasconst):
+            if from_op[0] in hasconst and level_op[0] in hasconst:
                 level = _get_const_value(level_op[0], level_op[1], consts)
                 fromlist = _get_const_value(from_op[0], from_op[1], consts)
-            yield (names[oparg], level, fromlist)
+                yield (names[oparg], level, fromlist)
 
 def _find_store_names(co):
     """Find names of variables which are written in the code
