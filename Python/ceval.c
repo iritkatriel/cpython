@@ -2603,24 +2603,29 @@ main_loop:
                         goto error;
                     }
                 }
-                PyObject *args = PyTuple_Pack(
-                    2, PyUnicode_FromString(""), raised);
-                if (args == NULL) {
-                    Py_DECREF(raised);
-                    Py_DECREF(reraised);
-                    Py_DECREF(exc);
-                    Py_DECREF(orig);
-                    goto error;
-                }
-                val = PyObject_CallObject(
-                    PyExc_BaseExceptionGroup, args);
-                if (val == NULL) {
-                    Py_DECREF(args);
-                    Py_DECREF(raised);
-                    Py_DECREF(reraised);
-                    Py_DECREF(exc);
-                    Py_DECREF(orig);
-                    goto error;
+                if (PyList_Size(raised) == 1 &&
+                    PyObject_TypeCheck(PyList_GetItem(raised, 0), (PyTypeObject *)PyExc_BaseExceptionGroup)) {
+                    val = Py_NewRef(PyList_GetItem(raised, 0));
+                } else {
+                    PyObject *args = PyTuple_Pack(
+                        2, PyUnicode_FromString(""), raised);
+                    if (args == NULL) {
+                        Py_DECREF(raised);
+                        Py_DECREF(reraised);
+                        Py_DECREF(exc);
+                        Py_DECREF(orig);
+                        goto error;
+                    }
+                    val = PyObject_CallObject(
+                        PyExc_BaseExceptionGroup, args);
+                    if (val == NULL) {
+                        Py_DECREF(args);
+                        Py_DECREF(raised);
+                        Py_DECREF(reraised);
+                        Py_DECREF(exc);
+                        Py_DECREF(orig);
+                        goto error;
+                    }
                 }
             }
             else if (reraised != Py_None) {
