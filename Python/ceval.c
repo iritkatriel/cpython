@@ -3542,18 +3542,28 @@ main_loop:
 
             int res = PyErr_GivenExceptionMatches(left, right);
             if (res > 0) {
-                // Exception matches exactly -- Wrap it in an ExceptionGroup
+                // The exception itself matches
                 Py_DECREF(left);
                 Py_DECREF(right);
                 PyObject *e = PEEK(2);
-                PyObject *args = PyTuple_Pack(
-                    2, PyUnicode_FromString(""), PyTuple_Pack(1, Py_NewRef(e)));
-                if (!args) {
-                    goto error;
-                }
-                PyObject *match = PyObject_CallObject(
-                    PyExc_BaseExceptionGroup, args);
-                if (!match) {
+                PyObject *match = NULL;
+                int res1 = PyErr_GivenExceptionMatches(e, PyExc_BaseExceptionGroup);
+                if (res1 > 0) {
+                    // already an exception group
+                    match = Py_NewRef(e);
+                } else if (res1 == 0) {
+                    // nake exception - wrap it
+                    PyObject *args = PyTuple_Pack(
+                        2, PyUnicode_FromString(""), PyTuple_Pack(1, Py_NewRef(e)));
+                    if (!args) {
+                        goto error;
+                    }
+                    match = PyObject_CallObject(
+                        PyExc_BaseExceptionGroup, args);
+                    if (!match) {
+                        goto error;
+                    }
+                } else {
                     goto error;
                 }
                 pair = PyTuple_Pack(2, match, Py_NewRef(Py_None));

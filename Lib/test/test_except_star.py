@@ -204,14 +204,28 @@ class TestExceptStarSplitSemantics(ExceptStarTest):
                 "j1",
                 [ExceptionGroup("j2", [ExceptionGroup("j3", [ValueError("V1")])])]))
 
-    def test_plain_exceptions_matched(self):
+    def test_naked_exception_matched_wrapped1(self):
         self.doSplitTest(
             ValueError("V"),
             ValueError,
             ExceptionGroup("", [ValueError("V")]),
             None)
 
-    def test_plain_exceptions_not_matched(self):
+    def test_naked_exception_matched_wrapped2(self):
+        self.doSplitTest(
+            ValueError("V"),
+            Exception,
+            ExceptionGroup("", [ValueError("V")]),
+            None)
+
+    def test_exception_group_except_star_Exception_not_wrapped(self):
+        self.doSplitTest(
+            ExceptionGroup("eg", [ValueError("V")]),
+            Exception,
+            ExceptionGroup("eg", [ValueError("V")]),
+            None)
+
+    def test_plain_exception_not_matched(self):
         self.doSplitTest(
             ValueError("V"),
             TypeError,
