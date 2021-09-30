@@ -880,6 +880,8 @@ _Py_CheckRecursiveCall(PyThreadState *tstate, const char *where)
 }
 
 static int do_raise(PyThreadState *tstate, PyObject *exc, PyObject *cause);
+static PyObject* do_reraise_star(PyObject *excs, PyObject *orig);
+
 static int unpack_iterable(PyThreadState *, PyObject *, int, int, PyObject **);
 
 #define _Py_TracingPossible(ceval) ((ceval)->tracing_possible)
@@ -2444,193 +2446,18 @@ main_loop:
 
         case TARGET(RERAISE_STAR): {
 
-            PyObject *exc = POP();
-            assert(PyList_Check(exc));
+            PyObject *excs = POP();
+            assert(PyList_Check(excs));
             PyObject *orig = POP();
 
-            PyObject *raised = PyList_New(0);
-            if (raised == NULL) {
-                Py_DECREF(exc);
-                Py_DECREF(orig);
+            PyObject *val = do_reraise_star(excs, orig);
+            Py_DECREF(excs);
+            Py_DECREF(orig);
+            if (val == NULL) {
                 goto error;
             }
 
-            PyObject *swallowed = Py_NewRef(orig);
-
-            {
-                Py_ssize_t numexcs = PySequence_Length(exc);
-                PyObject *o_tb = PyException_GetTraceback(orig);
-                PyObject *o_ctx = PyException_GetContext(orig);
-                PyObject *o_cause = PyException_GetCause(orig);
-
-                for (Py_ssize_t i = 0; i < numexcs; i++) {
-                    PyObject *e = PyList_GetItem(exc, i);
-                    if (e == NULL) {
-                        Py_DECREF(exc);
-                        Py_DECREF(orig);
-                        Py_XDECREF(o_tb);
-                        Py_XDECREF(o_ctx);
-                        Py_XDECREF(o_cause);
-                        Py_XDECREF(swallowed);
-                        goto error;
-                    }
-                    PyObject *tb = PyException_GetTraceback(e);
-                    PyObject *ctx = PyException_GetContext(e);
-                    PyObject *cause = PyException_GetCause(e);
-                    if (e == swallowed) {
-                        /* raised exception group was caught and raised - nothing swallowed */
-                        swallowed = Py_NewRef(Py_None);
-                    } else if (! PyObject_TypeCheck(orig, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
-                        /* e is either (1) orig wrapped in an EG or (2) a raise */
-                        if (! PyObject_TypeCheck(e, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
-                            /* e is not an EG - it's a raise */
-                            PyList_Append(raised, e);
-                        } else {
-                            PyBaseExceptionGroupObject *eg = (PyBaseExceptionGroupObject *)e;
-                            if (PySequence_Length(eg->excs) == 1) {
-                                int res = PySequence_Contains(eg->excs, orig);
-                                if (res == -1) {
-                                    Py_DECREF(exc);
-                                    Py_DECREF(orig);
-                                    Py_XDECREF(o_tb);
-                                    Py_XDECREF(o_ctx);
-                                    Py_XDECREF(o_cause);
-                                    Py_XDECREF(tb);
-                                    Py_XDECREF(ctx);
-                                    Py_XDECREF(cause);
-                                    Py_XDECREF(swallowed);
-                                    goto error;
-                                }
-                                else if (res == 1) {
-                                    swallowed = Py_NewRef(Py_None);
-                                    PyObject *tmp = orig;
-                                    // make sure the wrapped exception is reraised.
-                                    orig = Py_NewRef(e);
-                                    Py_XDECREF(tmp);
-                                }
-                                else {
-                                    /* e is not an EG wrapping orig - it's a raise */
-                                    PyList_Append(raised, e);
-                                }
-                            }
-                        }
-                    } else if (PyObject_TypeCheck(e, (PyTypeObject *)PyExc_BaseExceptionGroup) &&
-                        PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_BaseExceptionGroup) &&
-                        tb == o_tb && ctx == o_ctx && cause == o_cause) {
-                        /* same metadata - this is a reraise */
-                        PyObject *pair = PyObject_CallMethod(
-                            (PyObject*)swallowed, "split", "(O)", e);
-                        if (pair == NULL) {
-                            Py_DECREF(exc);
-                            Py_DECREF(orig);
-                            Py_XDECREF(o_tb);
-                            Py_XDECREF(o_ctx);
-                            Py_XDECREF(o_cause);
-                            Py_XDECREF(tb);
-                            Py_XDECREF(ctx);
-                            Py_XDECREF(cause);
-                            Py_XDECREF(swallowed);
-                            goto error;
-                        }
-                        swallowed = Py_NewRef(PyTuple_GET_ITEM(pair, 1));
-                        Py_DECREF(pair);
-                    }
-                    else {
-                        /* different metadata - this is a raise */
-                        PyList_Append(raised, e);
-                    }
-                    Py_XDECREF(tb);
-                    Py_XDECREF(ctx);
-                    Py_XDECREF(cause);
-                }
-
-                Py_XDECREF(o_tb);
-                Py_XDECREF(o_ctx);
-                Py_XDECREF(o_cause);
-            }
-
-            PyObject* reraised = NULL;
-            if (swallowed == orig) {
-                reraised = Py_NewRef(Py_None);
-            } else if (swallowed != Py_None) {
-                if (PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
-                    if (PySequence_Length(((PyBaseExceptionGroupObject*)swallowed)->excs) > 0) {
-                        PyObject *pair = PyObject_CallMethod(
-                            orig, "split", "(O)", swallowed);
-                        if (pair == NULL) {
-                            Py_DECREF(exc);
-                            Py_DECREF(orig);
-                            goto error;
-                        }
-                        reraised = Py_NewRef(PyTuple_GET_ITEM(pair, 1));
-                        Py_DECREF(pair);
-                    }
-                }
-            }
-            if (reraised == NULL) {
-                reraised = Py_NewRef(orig);
-            }
-            else {
-                if (reraised != Py_None) {
-                    PyObject *tb = PyException_GetTraceback(orig);
-                    PyException_SetTraceback(reraised, tb);  /* does not steal ref */
-                    Py_XDECREF(tb);
-                    PyException_SetContext(  /* steals ref */
-                        reraised, PyException_GetContext(orig));
-                    PyException_SetCause(    /* steals ref */
-                        reraised, PyException_GetCause(orig));
-                }
-            }
-
-            Py_DECREF(swallowed);
-            swallowed = NULL;
-            Py_ssize_t num_raised = PySequence_Length(raised);
-            if (num_raised == -1) {
-                Py_DECREF(raised);
-                Py_DECREF(reraised);
-                Py_DECREF(exc);
-                Py_DECREF(orig);
-                goto error;
-            }
-            PyObject *val = NULL;
-            if (num_raised > 0) {
-                if (reraised != Py_None) {
-                    if (PyList_Append(raised, reraised) == -1) {
-                        Py_DECREF(raised);
-                        Py_DECREF(reraised);
-                        Py_DECREF(exc);
-                        Py_DECREF(orig);
-                        goto error;
-                    }
-                }
-                PyObject *args = PyTuple_Pack(
-                    2, PyUnicode_FromString(""), raised);
-                if (args == NULL) {
-                    Py_DECREF(raised);
-                    Py_DECREF(reraised);
-                    Py_DECREF(exc);
-                    Py_DECREF(orig);
-                    goto error;
-                }
-                val = PyObject_CallObject(
-                    PyExc_BaseExceptionGroup, args);
-                if (val == NULL) {
-                    Py_DECREF(args);
-                    Py_DECREF(raised);
-                    Py_DECREF(reraised);
-                    Py_DECREF(exc);
-                    Py_DECREF(orig);
-                    goto error;
-                }
-            }
-            else if (reraised != Py_None) {
-                val = Py_NewRef(reraised);
-            }
-            Py_DECREF(raised);
-            Py_DECREF(reraised);
-
-            if (val != NULL) {
-                assert(val != Py_None);
+            if (val != Py_None) {
                 PUSH(PyException_GetTraceback(val));
                 PUSH(val);
                 PUSH(Py_NewRef((PyObject*)val->ob_type));
@@ -2640,8 +2467,8 @@ main_loop:
                 PUSH(Py_NewRef(Py_None));
                 PUSH(Py_NewRef(Py_None));
                 PUSH(Py_NewRef(Py_None));
+                Py_DECREF(val);
             }
-            Py_DECREF(orig);
             FAST_DISPATCH();
         }
 
@@ -5102,6 +4929,152 @@ raise_error:
     Py_XDECREF(cause);
     return 0;
 }
+
+/* Logic for the final raise/reraise of a try-except* contruct (tooi
+   complicated for inlining).
+
+   excs: a list of exceptions to raise/reraise
+   orig: the original exception group
+
+   Calculates an exception group containing all exceptions in
+   excs, with the same nesting structure as in orig.
+
+   Returns NULL and sets an exception on failure.
+*/
+static PyObject*
+do_reraise_star(PyObject *excs, PyObject *orig)
+{
+    PyObject* reraised = NULL;
+    PyObject *raised = PyList_New(0);
+    if (raised == NULL) {
+        return NULL;
+    }
+
+    PyObject *val = NULL;
+
+    PyObject *swallowed = Py_NewRef(orig);
+    Py_ssize_t numexcs = PySequence_Length(excs);
+    PyObject *o_tb = PyException_GetTraceback(orig);
+    PyObject *o_ctx = PyException_GetContext(orig);
+    PyObject *o_cause = PyException_GetCause(orig);
+    PyObject *tb = NULL;
+    PyObject *ctx = NULL;
+    PyObject *cause = NULL;
+    for (Py_ssize_t i = 0; i < numexcs; i++) {
+        PyObject *e = PyList_GetItem(excs, i);
+        if (e == NULL) {
+            goto reraise_star_cleanup;
+        }
+        Py_XSETREF(tb, PyException_GetTraceback(e));
+        Py_XSETREF(ctx, PyException_GetContext(e));
+        Py_XSETREF(cause, PyException_GetCause(e));
+        if (e == swallowed) {
+            /* raised exception group was caught and raised - nothing swallowed */
+            swallowed = Py_NewRef(Py_None);
+        } else if (! PyObject_TypeCheck(orig, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
+            /* e is either (1) orig wrapped in an EG or (2) a raise */
+            if (!PyObject_TypeCheck(e, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
+                /* e is not an EG - it's a raise */
+                PyList_Append(raised, e);
+            } else {
+                PyBaseExceptionGroupObject *eg = (PyBaseExceptionGroupObject *)e;
+                if (PySequence_Length(eg->excs) == 1) {
+                    // e is an EG of size 1. Check if it's just a wrapped (naked) orig
+                    int res = PySequence_Contains(eg->excs, orig);
+                    if (res == -1) {
+                        goto reraise_star_cleanup;
+                    }
+                    else if (res == 1) {
+                        swallowed = Py_NewRef(Py_None);
+                        // make sure the wrapped exception is reraised.
+                        orig = Py_NewRef(e);
+                    }
+                    else {
+                        /* e is not an EG wrapping orig - it's a raise */
+                        PyList_Append(raised, e);
+                    }
+                }
+            }
+        } else if (PyObject_TypeCheck(e, (PyTypeObject *)PyExc_BaseExceptionGroup) &&
+                   PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_BaseExceptionGroup) &&
+                   tb == o_tb && ctx == o_ctx && cause == o_cause) {
+            /* same metadata - this is a reraise */
+            PyObject *pair = PyObject_CallMethod(
+                (PyObject*)swallowed, "split", "(O)", e);
+            if (pair == NULL) {
+                goto reraise_star_cleanup;
+            }
+            swallowed = Py_NewRef(PyTuple_GET_ITEM(pair, 1));
+            Py_DECREF(pair);
+        }
+        else {
+            /* different metadata - this is a raise */
+            PyList_Append(raised, e);
+        }
+    }
+
+    if (swallowed == orig) {
+        reraised = Py_NewRef(Py_None);
+    } else if (swallowed != Py_None) {
+        if (PyObject_TypeCheck(swallowed, (PyTypeObject *)PyExc_BaseExceptionGroup)) {
+            if (PySequence_Length(((PyBaseExceptionGroupObject*)swallowed)->excs) > 0) {
+                PyObject *pair = PyObject_CallMethod(
+                            orig, "split", "(O)", swallowed);
+                if (pair == NULL) {
+                    goto reraise_star_cleanup;
+                }
+                reraised = Py_NewRef(PyTuple_GET_ITEM(pair, 1));
+                Py_DECREF(pair);
+            }
+        }
+    }
+    if (reraised == NULL) {
+        reraised = Py_NewRef(orig);
+    }
+    else {
+        if (reraised != Py_None) {
+            PyObject *tb = PyException_GetTraceback(orig);
+            PyException_SetTraceback(reraised, tb);  /* does not steal ref */
+            Py_XDECREF(tb);
+            PyException_SetContext(  /* steals ref */
+                reraised, PyException_GetContext(orig));
+            PyException_SetCause(    /* steals ref */
+                reraised, PyException_GetCause(orig));
+        }
+    }
+
+    Py_ssize_t num_raised = PySequence_Length(raised);
+    if (num_raised > 0) {
+        if (reraised != Py_None) {
+            if (PyList_Append(raised, reraised) == -1) {
+                goto reraise_star_cleanup;
+            }
+        }
+        PyObject *args = PyTuple_Pack(
+            2, PyUnicode_FromString(""), raised);
+        if (args != NULL) {
+            val = PyObject_CallObject(
+                PyExc_BaseExceptionGroup, args);
+            Py_DECREF(args);
+        }
+    }
+    else if (num_raised == 0) {
+        val = Py_NewRef(reraised);
+    }
+
+reraise_star_cleanup:
+    Py_XDECREF(raised);
+    Py_XDECREF(reraised);
+    Py_XDECREF(o_tb);
+    Py_XDECREF(o_ctx);
+    Py_XDECREF(o_cause);
+    Py_XDECREF(tb);
+    Py_XDECREF(ctx);
+    Py_XDECREF(cause);
+    Py_XDECREF(swallowed);
+    return val;
+}
+
 
 /* Iterate v argcnt times and store the results on the stack (via decreasing
    sp).  Return 1 for success, 0 if error.
