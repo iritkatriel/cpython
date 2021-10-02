@@ -36,15 +36,8 @@ PyFunction_NewWithQualName(PyObject *code, PyObject *globals, PyObject *qualname
     PyObject *doc;
     if (((PyCodeObject*)code)->co_flags & CO_DOCSTRING) {
         assert(PyTuple_Size(consts) >= 1);
-        if (PyTuple_Size(consts) >= 1) {
-            doc = PyTuple_GetItem(consts, 0);
-            if (!PyUnicode_Check(doc)) {
-                doc = Py_None;
-            }
-        }
-        else {
-            doc = Py_None;
-        }
+        doc = PyTuple_GetItem(consts, 0);
+        assert(PyUnicode_Check(doc));
     }
     else {
         doc = Py_None;
