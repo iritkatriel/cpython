@@ -118,6 +118,12 @@ extern "C" {
 #define DICT_UPDATE                            165
 #define CALL                                   171
 #define KW_NAMES                               172
+#define PUSH_REG                               173
+#define POP_REG                                174
+#define CLEAR_REG                              175
+#define OPARG1                                 176
+#define OPARG2                                 177
+#define OPARG3                                 178
 #define MIN_PSEUDO_OPCODE                      256
 #define SETUP_FINALLY                          256
 #define SETUP_CLEANUP                          257
@@ -191,15 +197,15 @@ extern "C" {
 #define STORE_ATTR_INSTANCE_VALUE              168
 #define STORE_ATTR_SLOT                        169
 #define STORE_ATTR_WITH_HINT                   170
-#define STORE_FAST__LOAD_FAST                  173
-#define STORE_FAST__STORE_FAST                 174
-#define STORE_SUBSCR_ADAPTIVE                  175
-#define STORE_SUBSCR_DICT                      176
-#define STORE_SUBSCR_LIST_INT                  177
-#define UNPACK_SEQUENCE_ADAPTIVE               178
-#define UNPACK_SEQUENCE_LIST                   179
-#define UNPACK_SEQUENCE_TUPLE                  180
-#define UNPACK_SEQUENCE_TWO_TUPLE              181
+#define STORE_FAST__LOAD_FAST                  179
+#define STORE_FAST__STORE_FAST                 180
+#define STORE_SUBSCR_ADAPTIVE                  181
+#define STORE_SUBSCR_DICT                      182
+#define STORE_SUBSCR_LIST_INT                  183
+#define UNPACK_SEQUENCE_ADAPTIVE               184
+#define UNPACK_SEQUENCE_LIST                   185
+#define UNPACK_SEQUENCE_TUPLE                  186
+#define UNPACK_SEQUENCE_TWO_TUPLE              187
 #define DO_TRACING                             255
 
 #define HAS_ARG(op) ((((op) >= HAVE_ARGUMENT) && (!IS_PSEUDO_OPCODE(op)))\

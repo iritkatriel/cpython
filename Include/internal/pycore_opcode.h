@@ -105,6 +105,7 @@ const uint8_t _PyOpcode_Deopt[256] = {
     [CHECK_EG_MATCH] = CHECK_EG_MATCH,
     [CHECK_EXC_MATCH] = CHECK_EXC_MATCH,
     [CLEANUP_THROW] = CLEANUP_THROW,
+    [CLEAR_REG] = CLEAR_REG,
     [COMPARE_OP] = COMPARE_OP,
     [COMPARE_OP_ADAPTIVE] = COMPARE_OP,
     [COMPARE_OP_FLOAT_JUMP] = COMPARE_OP,
@@ -187,16 +188,21 @@ const uint8_t _PyOpcode_Deopt[256] = {
     [MATCH_MAPPING] = MATCH_MAPPING,
     [MATCH_SEQUENCE] = MATCH_SEQUENCE,
     [NOP] = NOP,
+    [OPARG1] = OPARG1,
+    [OPARG2] = OPARG2,
+    [OPARG3] = OPARG3,
     [POP_EXCEPT] = POP_EXCEPT,
     [POP_JUMP_IF_FALSE] = POP_JUMP_IF_FALSE,
     [POP_JUMP_IF_NONE] = POP_JUMP_IF_NONE,
     [POP_JUMP_IF_NOT_NONE] = POP_JUMP_IF_NOT_NONE,
     [POP_JUMP_IF_TRUE] = POP_JUMP_IF_TRUE,
+    [POP_REG] = POP_REG,
     [POP_TOP] = POP_TOP,
     [PREP_RERAISE_STAR] = PREP_RERAISE_STAR,
     [PRINT_EXPR] = PRINT_EXPR,
     [PUSH_EXC_INFO] = PUSH_EXC_INFO,
     [PUSH_NULL] = PUSH_NULL,
+    [PUSH_REG] = PUSH_REG,
     [RAISE_VARARGS] = RAISE_VARARGS,
     [RERAISE] = RERAISE,
     [RESUME] = RESUME,
@@ -414,6 +420,12 @@ static const char *const _PyOpcode_OpName[263] = {
     [STORE_ATTR_WITH_HINT] = "STORE_ATTR_WITH_HINT",
     [CALL] = "CALL",
     [KW_NAMES] = "KW_NAMES",
+    [PUSH_REG] = "PUSH_REG",
+    [POP_REG] = "POP_REG",
+    [CLEAR_REG] = "CLEAR_REG",
+    [OPARG1] = "OPARG1",
+    [OPARG2] = "OPARG2",
+    [OPARG3] = "OPARG3",
     [STORE_FAST__LOAD_FAST] = "STORE_FAST__LOAD_FAST",
     [STORE_FAST__STORE_FAST] = "STORE_FAST__STORE_FAST",
     [STORE_SUBSCR_ADAPTIVE] = "STORE_SUBSCR_ADAPTIVE",
@@ -423,12 +435,6 @@ static const char *const _PyOpcode_OpName[263] = {
     [UNPACK_SEQUENCE_LIST] = "UNPACK_SEQUENCE_LIST",
     [UNPACK_SEQUENCE_TUPLE] = "UNPACK_SEQUENCE_TUPLE",
     [UNPACK_SEQUENCE_TWO_TUPLE] = "UNPACK_SEQUENCE_TWO_TUPLE",
-    [182] = "<182>",
-    [183] = "<183>",
-    [184] = "<184>",
-    [185] = "<185>",
-    [186] = "<186>",
-    [187] = "<187>",
     [188] = "<188>",
     [189] = "<189>",
     [190] = "<190>",
@@ -508,12 +514,6 @@ static const char *const _PyOpcode_OpName[263] = {
 #endif
 
 #define EXTRA_CASES \
-    case 182: \
-    case 183: \
-    case 184: \
-    case 185: \
-    case 186: \
-    case 187: \
     case 188: \
     case 189: \
     case 190: \

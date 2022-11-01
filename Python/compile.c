@@ -400,6 +400,7 @@ struct compiler_unit {
     struct fblockinfo u_fblock[CO_MAXBLOCKS];
 
     int u_firstlineno; /* the first lineno of the block */
+    int u_next_free_register;
 };
 
 /* This struct captures the global state of a compilation.
@@ -518,6 +519,21 @@ static void remove_redundant_nops(basicblock *bb);
 static PyCodeObject *assemble(struct compiler *, int addNone);
 
 #define CAPSULE_NAME "compile.c compiler unit"
+
+static int
+compiler_get_free_reg(struct compiler *c)
+{
+    if (c->u->u_next_free_register == 256) {
+        return -1;
+    }
+    return c->u->u_next_free_register++;
+}
+
+static void
+compiler_mark_regs_as_free(struct compiler *c)
+{
+    c->u->u_next_free_register = 0;
+}
 
 PyObject *
 _Py_Mangle(PyObject *privateobj, PyObject *ident)
@@ -1044,6 +1060,16 @@ stack_effect(int opcode, int oparg, int jump)
             return 0;
         case END_FOR:
             return -2;
+
+        case PUSH_REG:
+            return 1;
+        case POP_REG:
+            return -1;
+        case CLEAR_REG:
+        case OPARG1:
+        case OPARG2:
+        case OPARG3:
+            return 0;
 
         /* Unary operators */
         case UNARY_POSITIVE:
@@ -5825,7 +5851,22 @@ compiler_visit_expr1(struct compiler *c, expr_ty e)
         break;
     case UnaryOp_kind:
         VISIT(c, expr, e->v.UnaryOp.operand);
+#ifdef REG
+        int r1 = compiler_get_free_reg(c);
+        int r2 = compiler_get_free_reg(c);
+        if (r1 < 0 || r2 < 0) {
+            return compiler_error(c, loc, "ran out of registers");
+        }
+        ADDOP_I(c, loc, POP_REG, r1);
+        ADDOP_I(c, loc, OPARG1, r1);
+        ADDOP_I(c, loc, OPARG2, r2);
         ADDOP(c, loc, unaryop(e->v.UnaryOp.op));
+        ADDOP_I(c, loc, PUSH_REG, r2);
+        ADDOP_I(c, loc, CLEAR_REG, r1);
+        compiler_mark_regs_as_free(c);
+#else
+        ADDOP(c, loc, unaryop(e->v.UnaryOp.op));
+#endif
         break;
     case Lambda_kind:
         return compiler_lambda(c, e);
