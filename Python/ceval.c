@@ -1203,7 +1203,6 @@ handle_eval_breaker:
         }
 
         TARGET(POP_REG) {
-            assert(registers[oparg] == NULL);
             registers[oparg] = POP();
             DISPATCH();
         }
@@ -1351,7 +1350,6 @@ handle_eval_breaker:
 #endif
             PyObject *res = PyNumber_Positive(value);
 #ifdef REG
-            assert(registers[oparg2] == NULL);
             registers[oparg2] = res;
 #else
             Py_DECREF(value);
@@ -1370,7 +1368,6 @@ handle_eval_breaker:
 #endif
             PyObject *res = PyNumber_Negative(value);
 #ifdef REG
-            assert(registers[oparg2] == NULL);
             registers[oparg2] = res;
 #else
             Py_DECREF(value);
@@ -1940,7 +1937,11 @@ handle_eval_breaker:
         }
 
         TARGET(RETURN_VALUE) {
+#ifdef REG
+            PyObject *retval = registers[oparg1];
+#else
             PyObject *retval = POP();
+#endif
             assert(EMPTY());
             _PyFrame_SetStackPointer(frame, stack_pointer);
             TRACE_FUNCTION_EXIT();

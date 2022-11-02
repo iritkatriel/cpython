@@ -530,9 +530,10 @@ compiler_get_free_reg(struct compiler *c)
 }
 
 static void
-compiler_mark_regs_as_free(struct compiler *c)
+compiler_release_regs(struct compiler *c, int next_free_reg)
 {
-    c->u->u_next_free_register = 0;
+    assert(next_free_reg <= c->u->u_next_free_register);
+    c->u->u_next_free_register = next_free_reg;
 }
 
 PyObject *
@@ -1104,7 +1105,11 @@ stack_effect(int opcode, int oparg, int jump)
             return 1;
 
         case RETURN_VALUE:
+#ifdef REG
+            return 0;
+#else
             return -1;
+#endif
         case IMPORT_STAR:
             return -1;
         case SETUP_ANNOTATIONS:
@@ -1718,6 +1723,29 @@ cfg_builder_addop_j(cfg_builder *g, location loc,
         } \
     } \
 }
+
+static int
+new_register(struct compiler *c, location loc, int oparg_opcode)
+{
+    int reg = compiler_get_free_reg(c);
+    if (reg < 0) {
+        compiler_error(c, loc, "ran out of registers");
+        return -1;
+    }
+    ADDOP_I(c, loc, oparg_opcode, reg);
+    return reg;
+}
+
+static int
+pop_to_new_register(struct compiler *c, location loc, int oparg_opcode)
+{
+    int reg = new_register(c, loc, oparg_opcode);
+    if (reg >= 0) {
+        ADDOP_I(c, loc, POP_REG, reg);
+    }
+    return reg;
+}
+
 
 #define RETURN_IF_FALSE(X)  \
     if (!(X)) {             \
@@ -2775,6 +2803,11 @@ compiler_class(struct compiler *c, stmt_ty s)
             assert(PyDict_GET_SIZE(c->u->u_cellvars) == 0);
             ADDOP_LOAD_CONST(c, NO_LOCATION, Py_None);
         }
+#ifdef REG
+        if (pop_to_new_register(c, NO_LOCATION, OPARG1) < 0) {
+            return 0;
+        }
+#endif
         ADDOP_IN_SCOPE(c, NO_LOCATION, RETURN_VALUE);
         /* create the code object */
         co = assemble(c, 1);
@@ -3054,6 +3087,11 @@ compiler_lambda(struct compiler *c, expr_ty e)
     }
     else {
         location loc = LOCATION(e->lineno, e->lineno, 0, 0);
+#ifdef REG
+        if (pop_to_new_register(c, loc, OPARG1) < 0) {
+            return 0;
+        }
+#endif
         ADDOP_IN_SCOPE(c, loc, RETURN_VALUE);
         co = assemble(c, 1);
     }
@@ -3266,8 +3304,12 @@ compiler_return(struct compiler *c, stmt_ty s)
     else if (!preserve_tos) {
         ADDOP_LOAD_CONST(c, loc, s->v.Return.value->v.Constant.value);
     }
+#ifdef REG
+    if (pop_to_new_register(c, loc, OPARG1) < 0) {
+        return 0;
+    }
+#endif
     ADDOP(c, loc, RETURN_VALUE);
-
     return 1;
 }
 
@@ -3908,7 +3950,6 @@ compiler_import(struct compiler *c, stmt_ty s)
         ADDOP_LOAD_CONST(c, loc, zero);
         ADDOP_LOAD_CONST(c, loc, Py_None);
         ADDOP_NAME(c, loc, IMPORT_NAME, alias->name, names);
-
         if (alias->asname) {
             r = compiler_import_as(c, loc, alias->name, alias->asname);
             if (!r)
@@ -3962,7 +4003,6 @@ compiler_from_import(struct compiler *c, stmt_ty s)
                               "at the beginning of the file");
     }
     ADDOP_LOAD_CONST_NEW(c, LOC(s), names);
-
     if (s->v.ImportFrom.module) {
         ADDOP_NAME(c, LOC(s), IMPORT_NAME, s->v.ImportFrom.module, names);
     }
@@ -5512,6 +5552,11 @@ compiler_comprehension(struct compiler *c, expr_ty e, int type,
     }
 
     if (type != COMP_GENEXP) {
+#ifdef REG
+        if (pop_to_new_register(c, LOC(e), OPARG1) < 0) {
+            goto error_in_scope;
+        }
+#endif
         ADDOP(c, LOC(e), RETURN_VALUE);
     }
 
@@ -5852,18 +5897,18 @@ compiler_visit_expr1(struct compiler *c, expr_ty e)
     case UnaryOp_kind:
         VISIT(c, expr, e->v.UnaryOp.operand);
 #ifdef REG
-        int r1 = compiler_get_free_reg(c);
-        int r2 = compiler_get_free_reg(c);
-        if (r1 < 0 || r2 < 0) {
-            return compiler_error(c, loc, "ran out of registers");
+        int r1 = pop_to_new_register(c, LOC(e), OPARG1);
+        if (r1 < 0) {
+            return 0;
         }
-        ADDOP_I(c, loc, POP_REG, r1);
-        ADDOP_I(c, loc, OPARG1, r1);
-        ADDOP_I(c, loc, OPARG2, r2);
+        int r2 = new_register(c, LOC(e), OPARG2);
+        if (r2 < 0) {
+            return 0;
+        }
         ADDOP(c, loc, unaryop(e->v.UnaryOp.op));
         ADDOP_I(c, loc, PUSH_REG, r2);
         ADDOP_I(c, loc, CLEAR_REG, r1);
-        compiler_mark_regs_as_free(c);
+        compiler_release_regs(c, r1);
 #else
         ADDOP(c, loc, unaryop(e->v.UnaryOp.op));
 #endif
@@ -8834,6 +8879,11 @@ assemble(struct compiler *c, int addNone)
         if (addNone) {
             ADDOP_LOAD_CONST(c, NO_LOCATION, Py_None);
         }
+#ifdef REG
+        if (pop_to_new_register(c, NO_LOCATION, OPARG1) < 0) {
+            return NULL;
+        }
+#endif
         ADDOP(c, NO_LOCATION, RETURN_VALUE);
     }
 

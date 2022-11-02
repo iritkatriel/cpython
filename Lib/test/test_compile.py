@@ -788,9 +788,9 @@ if 1:
 
         for func in funcs:
             opcodes = list(dis.get_instructions(func))
-            self.assertLessEqual(len(opcodes), 4)
-            self.assertEqual('LOAD_CONST', opcodes[-2].opname)
-            self.assertEqual(None, opcodes[-2].argval)
+            self.assertLessEqual(len(opcodes), 6)
+            self.assertEqual('LOAD_CONST', opcodes[-4].opname)
+            self.assertEqual(None, opcodes[-4].argval)
             self.assertEqual('RETURN_VALUE', opcodes[-1].opname)
 
     def test_false_while_loop(self):
@@ -807,10 +807,10 @@ if 1:
         # Check that we did not raise but we also don't generate bytecode
         for func in funcs:
             opcodes = list(dis.get_instructions(func))
-            self.assertEqual(3, len(opcodes))
+            self.assertEqual(5, len(opcodes))
             self.assertEqual('LOAD_CONST', opcodes[1].opname)
             self.assertEqual(None, opcodes[1].argval)
-            self.assertEqual('RETURN_VALUE', opcodes[2].opname)
+            self.assertEqual('RETURN_VALUE', opcodes[4].opname)
 
     def test_consts_in_conditionals(self):
         def and_true(x):
@@ -831,8 +831,8 @@ if 1:
         for func in funcs:
             with self.subTest(func=func):
                 opcodes = list(dis.get_instructions(func))
-                self.assertLessEqual(len(opcodes), 3)
-                self.assertIn('LOAD_', opcodes[-2].opname)
+                self.assertLessEqual(len(opcodes), 5)
+                self.assertIn('LOAD_', opcodes[-4].opname)
                 self.assertEqual('RETURN_VALUE', opcodes[-1].opname)
 
     def test_imported_load_method(self):
