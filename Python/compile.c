@@ -1305,7 +1305,11 @@ stack_effect(int opcode, int oparg, int jump)
         case PUSH_NULL:
             return 1;
         case BINARY_OP:
+#ifdef REG
+            return 0;
+#else
             return -1;
+#endif
         default:
             return PY_INVALID_STACK_EFFECT;
     }
@@ -4254,7 +4258,27 @@ addop_binary(struct compiler *c, location loc, operator_ty binop,
                          inplace ? "inplace" : "binary", binop);
             return 0;
     }
+#ifdef REG
+    int r1 = pop_to_new_register(c, loc, OPARG1);
+    if (r1 < 0) {
+        return 0;
+    }
+    int r2 = pop_to_new_register(c, loc, OPARG2);
+    if (r2 < 0) {
+        return 0;
+    }
+    int r3 = new_register(c, loc, OPARG3);
+    if (r3 < 0) {
+        return 0;
+    }
+#endif
     ADDOP_I(c, loc, BINARY_OP, oparg);
+#ifdef REG
+    ADDOP_I(c, loc, PUSH_REG, r3);
+    ADDOP_I(c, loc, CLEAR_REG, r1);
+    ADDOP_I(c, loc, CLEAR_REG, r2);
+    compiler_release_regs(c, r1);
+#endif
     return 1;
 }
 

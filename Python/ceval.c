@@ -1432,16 +1432,25 @@ handle_eval_breaker:
 
         TARGET(BINARY_OP_MULTIPLY_INT) {
             assert(cframe.use_tracing == 0);
+#ifdef REG
+            PyObject *left = registers[oparg2];
+            PyObject *right = registers[oparg1];
+#else
             PyObject *left = SECOND();
             PyObject *right = TOP();
+#endif
             DEOPT_IF(!PyLong_CheckExact(left), BINARY_OP);
             DEOPT_IF(!PyLong_CheckExact(right), BINARY_OP);
             STAT_INC(BINARY_OP, hit);
             PyObject *prod = _PyLong_Multiply((PyLongObject *)left, (PyLongObject *)right);
+#ifdef REG
+            registers[oparg3] = prod;
+#else
             SET_SECOND(prod);
             _Py_DECREF_SPECIALIZED(right, (destructor)PyObject_Free);
             _Py_DECREF_SPECIALIZED(left, (destructor)PyObject_Free);
             STACK_SHRINK(1);
+#endif
             if (prod == NULL) {
                 goto error;
             }
@@ -1451,18 +1460,27 @@ handle_eval_breaker:
 
         TARGET(BINARY_OP_MULTIPLY_FLOAT) {
             assert(cframe.use_tracing == 0);
+#ifdef REG
+            PyObject *left = registers[oparg2];
+            PyObject *right = registers[oparg1];
+#else
             PyObject *left = SECOND();
             PyObject *right = TOP();
+#endif
             DEOPT_IF(!PyFloat_CheckExact(left), BINARY_OP);
             DEOPT_IF(!PyFloat_CheckExact(right), BINARY_OP);
             STAT_INC(BINARY_OP, hit);
             double dprod = ((PyFloatObject *)left)->ob_fval *
                 ((PyFloatObject *)right)->ob_fval;
             PyObject *prod = PyFloat_FromDouble(dprod);
+#ifdef REG
+            registers[oparg3] = prod;
+#else
             SET_SECOND(prod);
             _Py_DECREF_SPECIALIZED(right, _PyFloat_ExactDealloc);
             _Py_DECREF_SPECIALIZED(left, _PyFloat_ExactDealloc);
             STACK_SHRINK(1);
+#endif
             if (prod == NULL) {
                 goto error;
             }
@@ -1472,16 +1490,25 @@ handle_eval_breaker:
 
         TARGET(BINARY_OP_SUBTRACT_INT) {
             assert(cframe.use_tracing == 0);
+#ifdef REG
+            PyObject *left = registers[oparg2];
+            PyObject *right = registers[oparg1];
+#else
             PyObject *left = SECOND();
             PyObject *right = TOP();
+#endif
             DEOPT_IF(!PyLong_CheckExact(left), BINARY_OP);
             DEOPT_IF(!PyLong_CheckExact(right), BINARY_OP);
             STAT_INC(BINARY_OP, hit);
             PyObject *sub = _PyLong_Subtract((PyLongObject *)left, (PyLongObject *)right);
+#ifdef REG
+            registers[oparg3] = sub;
+#else
             SET_SECOND(sub);
             _Py_DECREF_SPECIALIZED(right, (destructor)PyObject_Free);
             _Py_DECREF_SPECIALIZED(left, (destructor)PyObject_Free);
             STACK_SHRINK(1);
+#endif
             if (sub == NULL) {
                 goto error;
             }
@@ -1491,17 +1518,26 @@ handle_eval_breaker:
 
         TARGET(BINARY_OP_SUBTRACT_FLOAT) {
             assert(cframe.use_tracing == 0);
+#ifdef REG
+            PyObject *left = registers[oparg2];
+            PyObject *right = registers[oparg1];
+#else
             PyObject *left = SECOND();
             PyObject *right = TOP();
+#endif
             DEOPT_IF(!PyFloat_CheckExact(left), BINARY_OP);
             DEOPT_IF(!PyFloat_CheckExact(right), BINARY_OP);
             STAT_INC(BINARY_OP, hit);
             double dsub = ((PyFloatObject *)left)->ob_fval - ((PyFloatObject *)right)->ob_fval;
             PyObject *sub = PyFloat_FromDouble(dsub);
+#ifdef REG
+            registers[oparg3] = sub;
+#else
             SET_SECOND(sub);
             _Py_DECREF_SPECIALIZED(right, _PyFloat_ExactDealloc);
             _Py_DECREF_SPECIALIZED(left, _PyFloat_ExactDealloc);
             STACK_SHRINK(1);
+#endif
             if (sub == NULL) {
                 goto error;
             }
@@ -1511,17 +1547,26 @@ handle_eval_breaker:
 
         TARGET(BINARY_OP_ADD_UNICODE) {
             assert(cframe.use_tracing == 0);
+#ifdef REG
+            PyObject *left = registers[oparg2];
+            PyObject *right = registers[oparg1];
+#else
             PyObject *left = SECOND();
             PyObject *right = TOP();
+#endif
             DEOPT_IF(!PyUnicode_CheckExact(left), BINARY_OP);
             DEOPT_IF(Py_TYPE(right) != Py_TYPE(left), BINARY_OP);
             STAT_INC(BINARY_OP, hit);
             PyObject *res = PyUnicode_Concat(left, right);
+#ifdef REG
+            registers[oparg3] = res;
+#else
             STACK_SHRINK(1);
             SET_TOP(res);
             _Py_DECREF_SPECIALIZED(left, _PyUnicode_ExactDealloc);
             _Py_DECREF_SPECIALIZED(right, _PyUnicode_ExactDealloc);
-            if (TOP() == NULL) {
+#endif
+            if (res == NULL) {
                 goto error;
             }
             JUMPBY(INLINE_CACHE_ENTRIES_BINARY_OP);
@@ -1530,8 +1575,13 @@ handle_eval_breaker:
 
         TARGET(BINARY_OP_INPLACE_ADD_UNICODE) {
             assert(cframe.use_tracing == 0);
+#ifdef REG
+            PyObject *left = registers[oparg2];
+            PyObject *right = registers[oparg1];
+#else
             PyObject *left = SECOND();
             PyObject *right = TOP();
+#endif
             DEOPT_IF(!PyUnicode_CheckExact(left), BINARY_OP);
             DEOPT_IF(Py_TYPE(right) != Py_TYPE(left), BINARY_OP);
             _Py_CODEUNIT true_next = next_instr[INLINE_CACHE_ENTRIES_BINARY_OP];
@@ -1553,7 +1603,10 @@ handle_eval_breaker:
              */
             assert(Py_REFCNT(left) >= 2);
             _Py_DECREF_NO_DEALLOC(left);
+#ifdef REG
+#else
             STACK_SHRINK(2);
+#endif
             PyUnicode_Append(target_local, right);
             _Py_DECREF_SPECIALIZED(right, _PyUnicode_ExactDealloc);
             if (*target_local == NULL) {
@@ -1566,18 +1619,27 @@ handle_eval_breaker:
 
         TARGET(BINARY_OP_ADD_FLOAT) {
             assert(cframe.use_tracing == 0);
+#ifdef REG
+            PyObject *left = registers[oparg2];
+            PyObject *right = registers[oparg1];
+#else
             PyObject *left = SECOND();
             PyObject *right = TOP();
+#endif
             DEOPT_IF(!PyFloat_CheckExact(left), BINARY_OP);
             DEOPT_IF(Py_TYPE(right) != Py_TYPE(left), BINARY_OP);
             STAT_INC(BINARY_OP, hit);
             double dsum = ((PyFloatObject *)left)->ob_fval +
                 ((PyFloatObject *)right)->ob_fval;
             PyObject *sum = PyFloat_FromDouble(dsum);
+#ifdef REG
+            registers[oparg3] = sum;
+#else
             SET_SECOND(sum);
             _Py_DECREF_SPECIALIZED(right, _PyFloat_ExactDealloc);
             _Py_DECREF_SPECIALIZED(left, _PyFloat_ExactDealloc);
             STACK_SHRINK(1);
+#endif
             if (sum == NULL) {
                 goto error;
             }
@@ -1587,16 +1649,25 @@ handle_eval_breaker:
 
         TARGET(BINARY_OP_ADD_INT) {
             assert(cframe.use_tracing == 0);
+#ifdef REG
+            PyObject *left = registers[oparg2];
+            PyObject *right = registers[oparg1];
+#else
             PyObject *left = SECOND();
             PyObject *right = TOP();
+#endif
             DEOPT_IF(!PyLong_CheckExact(left), BINARY_OP);
             DEOPT_IF(Py_TYPE(right) != Py_TYPE(left), BINARY_OP);
             STAT_INC(BINARY_OP, hit);
             PyObject *sum = _PyLong_Add((PyLongObject *)left, (PyLongObject *)right);
+#ifdef REG
+            registers[oparg3] = sum;
+#else
             SET_SECOND(sum);
             _Py_DECREF_SPECIALIZED(right, (destructor)PyObject_Free);
             _Py_DECREF_SPECIALIZED(left, (destructor)PyObject_Free);
             STACK_SHRINK(1);
+#endif
             if (sum == NULL) {
                 goto error;
             }
@@ -5030,15 +5101,25 @@ handle_eval_breaker:
 
         TARGET(BINARY_OP) {
             PREDICTED(BINARY_OP);
+#ifdef REG
+            PyObject *rhs = registers[oparg1];
+            PyObject *lhs = registers[oparg2];
+#else
             PyObject *rhs = POP();
             PyObject *lhs = TOP();
+#endif
             assert(0 <= oparg);
             assert((unsigned)oparg < Py_ARRAY_LENGTH(binary_ops));
             assert(binary_ops[oparg]);
             PyObject *res = binary_ops[oparg](lhs, rhs);
+
+#ifdef REG
+            registers[oparg3] = res;
+#else
             Py_DECREF(lhs);
             Py_DECREF(rhs);
             SET_TOP(res);
+#endif
             if (res == NULL) {
                 goto error;
             }
@@ -5050,8 +5131,13 @@ handle_eval_breaker:
             assert(cframe.use_tracing == 0);
             _PyBinaryOpCache *cache = (_PyBinaryOpCache *)next_instr;
             if (ADAPTIVE_COUNTER_IS_ZERO(cache)) {
+#ifdef REG
+                PyObject *lhs = registers[oparg2];
+                PyObject *rhs = registers[oparg1];
+#else
                 PyObject *lhs = SECOND();
                 PyObject *rhs = TOP();
+#endif
                 next_instr--;
                 _Py_Specialize_BinaryOp(lhs, rhs, next_instr, oparg, &GETLOCAL(0));
                 DISPATCH_SAME_OPARG();
