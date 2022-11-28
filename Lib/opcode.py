@@ -221,6 +221,9 @@ def_op('CALL', 171)
 def_op('KW_NAMES', 172)
 hasconst.append(172)
 
+def_op('OPARG1', 173)
+def_op('OPARG2', 174)
+def_op('OPARG3', 175)
 
 hasarg.extend([op for op in opmap.values() if op >= HAVE_ARGUMENT])
 

@@ -180,6 +180,9 @@ const uint8_t _PyOpcode_Deopt[256] = {
     [MATCH_MAPPING] = MATCH_MAPPING,
     [MATCH_SEQUENCE] = MATCH_SEQUENCE,
     [NOP] = NOP,
+    [OPARG1] = OPARG1,
+    [OPARG2] = OPARG2,
+    [OPARG3] = OPARG3,
     [POP_EXCEPT] = POP_EXCEPT,
     [POP_JUMP_IF_FALSE] = POP_JUMP_IF_FALSE,
     [POP_JUMP_IF_NONE] = POP_JUMP_IF_NONE,
@@ -404,9 +407,9 @@ static const char *const _PyOpcode_OpName[263] = {
     [170] = "<170>",
     [CALL] = "CALL",
     [KW_NAMES] = "KW_NAMES",
-    [173] = "<173>",
-    [174] = "<174>",
-    [175] = "<175>",
+    [OPARG1] = "OPARG1",
+    [OPARG2] = "OPARG2",
+    [OPARG3] = "OPARG3",
     [176] = "<176>",
     [177] = "<177>",
     [178] = "<178>",
@@ -499,9 +502,6 @@ static const char *const _PyOpcode_OpName[263] = {
 
 #define EXTRA_CASES \
     case 170: \
-    case 173: \
-    case 174: \
-    case 175: \
     case 176: \
     case 177: \
     case 178: \

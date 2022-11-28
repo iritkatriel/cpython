@@ -120,6 +120,9 @@ extern "C" {
 #define DICT_UPDATE                            165
 #define CALL                                   171
 #define KW_NAMES                               172
+#define OPARG1                                 173
+#define OPARG2                                 174
+#define OPARG3                                 175
 #define MIN_PSEUDO_OPCODE                      256
 #define SETUP_FINALLY                          256
 #define SETUP_CLEANUP                          257

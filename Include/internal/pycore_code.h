@@ -4,6 +4,8 @@
 extern "C" {
 #endif
 
+#define REGVM
+
 /* PEP 659
  * Specialization and quickening structs and helper functions
  */

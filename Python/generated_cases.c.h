@@ -15,6 +15,21 @@
             DISPATCH();
         }
 
+        TARGET(OPARG1) {
+            oparg1 = oparg;
+            DISPATCH();
+        }
+
+        TARGET(OPARG2) {
+            oparg2 = oparg;
+            DISPATCH();
+        }
+
+        TARGET(OPARG3) {
+            oparg3 = oparg;
+            DISPATCH();
+        }
+
         TARGET(LOAD_CLOSURE) {
             PyObject *value;
             /* We keep LOAD_CLOSURE so that the bytecode stays more readable. */

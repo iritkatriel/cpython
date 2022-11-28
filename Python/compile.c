@@ -162,9 +162,47 @@ static struct jump_target_label_ NO_LABEL = {-1};
         return 0; \
     }
 
+
+#ifdef REGVM
+enum oparg_type {
+    OPARG_UNUSED,
+    OPARG_EXPLICIT, /* an integer, taken literally */
+    OPARG_STACK,    /* A stack entry, indexed from the top
+                     * (STACK[-value], where STACK[-1] is TOS) */
+};
+
+typedef struct oparg_ {
+    int value;
+    enum oparg_type type;
+} oparg_t;
+
+static int
+oparg_value(const oparg_t oparg)
+{
+    if (oparg.type == OPARG_EXPLICIT) {
+        return oparg.value;
+    }
+    Py_UNREACHABLE();
+}
+
+#define OPARG_VALUE(O) oparg_value(O)
+#define OPARG(VALUE, TYPE) ((const oparg_t){(VALUE), (TYPE)}
+#else
+
+typedef int oparg;
+
+#define OPARG_VALUE(O) (O)
+#define OPARG(VALUE, TYPE) (VALUE)
+#endif
+
 struct instr {
     int i_opcode;
     int i_oparg;
+#ifdef REGVM
+    oparg_t i_oparg1;
+    oparg_t i_oparg2;
+    oparg_t i_oparg3;
+#endif
     location i_loc;
     /* The following fields should not be set by the front-end: */
     struct basicblock_ *i_target; /* target block (if jump instruction) */
@@ -1021,6 +1059,9 @@ stack_effect(int opcode, int oparg, int jump)
         case EXTENDED_ARG:
         case RESUME:
         case CACHE:
+        case OPARG1:
+        case OPARG2:
+        case OPARG3:
             return 0;
 
         /* Stack manipulation */
