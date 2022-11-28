@@ -187,21 +187,32 @@ oparg_value(const oparg_t oparg)
 
 #define OPARG_VALUE(O) oparg_value(O)
 #define OPARG(VALUE, TYPE) ((const oparg_t){(VALUE), (TYPE)}
+
 #else
 
-typedef int oparg;
+typedef int oparg_t;
 
 #define OPARG_VALUE(O) (O)
 #define OPARG(VALUE, TYPE) (VALUE)
 #endif
 
+typedef struct reg_opargs_ {
+    oparg_t i_oparg1;
+    oparg_t i_oparg2;
+    oparg_t i_oparg3;
+} reg_opargs;
+
+#define REG_OPARGS(V1, T1, V2, T2, V3, T3) \
+    {V1, T1, V2, T2, V3, T3}
+
+static reg_opargs NO_REG_OPARGS = \
+    { {-1, OPARG_UNUSED}, {-1, OPARG_UNUSED}, {-1, OPARG_UNUSED} };
+
 struct instr {
     int i_opcode;
     int i_oparg;
 #ifdef REGVM
-    oparg_t i_oparg1;
-    oparg_t i_oparg2;
-    oparg_t i_oparg3;
+    reg_opargs i_reg_opargs;
 #endif
     location i_loc;
     /* The following fields should not be set by the front-end: */
@@ -500,7 +511,7 @@ static int basicblock_next_instr(basicblock *);
 
 static basicblock *cfg_builder_new_block(cfg_builder *g);
 static int cfg_builder_maybe_start_new_block(cfg_builder *g);
-static int cfg_builder_addop_i(cfg_builder *g, int opcode, Py_ssize_t oparg, location loc);
+static int cfg_builder_addop_i(cfg_builder *, int, Py_ssize_t, location, reg_opargs);
 
 static void compiler_free(struct compiler *);
 static int compiler_error(struct compiler *, location loc, const char *, ...);
@@ -1330,7 +1341,8 @@ PyCompile_OpcodeStackEffect(int opcode, int oparg)
 */
 
 static int
-basicblock_addop(basicblock *b, int opcode, int oparg, location loc)
+basicblock_addop(basicblock *b, int opcode, int oparg, location loc,
+                 reg_opargs regs)
 {
     assert(IS_WITHIN_OPCODE_RANGE(opcode));
     assert(!IS_ASSEMBLER_OPCODE(opcode));
@@ -1344,6 +1356,7 @@ basicblock_addop(basicblock *b, int opcode, int oparg, location loc)
     struct instr *i = &b->b_instr[off];
     i->i_opcode = opcode;
     i->i_oparg = oparg;
+    i->i_reg_opargs = regs;
     i->i_target = NULL;
     i->i_loc = loc;
 
@@ -1376,19 +1389,21 @@ cfg_builder_maybe_start_new_block(cfg_builder *g)
 }
 
 static int
-cfg_builder_addop(cfg_builder *g, int opcode, int oparg, location loc)
+cfg_builder_addop(cfg_builder *g, int opcode, int oparg, location loc,
+                  reg_opargs regs)
 {
     if (cfg_builder_maybe_start_new_block(g) != 0) {
         return -1;
     }
-    return basicblock_addop(g->g_curblock, opcode, oparg, loc);
+    return basicblock_addop(g->g_curblock, opcode, oparg, loc, regs);
 }
 
 static int
-cfg_builder_addop_noarg(cfg_builder *g, int opcode, location loc)
+cfg_builder_addop_noarg(cfg_builder *g, int opcode, location loc,
+                        reg_opargs regs)
 {
     assert(!HAS_ARG(opcode));
-    return cfg_builder_addop(g, opcode, 0, loc);
+    return cfg_builder_addop(g, opcode, 0, loc, regs);
 }
 
 static Py_ssize_t
@@ -1540,27 +1555,28 @@ compiler_add_const(struct compiler *c, PyObject *o)
 }
 
 static int
-compiler_addop_load_const(struct compiler *c, location loc, PyObject *o)
+compiler_addop_load_const(struct compiler *c, location loc, PyObject *o,
+                          reg_opargs regs)
 {
     Py_ssize_t arg = compiler_add_const(c, o);
     if (arg < 0)
         return 0;
-    return cfg_builder_addop_i(CFG_BUILDER(c), LOAD_CONST, arg, loc);
+    return cfg_builder_addop_i(CFG_BUILDER(c), LOAD_CONST, arg, loc, regs);
 }
 
 static int
 compiler_addop_o(struct compiler *c, location loc,
-                 int opcode, PyObject *dict, PyObject *o)
+                 int opcode, PyObject *dict, PyObject *o, reg_opargs regs)
 {
     Py_ssize_t arg = dict_add_o(dict, o);
     if (arg < 0)
         return 0;
-    return cfg_builder_addop_i(CFG_BUILDER(c), opcode, arg, loc);
+    return cfg_builder_addop_i(CFG_BUILDER(c), opcode, arg, loc, regs);
 }
 
 static int
 compiler_addop_name(struct compiler *c, location loc,
-                    int opcode, PyObject *dict, PyObject *o)
+                    int opcode, PyObject *dict, PyObject *o, reg_opargs regs)
 {
     Py_ssize_t arg;
 
@@ -1579,14 +1595,15 @@ compiler_addop_name(struct compiler *c, location loc,
         arg <<= 1;
         arg |= 1;
     }
-    return cfg_builder_addop_i(CFG_BUILDER(c), opcode, arg, loc);
+    return cfg_builder_addop_i(CFG_BUILDER(c), opcode, arg, loc, regs);
 }
 
 /* Add an opcode with an integer argument.
    Returns 0 on failure, 1 on success.
 */
 static int
-cfg_builder_addop_i(cfg_builder *g, int opcode, Py_ssize_t oparg, location loc)
+cfg_builder_addop_i(cfg_builder *g, int opcode, Py_ssize_t oparg, location loc,
+                    reg_opargs regs)
 {
     /* oparg value is unsigned, but a signed C int is usually used to store
        it in the C code (like Python/ceval.c).
@@ -1597,33 +1614,33 @@ cfg_builder_addop_i(cfg_builder *g, int opcode, Py_ssize_t oparg, location loc)
        EXTENDED_ARG is used for 16, 24, and 32-bit arguments. */
 
     int oparg_ = Py_SAFE_DOWNCAST(oparg, Py_ssize_t, int);
-    return cfg_builder_addop(g, opcode, oparg_, loc);
+    return cfg_builder_addop(g, opcode, oparg_, loc, regs);
 }
 
 static int
 cfg_builder_addop_j(cfg_builder *g, location loc,
-                    int opcode, jump_target_label target)
+                    int opcode, jump_target_label target, reg_opargs regs)
 {
     assert(IS_LABEL(target));
     assert(IS_JUMP_OPCODE(opcode) || IS_BLOCK_PUSH_OPCODE(opcode));
-    return cfg_builder_addop(g, opcode, target.id, loc);
+    return cfg_builder_addop(g, opcode, target.id, loc, regs);
 }
 
 
 #define ADDOP(C, LOC, OP) { \
-    if (!cfg_builder_addop_noarg(CFG_BUILDER(C), (OP), (LOC))) \
+    if (!cfg_builder_addop_noarg(CFG_BUILDER(C), (OP), (LOC), NO_REG_OPARGS)) \
         return 0; \
 }
 
 #define ADDOP_IN_SCOPE(C, LOC, OP) { \
-    if (!cfg_builder_addop_noarg(CFG_BUILDER(C), (OP), (LOC))) { \
+    if (!cfg_builder_addop_noarg(CFG_BUILDER(C), (OP), (LOC), NO_REG_OPARGS)) { \
         compiler_exit_scope(c); \
         return 0; \
     } \
 }
 
 #define ADDOP_LOAD_CONST(C, LOC, O) { \
-    if (!compiler_addop_load_const((C), (LOC), (O))) \
+    if (!compiler_addop_load_const((C), (LOC), (O), NO_REG_OPARGS)) \
         return 0; \
 }
 
@@ -1633,7 +1650,7 @@ cfg_builder_addop_j(cfg_builder *g, location loc,
     if (__new_const == NULL) { \
         return 0; \
     } \
-    if (!compiler_addop_load_const((C), (LOC), __new_const)) { \
+    if (!compiler_addop_load_const((C), (LOC), __new_const, NO_REG_OPARGS)) { \
         Py_DECREF(__new_const); \
         return 0; \
     } \
@@ -1642,7 +1659,7 @@ cfg_builder_addop_j(cfg_builder *g, location loc,
 
 #define ADDOP_N(C, LOC, OP, O, TYPE) { \
     assert(!HAS_CONST(OP)); /* use ADDOP_LOAD_CONST_NEW */ \
-    if (!compiler_addop_o((C), (LOC), (OP), (C)->u->u_ ## TYPE, (O))) { \
+    if (!compiler_addop_o((C), (LOC), (OP), (C)->u->u_ ## TYPE, (O), NO_REG_OPARGS)) { \
         Py_DECREF((O)); \
         return 0; \
     } \
@@ -1650,17 +1667,17 @@ cfg_builder_addop_j(cfg_builder *g, location loc,
 }
 
 #define ADDOP_NAME(C, LOC, OP, O, TYPE) { \
-    if (!compiler_addop_name((C), (LOC), (OP), (C)->u->u_ ## TYPE, (O))) \
+    if (!compiler_addop_name((C), (LOC), (OP), (C)->u->u_ ## TYPE, (O), NO_REG_OPARGS)) \
         return 0; \
 }
 
 #define ADDOP_I(C, LOC, OP, O) { \
-    if (!cfg_builder_addop_i(CFG_BUILDER(C), (OP), (O), (LOC))) \
+    if (!cfg_builder_addop_i(CFG_BUILDER(C), (OP), (O), (LOC), NO_REG_OPARGS)) \
         return 0; \
 }
 
 #define ADDOP_JUMP(C, LOC, OP, O) { \
-    if (!cfg_builder_addop_j(CFG_BUILDER(C), (LOC), (OP), (O))) \
+    if (!cfg_builder_addop_j(CFG_BUILDER(C), (LOC), (OP), (O), NO_REG_OPARGS)) \
         return 0; \
 }
 
@@ -4344,7 +4361,7 @@ compiler_nameop(struct compiler *c, location loc,
     if (op == LOAD_GLOBAL) {
         arg <<= 1;
     }
-    return cfg_builder_addop_i(CFG_BUILDER(c), op, arg, loc);
+    return cfg_builder_addop_i(CFG_BUILDER(c), op, arg, loc, NO_REG_OPARGS);
 }
 
 static int
@@ -6397,7 +6414,7 @@ emit_and_reset_fail_pop(struct compiler *c, location loc,
     }
     while (--pc->fail_pop_size) {
         USE_LABEL(c, pc->fail_pop[pc->fail_pop_size]);
-        if (!cfg_builder_addop_noarg(CFG_BUILDER(c), POP_TOP, loc)) {
+        if (!cfg_builder_addop_noarg(CFG_BUILDER(c), POP_TOP, loc, NO_REG_OPARGS)) {
             pc->fail_pop_size = 0;
             PyObject_Free(pc->fail_pop);
             pc->fail_pop = NULL;
@@ -6834,7 +6851,7 @@ compiler_pattern_or(struct compiler *c, pattern_ty p, pattern_context *pc)
         pc->fail_pop = NULL;
         pc->fail_pop_size = 0;
         pc->on_top = 0;
-        if (!cfg_builder_addop_i(CFG_BUILDER(c), COPY, 1, LOC(alt)) ||
+        if (!cfg_builder_addop_i(CFG_BUILDER(c), COPY, 1, LOC(alt), NO_REG_OPARGS) ||
             !compiler_pattern(c, alt, pc)) {
             goto error;
         }
@@ -6897,7 +6914,7 @@ compiler_pattern_or(struct compiler *c, pattern_ty p, pattern_context *pc)
             }
         }
         assert(control);
-        if (!cfg_builder_addop_j(CFG_BUILDER(c), LOC(alt), JUMP, end) ||
+        if (!cfg_builder_addop_j(CFG_BUILDER(c), LOC(alt), JUMP, end, NO_REG_OPARGS) ||
             !emit_and_reset_fail_pop(c, LOC(alt), pc))
         {
             goto error;
@@ -6909,7 +6926,7 @@ compiler_pattern_or(struct compiler *c, pattern_ty p, pattern_context *pc)
     // Need to NULL this for the PyObject_Free call in the error block.
     old_pc.fail_pop = NULL;
     // No match. Pop the remaining copy of the subject and fail:
-    if (!cfg_builder_addop_noarg(CFG_BUILDER(c), POP_TOP, LOC(p)) ||
+    if (!cfg_builder_addop_noarg(CFG_BUILDER(c), POP_TOP, LOC(p), NO_REG_OPARGS) ||
         !jump_to_fail_pop(c, LOC(p), pc, JUMP)) {
         goto error;
     }
@@ -7574,7 +7591,7 @@ push_cold_blocks_to_end(cfg_builder *g, int code_flags) {
             if (explicit_jump == NULL) {
                 return -1;
             }
-            basicblock_addop(explicit_jump, JUMP, b->b_next->b_label, NO_LOCATION);
+            basicblock_addop(explicit_jump, JUMP, b->b_next->b_label, NO_LOCATION, NO_REG_OPARGS);
             explicit_jump->b_cold = 1;
             explicit_jump->b_next = b->b_next;
             b->b_next = explicit_jump;
@@ -7966,7 +7983,7 @@ normalize_jumps_in_block(cfg_builder *g, basicblock *b) {
     if (backwards_jump == NULL) {
         return -1;
     }
-    basicblock_addop(backwards_jump, JUMP, target->b_label, NO_LOCATION);
+    basicblock_addop(backwards_jump, JUMP, target->b_label, NO_LOCATION, NO_REG_OPARGS);
     backwards_jump->b_instr[0].i_target = target;
     last->i_opcode = reversed_opcode;
     last->i_target = b->b_next;
@@ -9992,7 +10009,7 @@ instructions_to_cfg(PyObject *instructions, cfg_builder *g)
             if (PyErr_Occurred()) {
                 return -1;
             }
-            if (!cfg_builder_addop(g, opcode, oparg, loc)) {
+            if (!cfg_builder_addop(g, opcode, oparg, loc, NO_REG_OPARGS)) {
                 return -1;
             }
         }
