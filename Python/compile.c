@@ -218,6 +218,7 @@ struct instr {
     /* The following fields should not be set by the front-end: */
     struct basicblock_ *i_target; /* target block (if jump instruction) */
     struct basicblock_ *i_except; /* target block when exception is raised */
+    int i_stackdepth;  /* stack depth before this instruction executes */
 };
 
 typedef struct exceptstack {
@@ -7242,6 +7243,7 @@ stackdepth(basicblock *entryblock, int code_flags)
         basicblock *next = b->b_next;
         for (int i = 0; i < b->b_iused; i++) {
             struct instr *instr = &b->b_instr[i];
+            instr->i_stackdepth = depth;
             int effect = stack_effect(instr->i_opcode, instr->i_oparg, 0);
             if (effect == PY_INVALID_STACK_EFFECT) {
                 PyErr_Format(PyExc_SystemError,
@@ -7949,6 +7951,8 @@ assemble_emit_oparg(struct assembler* a, struct instr* i, int which_oparg) {
     inst.i_oparg = -1;
     switch(oparg.type) {
         case OPARG_UNUSED:
+            assert(inst->i_stackdepth >= oparg.value);
+            inst.i_oparg = inst->i_stackdepth - (oparg.value - 1);
             break;
         case OPARG_EXPLICIT:
             inst.i_oparg = oparg.value;
