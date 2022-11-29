@@ -7924,6 +7924,47 @@ assemble_emit(struct assembler *a, struct instr *i)
 }
 
 static int
+assemble_emit_oparg(struct assembler* a, struct instr* i, int which_oparg) {
+    int opcode;
+    oparg_t oparg;
+    switch (which_oparg) {
+        case 1:
+            opcode = OPARG1;
+            oparg = i->i_reg_opargs.i_oparg1;
+            break;
+        case 2:
+            opcode = OPARG2;
+            oparg = i->i_reg_opargs.i_oparg2;
+            break;
+        case 3:
+            opcode = OPARG3;
+            oparg = i->i_reg_opargs.i_oparg3;
+            break;
+        default:
+            Py_UNREACHABLE();
+    }
+
+    struct instr inst;
+    inst.i_opcode = opcode;
+    inst.i_oparg = -1;
+    switch(oparg.type) {
+        case OPARG_UNUSED:
+            break;
+        case OPARG_EXPLICIT:
+            inst.i_oparg = oparg.value;
+            break;
+        case OPARG_STACK:
+            break;
+        default:
+            Py_UNREACHABLE();
+    }
+    if (inst.i_oparg >= 0) {
+        return assemble_emit(a, i);
+    }
+    return 1;
+}
+
+static int
 normalize_jumps_in_block(cfg_builder *g, basicblock *b) {
     struct instr *last = basicblock_last_instr(b);
     if (last == NULL || !is_jump(last)) {
@@ -8921,9 +8962,19 @@ assemble(struct compiler *c, int addNone)
 
     /* Emit code. */
     for (basicblock *b = g->g_entryblock; b != NULL; b = b->b_next) {
-        for (int j = 0; j < b->b_iused; j++)
-            if (!assemble_emit(&a, &b->b_instr[j]))
+        for (int j = 0; j < b->b_iused; j++) {
+            struct instr *inst = &b->b_instr[j];
+#ifdef REGVM
+            if (!assemble_emit_oparg(&a, inst, 1))
                 goto error;
+            if (!assemble_emit_oparg(&a, inst, 2))
+                goto error;
+            if (!assemble_emit_oparg(&a, inst, 3))
+                goto error;
+#endif
+            if (!assemble_emit(&a, inst))
+                goto error;
+        }
     }
 
     /* Emit location info */
