@@ -208,6 +208,9 @@ typedef struct reg_opargs_ {
 static reg_opargs NO_REG_OPARGS = \
     { {-1, OPARG_UNUSED}, {-1, OPARG_UNUSED}, {-1, OPARG_UNUSED} };
 
+static reg_opargs REG_OPARGS_TOS = \
+    { {1, OPARG_STACK}, {-1, OPARG_UNUSED}, {-1, OPARG_UNUSED} };
+
 struct instr {
     int i_opcode;
     int i_oparg;
@@ -2045,7 +2048,7 @@ compiler_unwind_fblock(struct compiler *c, location *ploc,
             if (preserve_tos) {
                 ADDOP_I(c, *ploc, SWAP, 2, NO_REG_OPARGS);
             }
-            ADDOP(c, *ploc, POP_TOP, NO_REG_OPARGS);
+            ADDOP(c, *ploc, POP_TOP, REG_OPARGS_TOS);
             return 1;
 
         case TRY_EXCEPT:
@@ -2075,7 +2078,7 @@ compiler_unwind_fblock(struct compiler *c, location *ploc,
             if (preserve_tos) {
                 ADDOP_I(c, *ploc, SWAP, 2, NO_REG_OPARGS);
             }
-            ADDOP(c, *ploc, POP_TOP, NO_REG_OPARGS); /* exc_value */
+            ADDOP(c, *ploc, POP_TOP, REG_OPARGS_TOS); /* exc_value */
             if (preserve_tos) {
                 ADDOP_I(c, *ploc, SWAP, 2, NO_REG_OPARGS);
             }
@@ -2098,7 +2101,7 @@ compiler_unwind_fblock(struct compiler *c, location *ploc,
                 ADDOP_LOAD_CONST(c, *ploc, Py_None, NO_REG_OPARGS);
                 ADD_YIELD_FROM(c, *ploc, 1);
             }
-            ADDOP(c, *ploc, POP_TOP, NO_REG_OPARGS);
+            ADDOP(c, *ploc, POP_TOP, REG_OPARGS_TOS);
             /* The exit block should appear to execute after the
              * statement causing the unwinding, so make the unwinding
              * instruction artificial */
@@ -2125,7 +2128,7 @@ compiler_unwind_fblock(struct compiler *c, location *ploc,
             if (preserve_tos) {
                 ADDOP_I(c, *ploc, SWAP, 2, NO_REG_OPARGS);
             }
-            ADDOP(c, *ploc, POP_TOP, NO_REG_OPARGS);
+            ADDOP(c, *ploc, POP_TOP, REG_OPARGS_TOS);
             return 1;
         }
     }
@@ -3034,7 +3037,7 @@ compiler_jump_if(struct compiler *c, location loc,
             ADDOP_JUMP(c, NO_LOCATION, JUMP, end, NO_REG_OPARGS);
 
             USE_LABEL(c, cleanup);
-            ADDOP(c, LOC(e), POP_TOP, NO_REG_OPARGS);
+            ADDOP(c, LOC(e), POP_TOP, REG_OPARGS_TOS);
             if (!cond) {
                 ADDOP_JUMP(c, NO_LOCATION, JUMP, next, NO_REG_OPARGS);
             }
@@ -3629,7 +3632,7 @@ compiler_try_except(struct compiler *c, stmt_ty s)
         else {
             NEW_JUMP_TARGET_LABEL(c, cleanup_body);
 
-            ADDOP(c, loc, POP_TOP, NO_REG_OPARGS); /* exc_value */
+            ADDOP(c, loc, POP_TOP, REG_OPARGS_TOS); /* exc_value */
 
             USE_LABEL(c, cleanup_body);
             if (!compiler_push_fblock(c, loc, HANDLER_CLEANUP, cleanup_body, NO_LABEL, NULL))
@@ -3765,7 +3768,7 @@ compiler_try_star_except(struct compiler *c, stmt_ty s)
             ADDOP(c, loc, CHECK_EG_MATCH, NO_REG_OPARGS);
             ADDOP_I(c, loc, COPY, 1, NO_REG_OPARGS);
             ADDOP_JUMP(c, loc, POP_JUMP_IF_NOT_NONE, handle_match, NO_REG_OPARGS);
-            ADDOP(c, loc, POP_TOP, NO_REG_OPARGS);  // match
+            ADDOP(c, loc, POP_TOP, REG_OPARGS_TOS);  // match
             ADDOP_JUMP(c, loc, JUMP, except, NO_REG_OPARGS);
         }
 
@@ -3778,7 +3781,7 @@ compiler_try_star_except(struct compiler *c, stmt_ty s)
             compiler_nameop(c, loc, handler->v.ExceptHandler.name, Store, NO_REG_OPARGS);
         }
         else {
-            ADDOP(c, loc, POP_TOP, NO_REG_OPARGS);  // match
+            ADDOP(c, loc, POP_TOP, REG_OPARGS_TOS);  // match
         }
 
         /*
@@ -3823,7 +3826,7 @@ compiler_try_star_except(struct compiler *c, stmt_ty s)
 
         /* add exception raised to the res list */
         ADDOP_I(c, NO_LOCATION, LIST_APPEND, 3, NO_REG_OPARGS); // exc
-        ADDOP(c, NO_LOCATION, POP_TOP, NO_REG_OPARGS); // lasti
+        ADDOP(c, NO_LOCATION, POP_TOP, REG_OPARGS_TOS); // lasti
         ADDOP_JUMP(c, NO_LOCATION, JUMP, except, NO_REG_OPARGS);
 
         USE_LABEL(c, except);
@@ -3844,7 +3847,7 @@ compiler_try_star_except(struct compiler *c, stmt_ty s)
     ADDOP_JUMP(c, NO_LOCATION, POP_JUMP_IF_NOT_NONE, reraise, NO_REG_OPARGS);
 
     /* Nothing to reraise */
-    ADDOP(c, NO_LOCATION, POP_TOP, NO_REG_OPARGS);
+    ADDOP(c, NO_LOCATION, POP_TOP, REG_OPARGS_TOS);
     ADDOP(c, NO_LOCATION, POP_BLOCK, NO_REG_OPARGS);
     ADDOP(c, NO_LOCATION, POP_EXCEPT, NO_REG_OPARGS);
     ADDOP_JUMP(c, NO_LOCATION, JUMP, end, NO_REG_OPARGS);
@@ -3914,12 +3917,12 @@ compiler_import_as(struct compiler *c, location loc,
                 break;
             }
             ADDOP_I(c, loc, SWAP, 2, NO_REG_OPARGS);
-            ADDOP(c, loc, POP_TOP, NO_REG_OPARGS);
+            ADDOP(c, loc, POP_TOP, REG_OPARGS_TOS);
         }
         if (!compiler_nameop(c, loc, asname, Store, NO_REG_OPARGS)) {
             return 0;
         }
-        ADDOP(c, loc, POP_TOP, NO_REG_OPARGS);
+        ADDOP(c, loc, POP_TOP, REG_OPARGS_TOS);
         return 1;
     }
     return compiler_nameop(c, loc, asname, Store, NO_REG_OPARGS);
@@ -4028,7 +4031,7 @@ compiler_from_import(struct compiler *c, stmt_ty s)
         }
     }
     /* remove imported module */
-    ADDOP(c, LOC(s), POP_TOP, NO_REG_OPARGS);
+    ADDOP(c, LOC(s), POP_TOP, REG_OPARGS_TOS);
     return 1;
 }
 
@@ -4082,7 +4085,7 @@ compiler_stmt_expr(struct compiler *c, location loc, expr_ty value)
     }
 
     VISIT(c, expr, value);
-    ADDOP(c, NO_LOCATION, POP_TOP, NO_REG_OPARGS); /* artificial */
+    ADDOP(c, NO_LOCATION, POP_TOP, REG_OPARGS_TOS); /* artificial */
     return 1;
 }
 
@@ -4706,7 +4709,7 @@ compiler_compare(struct compiler *c, expr_ty e)
 
         USE_LABEL(c, cleanup);
         ADDOP_I(c, loc, SWAP, 2, NO_REG_OPARGS);
-        ADDOP(c, loc, POP_TOP, NO_REG_OPARGS);
+        ADDOP(c, loc, POP_TOP, REG_OPARGS_TOS);
 
         USE_LABEL(c, end);
     }
@@ -5341,7 +5344,7 @@ compiler_sync_comprehension_generator(struct compiler *c, location loc,
         case COMP_GENEXP:
             VISIT(c, expr, elt);
             ADDOP_YIELD(c, elt_loc);
-            ADDOP(c, elt_loc, POP_TOP, NO_REG_OPARGS);
+            ADDOP(c, elt_loc, POP_TOP, REG_OPARGS_TOS);
             break;
         case COMP_LISTCOMP:
             VISIT(c, expr, elt);
@@ -5441,7 +5444,7 @@ compiler_async_comprehension_generator(struct compiler *c, location loc,
         case COMP_GENEXP:
             VISIT(c, expr, elt);
             ADDOP_YIELD(c, elt_loc);
-            ADDOP(c, elt_loc, POP_TOP, NO_REG_OPARGS);
+            ADDOP(c, elt_loc, POP_TOP, REG_OPARGS_TOS);
             break;
         case COMP_LISTCOMP:
             VISIT(c, expr, elt);
@@ -5645,11 +5648,11 @@ compiler_with_except_finish(struct compiler *c, jump_target_label cleanup) {
     ADDOP_I(c, NO_LOCATION, RERAISE, 2, NO_REG_OPARGS);
 
     USE_LABEL(c, suppress);
-    ADDOP(c, NO_LOCATION, POP_TOP, NO_REG_OPARGS); /* exc_value */
+    ADDOP(c, NO_LOCATION, POP_TOP, REG_OPARGS_TOS); /* exc_value */
     ADDOP(c, NO_LOCATION, POP_BLOCK, NO_REG_OPARGS);
     ADDOP(c, NO_LOCATION, POP_EXCEPT, NO_REG_OPARGS);
-    ADDOP(c, NO_LOCATION, POP_TOP, NO_REG_OPARGS);
-    ADDOP(c, NO_LOCATION, POP_TOP, NO_REG_OPARGS);
+    ADDOP(c, NO_LOCATION, POP_TOP, REG_OPARGS_TOS);
+    ADDOP(c, NO_LOCATION, POP_TOP, REG_OPARGS_TOS);
     NEW_JUMP_TARGET_LABEL(c, exit);
     ADDOP_JUMP(c, NO_LOCATION, JUMP, exit, NO_REG_OPARGS);
 
@@ -5723,7 +5726,7 @@ compiler_async_with(struct compiler *c, stmt_ty s, int pos)
     }
     else {
     /* Discard result from context.__aenter__() */
-        ADDOP(c, loc, POP_TOP, NO_REG_OPARGS);
+        ADDOP(c, loc, POP_TOP, REG_OPARGS_TOS);
     }
 
     pos++;
@@ -5749,7 +5752,7 @@ compiler_async_with(struct compiler *c, stmt_ty s, int pos)
     ADDOP_LOAD_CONST(c, loc, Py_None, NO_REG_OPARGS);
     ADD_YIELD_FROM(c, loc, 1);
 
-    ADDOP(c, loc, POP_TOP, NO_REG_OPARGS);
+    ADDOP(c, loc, POP_TOP, REG_OPARGS_TOS);
 
     ADDOP_JUMP(c, loc, JUMP, exit, NO_REG_OPARGS);
 
@@ -5820,7 +5823,7 @@ compiler_with(struct compiler *c, stmt_ty s, int pos)
     }
     else {
     /* Discard result from context.__enter__() */
-        ADDOP(c, loc, POP_TOP, NO_REG_OPARGS);
+        ADDOP(c, loc, POP_TOP, REG_OPARGS_TOS);
     }
 
     pos++;
@@ -5841,7 +5844,7 @@ compiler_with(struct compiler *c, stmt_ty s, int pos)
     loc = LOC(s);
     if (!compiler_call_exit_with_nones(c, loc))
         return 0;
-    ADDOP(c, loc, POP_TOP, NO_REG_OPARGS);
+    ADDOP(c, loc, POP_TOP, REG_OPARGS_TOS);
     ADDOP_JUMP(c, loc, JUMP, exit, NO_REG_OPARGS);
 
     /* For exceptional outcome: */
@@ -6094,7 +6097,7 @@ static int
 check_ann_expr(struct compiler *c, expr_ty e)
 {
     VISIT(c, expr, e);
-    ADDOP(c, LOC(e), POP_TOP, NO_REG_OPARGS);
+    ADDOP(c, LOC(e), POP_TOP, REG_OPARGS_TOS);
     return 1;
 }
 
@@ -6415,7 +6418,7 @@ emit_and_reset_fail_pop(struct compiler *c, location loc,
     }
     while (--pc->fail_pop_size) {
         USE_LABEL(c, pc->fail_pop[pc->fail_pop_size]);
-        if (!cfg_builder_addop_noarg(CFG_BUILDER(c), POP_TOP, loc, NO_REG_OPARGS)) {
+        if (!cfg_builder_addop_noarg(CFG_BUILDER(c), POP_TOP, loc, REG_OPARGS_TOS)) {
             pc->fail_pop_size = 0;
             PyObject_Free(pc->fail_pop);
             pc->fail_pop = NULL;
@@ -6450,7 +6453,7 @@ pattern_helper_store_name(struct compiler *c, location loc,
                           identifier n, pattern_context *pc)
 {
     if (n == NULL) {
-        ADDOP(c, loc, POP_TOP, NO_REG_OPARGS);
+        ADDOP(c, loc, POP_TOP, REG_OPARGS_TOS);
         return 1;
     }
     if (forbidden_name(c, loc, n, Store)) {
@@ -6554,7 +6557,7 @@ pattern_helper_sequence_subscr(struct compiler *c, location loc,
     }
     // Pop the subject, we're done with it:
     pc->on_top--;
-    ADDOP(c, loc, POP_TOP, NO_REG_OPARGS);
+    ADDOP(c, loc, POP_TOP, REG_OPARGS_TOS);
     return 1;
 }
 
@@ -6681,7 +6684,7 @@ compiler_pattern_class(struct compiler *c, pattern_ty p, pattern_context *pc)
             pattern = asdl_seq_GET(kwd_patterns, i - nargs);
         }
         if (WILDCARD_CHECK(pattern)) {
-            ADDOP(c, LOC(p), POP_TOP, NO_REG_OPARGS);
+            ADDOP(c, LOC(p), POP_TOP, REG_OPARGS_TOS);
             continue;
         }
         RETURN_IF_FALSE(compiler_pattern_subpattern(c, pattern, pc));
@@ -6714,7 +6717,7 @@ compiler_pattern_mapping(struct compiler *c, pattern_ty p,
     if (!size && !star_target) {
         // If the pattern is just "{}", we're done! Pop the subject:
         pc->on_top--;
-        ADDOP(c, LOC(p), POP_TOP, NO_REG_OPARGS);
+        ADDOP(c, LOC(p), POP_TOP, REG_OPARGS_TOS);
         return 1;
     }
     if (size) {
@@ -6815,8 +6818,8 @@ compiler_pattern_mapping(struct compiler *c, pattern_ty p,
         RETURN_IF_FALSE(pattern_helper_store_name(c, LOC(p), star_target, pc));
     }
     else {
-        ADDOP(c, LOC(p), POP_TOP, NO_REG_OPARGS);  // Tuple of keys.
-        ADDOP(c, LOC(p), POP_TOP, NO_REG_OPARGS);  // Subject.
+        ADDOP(c, LOC(p), POP_TOP, REG_OPARGS_TOS);  // Tuple of keys.
+        ADDOP(c, LOC(p), POP_TOP, REG_OPARGS_TOS);  // Subject.
     }
     return 1;
 
@@ -6927,7 +6930,7 @@ compiler_pattern_or(struct compiler *c, pattern_ty p, pattern_context *pc)
     // Need to NULL this for the PyObject_Free call in the error block.
     old_pc.fail_pop = NULL;
     // No match. Pop the remaining copy of the subject and fail:
-    if (!cfg_builder_addop_noarg(CFG_BUILDER(c), POP_TOP, LOC(p), NO_REG_OPARGS) ||
+    if (!cfg_builder_addop_noarg(CFG_BUILDER(c), POP_TOP, LOC(p), REG_OPARGS_TOS) ||
         !jump_to_fail_pop(c, LOC(p), pc, JUMP)) {
         goto error;
     }
@@ -6965,7 +6968,7 @@ compiler_pattern_or(struct compiler *c, pattern_ty p, pattern_context *pc)
     Py_DECREF(control);
     // NOTE: Returning macros are safe again.
     // Pop the copy of the subject:
-    ADDOP(c, LOC(p), POP_TOP, NO_REG_OPARGS);
+    ADDOP(c, LOC(p), POP_TOP, REG_OPARGS_TOS);
     return 1;
 diff:
     compiler_error(c, LOC(p), "alternative patterns bind different names");
@@ -7024,7 +7027,7 @@ compiler_pattern_sequence(struct compiler *c, pattern_ty p,
     pc->on_top--;
     if (only_wildcard) {
         // Patterns like: [] / [_] / [_, _] / [*_] / [_, *_] / [_, _, *_] / etc.
-        ADDOP(c, LOC(p), POP_TOP, NO_REG_OPARGS);
+        ADDOP(c, LOC(p), POP_TOP, REG_OPARGS_TOS);
     }
     else if (star_wildcard) {
         RETURN_IF_FALSE(pattern_helper_sequence_subscr(c, LOC(p), patterns, star, pc));
@@ -7131,7 +7134,7 @@ compiler_match_inner(struct compiler *c, stmt_ty s, pattern_context *pc)
         }
         // Success! Pop the subject off, we're done with it:
         if (i != cases - has_default - 1) {
-            ADDOP(c, LOC(m->pattern), POP_TOP, NO_REG_OPARGS);
+            ADDOP(c, LOC(m->pattern), POP_TOP, REG_OPARGS_TOS);
         }
         VISIT_SEQ(c, stmt, m->body);
         ADDOP_JUMP(c, NO_LOCATION, JUMP, end, NO_REG_OPARGS);
@@ -7146,7 +7149,7 @@ compiler_match_inner(struct compiler *c, stmt_ty s, pattern_context *pc)
         m = asdl_seq_GET(s->v.Match.cases, cases - 1);
         if (cases == 1) {
             // No matches. Done with the subject:
-            ADDOP(c, LOC(m->pattern), POP_TOP, NO_REG_OPARGS);
+            ADDOP(c, LOC(m->pattern), POP_TOP, REG_OPARGS_TOS);
         }
         else {
             // Show line coverage for default case (it doesn't create bytecode)
@@ -7951,19 +7954,20 @@ assemble_emit_oparg(struct assembler* a, struct instr* i, int which_oparg) {
     inst.i_oparg = -1;
     switch(oparg.type) {
         case OPARG_UNUSED:
-            assert(inst->i_stackdepth >= oparg.value);
-            inst.i_oparg = inst->i_stackdepth - (oparg.value - 1);
             break;
         case OPARG_EXPLICIT:
             inst.i_oparg = oparg.value;
             break;
         case OPARG_STACK:
+            assert(i->i_stackdepth >= oparg.value);
+            inst.i_oparg = i->i_stackdepth - (oparg.value - 1);
+fprintf(stderr, "i->i_opcode = %d  i->i_stackdepth = %d  inst.i_opcode = %d inst.i_oparg = %d\n", i->i_opcode, i->i_stackdepth, inst.i_opcode, inst.i_oparg);
             break;
         default:
             Py_UNREACHABLE();
     }
     if (inst.i_oparg >= 0) {
-        return assemble_emit(a, i);
+        return assemble_emit(a, &inst);
     }
     return 1;
 }
@@ -8626,6 +8630,7 @@ insert_prefix_instructions(struct compiler *c, basicblock *entryblock,
             .i_oparg = 0,
             .i_loc = LOCATION(c->u->u_firstlineno, c->u->u_firstlineno, -1, -1),
             .i_target = NULL,
+            .i_reg_opargs = NO_REG_OPARGS,
         };
         if (insert_instruction(entryblock, 0, &make_gen) < 0) {
             return -1;
@@ -8635,6 +8640,7 @@ insert_prefix_instructions(struct compiler *c, basicblock *entryblock,
             .i_oparg = 0,
             .i_loc = NO_LOCATION,
             .i_target = NULL,
+            .i_reg_opargs = REG_OPARGS_TOS,
         };
         if (insert_instruction(entryblock, 1, &pop_top) < 0) {
             return -1;
