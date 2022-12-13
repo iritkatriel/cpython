@@ -758,13 +758,12 @@ GETITEM(PyObject *v, Py_ssize_t i) {
 #define NEXTOPARG()  do { \
         _Py_CODEUNIT word = *next_instr; \
         opcode = _Py_OPCODE(word); \
-        oparg = _Py_OPARG(word); \
+        oparg = oparg1 = _Py_OPARG(word); \
         if (VERBOSE) fprintf(stderr, "[%d] next_instr = %p opcode = %d\n", __LINE__, next_instr, opcode); \
         word = *(next_instr +1); \
         oparg2 = _Py_OPCODE(word); \
         oparg3 = _Py_OPARG(word); \
         if (VERBOSE) fprintf(stderr, "%d  (%d, %d, %d)\n", opcode, oparg, oparg2, oparg3); \
-        assert(oparg2 == 0 && oparg3 == 0); \
     } while (0)
 #define JUMPTO(x)       (next_instr = _PyCode_CODE(frame->f_code) + (x))
 #define JUMPBY(x)       (next_instr += (x))
@@ -832,6 +831,9 @@ GETITEM(PyObject *v, Py_ssize_t i) {
 #define BASIC_STACKADJ(n) (stack_pointer += n)
 #define BASIC_PUSH(v)     (*stack_pointer++ = (v))
 #define BASIC_POP()       (*--stack_pointer)
+
+#define REG(n)            (frame->localsplus[n])
+
 
 #ifdef Py_DEBUG
 #define PUSH(v)         do { \
@@ -1092,6 +1094,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
     // for the big switch below (in combination with the EXTRA_CASES macro).
     uint8_t opcode;        /* Current opcode */
     int oparg;         /* Current opcode argument, if any */
+    int oparg1;        /* Current opcode argument1, if any */
     int oparg2;        /* Current opcode argument2, if any */
     int oparg3;        /* Current opcode argument3, if any */
     _Py_atomic_int * const eval_breaker = &tstate->interp->ceval.eval_breaker;

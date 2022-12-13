@@ -167,9 +167,29 @@ dummy_func(
             ERROR_IF(res == NULL, error);
         }
 
+        inst(UNARY_POSITIVE_R, (--)) {
+            PyObject *value = REG(oparg1);
+            assert(value != NULL);
+            PyObject *res = PyNumber_Positive(value);
+            PyObject *tmp = REG(oparg2);
+            REG(oparg2) = res;
+            Py_XDECREF(tmp);
+            ERROR_IF(res == NULL, error);
+        }
+
         inst(UNARY_NEGATIVE, (value -- res)) {
             res = PyNumber_Negative(value);
             Py_DECREF(value);
+            ERROR_IF(res == NULL, error);
+        }
+
+        inst(UNARY_NEGATIVE_R, (--)) {
+            PyObject *value = REG(oparg1);
+            assert(value != NULL);
+            PyObject *res = PyNumber_Negative(value);
+            PyObject *tmp = REG(oparg2);
+            REG(oparg2) = res;
+            Py_XDECREF(tmp);
             ERROR_IF(res == NULL, error);
         }
 
@@ -186,9 +206,37 @@ dummy_func(
             Py_INCREF(res);
         }
 
+        inst(UNARY_NOT_R, (--)) {
+            PyObject *value = REG(oparg1);
+            assert(value != NULL);
+            int err = PyObject_IsTrue(value);
+            ERROR_IF(err < 0, error);
+            PyObject *res;
+            if (err == 0) {
+                res = Py_True;
+            }
+            else {
+                res = Py_False;
+            }
+            Py_INCREF(res);
+            PyObject *tmp = REG(oparg2);
+            REG(oparg2) = res;
+            Py_XDECREF(tmp);
+        }
+
         inst(UNARY_INVERT, (value -- res)) {
             res = PyNumber_Invert(value);
             Py_DECREF(value);
+            ERROR_IF(res == NULL, error);
+        }
+
+        inst(UNARY_INVERT_R, (--)) {
+            PyObject *value = REG(oparg1);
+            assert(value != NULL);
+            PyObject *res = PyNumber_Invert(value);
+            PyObject *tmp = REG(oparg2);
+            REG(oparg2) = res;
+            Py_XDECREF(tmp);
             ERROR_IF(res == NULL, error);
         }
 
