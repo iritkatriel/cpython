@@ -1085,7 +1085,7 @@ check_frame_consts(_PyInterpreterFrame *frame, PyObject *consts)
         if (!(frame->localsplus[idx] == PyTuple_GET_ITEM(frame->f_code->co_consts, i))) {
             fprintf(stderr, "\ncheck_frame_consts: %p\n", frame);
             for(int j=0; j < nconsts; j++) {
-                fprintf(stderr, "co_consts[%d] = ", j);
+                fprintf(stderr, "co_consts[%d]         = ", j);
                 if (!PyErr_Occurred()) PyObject_Print(PyTuple_GET_ITEM(frame->f_code->co_consts, j), stderr, 0);
                 fprintf(stderr, "\n");
                 int idx = frame->f_code->co_nlocalsplus + frame->f_code->co_stacksize + j;
