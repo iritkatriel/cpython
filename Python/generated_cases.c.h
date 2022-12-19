@@ -66,6 +66,21 @@
             DISPATCH();
         }
 
+        TARGET(LOAD_CONST_R) {
+            PyObject *value;
+            value = REG(oparg1);
+int oparg = oparg1 - (frame->f_code->co_nlocalsplus + frame->f_code->co_stacksize);
+PyObject *exp_value = GETITEM(consts, oparg);
+if (value != exp_value) {
+  fprintf(stderr, "value = %p exp_value = %p\n", value, exp_value);
+}
+assert (value == exp_value);
+            Py_INCREF(value);
+            STACK_GROW(1);
+            POKE(1, value);
+            DISPATCH();
+        }
+
         TARGET(STORE_FAST) {
             PyObject *value = PEEK(1);
             SETLOCAL(oparg, value);

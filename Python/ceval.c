@@ -1075,6 +1075,30 @@ static inline void _Py_LeaveRecursiveCallPy(PyThreadState *tstate)  {
 #  pragma warning(disable:4102)
 #endif
 
+static void
+check_frame_consts(_PyInterpreterFrame *frame, PyObject *consts)
+{
+    int nconsts = (int)PyTuple_Size(frame->f_code->co_consts);
+    for(int i=0; i < nconsts; i++) {
+        int idx = frame->f_code->co_nlocalsplus + frame->f_code->co_stacksize + i;
+        PyObject_Print(frame->localsplus[idx], stderr, 0);
+        if (!(frame->localsplus[idx] == PyTuple_GET_ITEM(frame->f_code->co_consts, i))) {
+            fprintf(stderr, "\ncheck_frame_consts: %p\n", frame);
+            for(int j=0; j < nconsts; j++) {
+                fprintf(stderr, "co_consts[%d] = ", j);
+                PyObject_Print(PyTuple_GET_ITEM(frame->f_code->co_consts, j), stderr, 0);
+                fprintf(stderr, "\n");
+                int idx = frame->f_code->co_nlocalsplus + frame->f_code->co_stacksize + j;
+                fprintf(stderr, "frame->localsplus[%d] = ", idx);
+                PyObject_Print(frame->localsplus[idx], stderr, 0);
+                fprintf(stderr, "\n");
+            }
+        }
+        assert(frame->localsplus[idx] == PyTuple_GET_ITEM(frame->f_code->co_consts, i));
+    }
+}
+
+
 PyObject* _Py_HOT_FUNCTION
 _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int throwflag)
 {
@@ -1164,6 +1188,8 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
         PyCodeObject *co = frame->f_code; \
         names = co->co_names; \
         consts = co->co_consts; \
+        fprintf(stderr, "SET_LOCALS_FROM_FRAME = %p\n", frame); \
+        check_frame_consts(frame, consts); \
     } \
     assert(_PyInterpreterFrame_LASTI(frame) >= -1); \
     /* Jump back to the last instruction executed... */ \
@@ -1192,6 +1218,7 @@ start_frame:
     }
 
 resume_frame:
+    fprintf(stderr, "resume_frame\n");
     SET_LOCALS_FROM_FRAME();
 
 #ifdef LLTRACE
@@ -1464,6 +1491,7 @@ exit_unwind:
     }
 
 resume_with_error:
+    fprintf(stderr, "resume_with_error\n");
     SET_LOCALS_FROM_FRAME();
     goto error;
 
@@ -2001,9 +2029,11 @@ _PyEvalFramePushAndInit(PyThreadState *tstate, PyFunctionObject *func,
     if (frame == NULL) {
         goto fail;
     }
+fprintf(stderr, "_PyEvalFramePushAndInit: %p\n", frame);
     _PyFrame_InitializeSpecials(frame, func, locals, code);
     PyObject **localsarray = &frame->localsplus[0];
-    for (int i = 0; i < code->co_nlocalsplus; i++) {
+    int nregister = code->co_nlocalsplus + code->co_stacksize + nconsts;
+    for (int i = 0; i < nregister; i++) {
         localsarray[i] = NULL;
     }
     if (initialize_locals(tstate, func, localsarray, args, argcount, kwnames)) {
@@ -2036,6 +2066,13 @@ fail:
 static void
 clear_thread_frame(PyThreadState *tstate, _PyInterpreterFrame * frame)
 {
+
+    fprintf(stderr, "\nclear_thread_frame: %p   file:func = ", frame);
+    PyObject_Print(frame->f_code->co_filename, stderr, 0);
+    fprintf(stderr, ": ");
+    PyObject_Print(frame->f_code->co_name, stderr, 0);
+    fprintf(stderr, "\n");
+
     assert(frame->owner == FRAME_OWNED_BY_THREAD);
     // Make sure that this is, indeed, the top frame. We can't check this in
     // _PyThreadState_PopFrame, since f_code is already cleared at that point:
@@ -2051,6 +2088,7 @@ clear_thread_frame(PyThreadState *tstate, _PyInterpreterFrame * frame)
 static void
 clear_gen_frame(PyThreadState *tstate, _PyInterpreterFrame * frame)
 {
+    fprintf(stderr, "clear_gen_frame: %p\n", frame);
     assert(frame->owner == FRAME_OWNED_BY_GENERATOR);
     PyGenObject *gen = _PyFrame_GetGenerator(frame);
     gen->gi_frame_state = FRAME_CLEARED;

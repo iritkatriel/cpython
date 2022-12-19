@@ -156,6 +156,17 @@ dummy_func(
             Py_INCREF(value);
         }
 
+        inst(LOAD_CONST_R, (-- value)) {
+            value = REG(oparg1);
+int oparg = oparg1 - (frame->f_code->co_nlocalsplus + frame->f_code->co_stacksize);
+PyObject *exp_value = GETITEM(consts, oparg);
+if (value != exp_value) {
+  fprintf(stderr, "value = %p exp_value = %p\n", value, exp_value);
+}
+assert (value == exp_value);
+            Py_INCREF(value);
+        }
+
         inst(STORE_FAST, (value --)) {
             SETLOCAL(oparg, value);
         }
