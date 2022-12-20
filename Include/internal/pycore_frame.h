@@ -225,7 +225,7 @@ _PyFrame_PushUnchecked(PyThreadState *tstate, PyFunctionObject *func)
         PyObject **const_regs = new_frame->localsplus + (code->co_nlocalsplus +
                                                          code->co_stacksize);
         PyObject **consts = &PyTuple_GET_ITEM(code->co_consts, 0);
-        Py_MEMCPY(const_regs, consts, sizeof(PyObject*) * nconsts);
+        memcpy(const_regs, consts, sizeof(PyObject*) * nconsts);
     }
     return new_frame;
 }
