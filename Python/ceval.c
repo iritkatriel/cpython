@@ -1151,7 +1151,6 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
      * These are cached values from the frame and code object.  */
 
     PyObject *names;
-    PyObject *consts;
     _Py_CODEUNIT *next_instr;
     PyObject **stack_pointer;
 
@@ -1160,7 +1159,6 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
     { \
         PyCodeObject *co = frame->f_code; \
         names = co->co_names; \
-        consts = co->co_consts; \
     } \
     assert(_PyInterpreterFrame_LASTI(frame) >= -1); \
     assert(const_registers_are_correct(frame)); \

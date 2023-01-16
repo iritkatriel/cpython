@@ -149,7 +149,7 @@ dummy_func(
         }
 
         inst(LOAD_CONST, (-- value)) {
-            value = GETITEM(consts, oparg);
+            value = GETLOCAL(oparg);
             Py_INCREF(value);
         }
 
@@ -2564,8 +2564,8 @@ dummy_func(
         // stack effect: ( -- )
         inst(KW_NAMES) {
             assert(kwnames == NULL);
-            assert(oparg < PyTuple_GET_SIZE(consts));
-            kwnames = GETITEM(consts, oparg);
+            // assert(oparg < PyTuple_GET_SIZE(consts));
+            kwnames = GETLOCAL(oparg);
         }
 
         // stack effect: (__0, __array[oparg] -- )

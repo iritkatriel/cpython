@@ -49,7 +49,7 @@
         TARGET(LOAD_CONST) {
             PREDICTED(LOAD_CONST);
             PyObject *value;
-            value = GETITEM(consts, oparg);
+            value = GETLOCAL(oparg);
             Py_INCREF(value);
             STACK_GROW(1);
             POKE(1, value);
@@ -102,7 +102,7 @@
             JUMPBY(1);
             {
                 PyObject *value;
-                value = GETITEM(consts, oparg);
+                value = GETLOCAL(oparg);
                 Py_INCREF(value);
                 _tmp_1 = value;
             }
@@ -153,7 +153,7 @@
             PyObject *_tmp_2;
             {
                 PyObject *value;
-                value = GETITEM(consts, oparg);
+                value = GETLOCAL(oparg);
                 Py_INCREF(value);
                 _tmp_2 = value;
             }
@@ -2901,8 +2901,8 @@
 
         TARGET(KW_NAMES) {
             assert(kwnames == NULL);
-            assert(oparg < PyTuple_GET_SIZE(consts));
-            kwnames = GETITEM(consts, oparg);
+            // assert(oparg < PyTuple_GET_SIZE(consts));
+            kwnames = GETLOCAL(oparg);
             DISPATCH();
         }
 

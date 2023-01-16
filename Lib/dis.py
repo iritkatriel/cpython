@@ -351,9 +351,10 @@ def get_instructions(x, *, first_line=None, show_caches=False, adaptive=False):
                                    co.co_names, co.co_consts,
                                    linestarts, line_offset,
                                    co_positions=co.co_positions(),
-                                   show_caches=show_caches)
+                                   show_caches=show_caches,
+                                   consts_idx=_get_consts_idx(co))
 
-def _get_const_value(op, arg, co_consts):
+def _get_const_value(op, arg, co_consts, consts_idx=-1):
     """Helper to get the value of the const in a hasconst op.
 
        Returns the dereferenced constant if this is possible.
@@ -364,11 +365,14 @@ def _get_const_value(op, arg, co_consts):
 
     argval = UNKNOWN
     if op == LOAD_CONST:
-        if co_consts is not None:
-            argval = co_consts[arg]
+        if consts_idx >= 0 and co_consts is not None:
+            argval = co_consts[arg - consts_idx]
     return argval
 
-def _get_const_info(op, arg, co_consts):
+def _get_consts_idx(co):
+    return co.co_nlocals + co.co_stacksize + len(co.co_freevars)
+
+def _get_const_info(op, arg, co_consts, consts_idx=-1):
     """Helper to get optional details about const references
 
        Returns the dereferenced constant and its repr if the value
@@ -376,7 +380,7 @@ def _get_const_info(op, arg, co_consts):
        Otherwise returns the sentinel value dis.UNKNOWN for the value
        and an empty string for its repr.
     """
-    argval = _get_const_value(op, arg, co_consts)
+    argval = _get_const_value(op, arg, co_consts, consts_idx=consts_idx)
     argrepr = repr(argval) if argval is not UNKNOWN else ''
     return argval, argrepr
 
@@ -426,7 +430,7 @@ def _get_instructions_bytes(code, varname_from_oparg=None,
                             names=None, co_consts=None,
                             linestarts=None, line_offset=0,
                             exception_entries=(), co_positions=None,
-                            show_caches=False):
+                            show_caches=False, consts_idx=-1):
     """Iterate over the instructions in a bytecode string.
 
     Generates a sequence of Instruction namedtuples giving the details of each
@@ -459,7 +463,8 @@ def _get_instructions_bytes(code, varname_from_oparg=None,
             #    raw name index for LOAD_GLOBAL, LOAD_CONST, etc.
             argval = arg
             if deop in hasconst:
-                argval, argrepr = _get_const_info(deop, arg, co_consts)
+                argval, argrepr = _get_const_info(deop, arg, co_consts,
+                                                  consts_idx=consts_idx)
             elif deop in hasname:
                 if deop == LOAD_GLOBAL:
                     argval, argrepr = _get_name_info(arg//2, get_name)
@@ -531,7 +536,8 @@ def disassemble(co, lasti=-1, *, file=None, show_caches=False, adaptive=False):
                        lasti, co._varname_from_oparg,
                        co.co_names, co.co_consts, linestarts, file=file,
                        exception_entries=exception_entries,
-                       co_positions=co.co_positions(), show_caches=show_caches)
+                       co_positions=co.co_positions(), show_caches=show_caches,
+                       consts_idx=_get_consts_idx(co))
 
 def _disassemble_recursive(co, *, file=None, depth=None, show_caches=False, adaptive=False):
     disassemble(co, file=file, show_caches=show_caches, adaptive=adaptive)
@@ -549,7 +555,7 @@ def _disassemble_recursive(co, *, file=None, depth=None, show_caches=False, adap
 def _disassemble_bytes(code, lasti=-1, varname_from_oparg=None,
                        names=None, co_consts=None, linestarts=None,
                        *, file=None, line_offset=0, exception_entries=(),
-                       co_positions=None, show_caches=False):
+                       co_positions=None, show_caches=False, consts_idx=-1):
     # Omit the line number column entirely if we have no line number info
     show_lineno = bool(linestarts)
     if show_lineno:
@@ -570,7 +576,8 @@ def _disassemble_bytes(code, lasti=-1, varname_from_oparg=None,
                                          line_offset=line_offset,
                                          exception_entries=exception_entries,
                                          co_positions=co_positions,
-                                         show_caches=show_caches):
+                                         show_caches=show_caches,
+                                         consts_idx=consts_idx):
         new_source_line = (show_lineno and
                            instr.starts_line is not None and
                            instr.offset > 0)
@@ -671,13 +678,16 @@ def _find_imports(co):
     names = co.co_names
     opargs = [(op, arg) for _, op, arg in _unpack_opargs(co.co_code)
                   if op != EXTENDED_ARG]
+    consts_idx = _get_consts_idx(co)
     for i, (op, oparg) in enumerate(opargs):
         if op == IMPORT_NAME and i >= 2:
             from_op = opargs[i-1]
             level_op = opargs[i-2]
             if (from_op[0] in hasconst and level_op[0] in hasconst):
-                level = _get_const_value(level_op[0], level_op[1], consts)
-                fromlist = _get_const_value(from_op[0], from_op[1], consts)
+                level = _get_const_value(level_op[0], level_op[1], consts,
+                                         consts_idx=consts_idx)
+                fromlist = _get_const_value(from_op[0], from_op[1], consts,
+                                            consts_idx=consts_idx)
                 yield (names[oparg], level, fromlist)
 
 def _find_store_names(co):
@@ -728,7 +738,8 @@ class Bytecode:
                                        line_offset=self._line_offset,
                                        exception_entries=self.exception_entries,
                                        co_positions=co.co_positions(),
-                                       show_caches=self.show_caches)
+                                       show_caches=self.show_caches,
+                                       consts_idx=_get_consts_idx(co))
 
     def __repr__(self):
         return "{}({!r})".format(self.__class__.__name__,
@@ -764,7 +775,8 @@ class Bytecode:
                                lasti=offset,
                                exception_entries=self.exception_entries,
                                co_positions=co.co_positions(),
-                               show_caches=self.show_caches)
+                               show_caches=self.show_caches,
+                               consts_idx=_get_consts_idx(co))
             return output.getvalue()
 
 

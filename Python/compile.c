@@ -8759,6 +8759,20 @@ add_return_at_end_of_block(struct compiler *c, int addNone)
     return SUCCESS;
 }
 
+static int
+fix_const_args(basicblock *entryblock, int first_const)
+{
+    for (basicblock *b = entryblock; b != NULL; b = b->b_next) {
+        for (int i = 0; i < b->b_iused; i++) {
+            struct instr *instr = &b->b_instr[i];
+            if (HAS_CONST(instr->i_opcode)) {
+                instr->i_oparg += first_const;
+            }
+        }
+    }
+    return SUCCESS;
+}
+
 static PyCodeObject *
 assemble(struct compiler *c, int addNone)
 {
@@ -8858,6 +8872,10 @@ assemble(struct compiler *c, int addNone)
 
     assert(no_redundant_jumps(g));
     assert(opcode_metadata_is_sane(g));
+
+    if (fix_const_args(g->g_entryblock, nlocalsplus + maxdepth) < 0) {
+        goto error;
+    }
 
     /* Can't modify the bytecode after computing jump offsets. */
     assemble_jump_offsets(g->g_entryblock);
