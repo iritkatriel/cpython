@@ -102,11 +102,10 @@ _PyFrame_NumSlotsForCodeObject(PyCodeObject *code)
 }
 
 static inline PyObject**
-_PyFrame_ConstRegisters(_PyInterpreterFrame *f) {
+_PyFrame_ConstRegisters(_PyInterpreterFrame *f, int nconsts) {
     // the consts are placed in the last nconsts slots
     PyCodeObject *co = f->f_code;
     int nslots = _PyFrame_NumSlotsForCodeObject(co);
-    int nconsts = (int)PyTuple_Size(co->co_consts);
     assert(nslots >= nconsts);
     return f->localsplus + (nslots - nconsts);
 }
@@ -139,7 +138,7 @@ _PyFrame_Initialize(
 
     int nconsts = (int)PyTuple_Size(code->co_consts);
     if (nconsts > 0) {
-        PyObject **const_regs = _PyFrame_ConstRegisters(frame);
+        PyObject **const_regs = _PyFrame_ConstRegisters(frame, nconsts);
         PyObject **consts = &PyTuple_GET_ITEM(code->co_consts, 0);
         memcpy(const_regs, consts, sizeof(PyObject*) * nconsts);
     }

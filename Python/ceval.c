@@ -246,8 +246,8 @@ static int
 const_registers_are_correct(_PyInterpreterFrame *frame)
 {
     PyCodeObject *co = frame->f_code;
-    PyObject **const_regs = _PyFrame_ConstRegisters(frame);
     Py_ssize_t nconsts = PyTuple_Size(co->co_consts);
+    PyObject **const_regs = _PyFrame_ConstRegisters(frame, nconsts);
     for (Py_ssize_t i = 0; i < nconsts; i++) {
         PyObject *co_const = PyTuple_GET_ITEM(co->co_consts, i);
         PyObject *reg = const_regs[i];
