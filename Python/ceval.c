@@ -1,5 +1,7 @@
 /* Execute compiled code */
 
+/* Make a NULL change to fool the benchmarking machine into comparing this with base */
+
 /* XXX TO DO:
    XXX speed up searching for keywords by using a dictionary
    XXX document it!
