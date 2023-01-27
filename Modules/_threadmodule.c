@@ -260,7 +260,7 @@ static PyMethodDef lock_methods[] = {
     {"acquire",      _PyCFunction_CAST(lock_PyThread_acquire_lock),
      METH_VARARGS | METH_KEYWORDS, acquire_doc},
     {"release_lock", (PyCFunction)lock_PyThread_release_lock,
-     METH_O, release_doc},
+     METH_NOARGS, release_doc},
     {"release",      (PyCFunction)lock_PyThread_release_lock,
      METH_NOARGS, release_doc},
     {"locked_lock",  (PyCFunction)lock_locked_lock,
@@ -563,7 +563,7 @@ static PyMethodDef rlock_methods[] = {
     {"__enter__",    _PyCFunction_CAST(rlock_acquire),
      METH_VARARGS | METH_KEYWORDS, rlock_acquire_doc},
     {"__exit__",    (PyCFunction)rlock_release,
-     METH_O, rlock_release_doc},
+     METH_VARARGS, rlock_release_doc},
 #ifdef HAVE_FORK
     {"_at_fork_reinit",    (PyCFunction)rlock__at_fork_reinit,
      METH_NOARGS, NULL},

@@ -1827,7 +1827,7 @@ ctxmanager_restore_global(PyDecContextManagerObject *self,
 
 static PyMethodDef ctxmanager_methods[] = {
   {"__enter__", (PyCFunction)ctxmanager_set_local, METH_NOARGS, NULL},
-  {"__exit__", (PyCFunction)ctxmanager_restore_global, METH_O, NULL},
+  {"__exit__", (PyCFunction)ctxmanager_restore_global, METH_VARARGS, NULL},
   {NULL, NULL}
 };
 
