@@ -1223,6 +1223,8 @@ stack_effect(int opcode, int oparg, int jump)
         case PUSH_EXC_INFO:
             return 1;
 
+        case CALL_EXIT_WITH_NONES:
+            return 0;
         case WITH_EXCEPT_START:
             return 1;
 
@@ -1942,16 +1944,6 @@ compiler_pop_fblock(struct compiler *c, enum fblocktype t, jump_target_label blo
 }
 
 static int
-compiler_call_exit_with_nones(struct compiler *c, location loc)
-{
-    ADDOP_LOAD_CONST(c, loc, Py_None);
-    ADDOP_LOAD_CONST(c, loc, Py_None);
-    ADDOP_LOAD_CONST(c, loc, Py_None);
-    ADDOP_I(c, loc, CALL, 2);
-    return SUCCESS;
-}
-
-static int
 compiler_add_yield_from(struct compiler *c, location loc, int await)
 {
     NEW_JUMP_TARGET_LABEL(c, send);
@@ -2056,7 +2048,7 @@ compiler_unwind_fblock(struct compiler *c, location *ploc,
             if (preserve_tos) {
                 ADDOP_I(c, *ploc, SWAP, 2);
             }
-            RETURN_IF_ERROR(compiler_call_exit_with_nones(c, *ploc));
+            ADDOP(c, *ploc, CALL_EXIT_WITH_NONES);
             if (info->fb_type == ASYNC_WITH) {
                 ADDOP_I(c, *ploc, GET_AWAITABLE, 2);
                 ADDOP_LOAD_CONST(c, *ploc, Py_None);
@@ -5632,7 +5624,7 @@ compiler_async_with(struct compiler *c, stmt_ty s, int pos)
     /* For successful outcome:
      * call __exit__(None, None, None)
      */
-    RETURN_IF_ERROR(compiler_call_exit_with_nones(c, loc));
+    ADDOP(c, loc, CALL_EXIT_WITH_NONES);
     ADDOP_I(c, loc, GET_AWAITABLE, 2);
     ADDOP_LOAD_CONST(c, loc, Py_None);
     ADD_YIELD_FROM(c, loc, 1);
@@ -5727,7 +5719,7 @@ compiler_with(struct compiler *c, stmt_ty s, int pos)
      * call __exit__(None, None, None)
      */
     loc = LOC(s);
-    RETURN_IF_ERROR(compiler_call_exit_with_nones(c, loc));
+    ADDOP(c, loc, CALL_EXIT_WITH_NONES);
     ADDOP(c, loc, POP_TOP);
     ADDOP_JUMP(c, loc, JUMP, exit);
 
