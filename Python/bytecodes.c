@@ -2362,14 +2362,9 @@ dummy_func(
         }
 
         inst(CALL_EXIT_WITH_NONES, (exit_func -- res)) {
-            if (is_legacy___exit__(exit_func)) {
-                PyObject *stack[4] = {NULL, Py_None, Py_None, Py_None};
-                res = PyObject_Vectorcall(exit_func, stack + 1,
-                        3 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
-            }
-            else {
-                res = PyObject_CallOneArg(exit_func, Py_None);
-            }
+            PyObject *stack[4] = {NULL, Py_None, Py_None, Py_None};
+            res = PyObject_Vectorcall(exit_func, stack + 1,
+                    3 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
             DECREF_INPUTS();
             ERROR_IF(res == NULL, error);
         }
@@ -2388,18 +2383,13 @@ dummy_func(
             assert(PyLong_Check(lasti));
             (void)lasti; // Shut up compiler warning if asserts are off
 
-            if (is_legacy___exit__(exit_func)) {
-                PyObject *exc = PyExceptionInstance_Class(val);
-                PyObject *tb = PyException_GetTraceback(val);
-                Py_XDECREF(tb);
+            PyObject *exc = PyExceptionInstance_Class(val);
+            PyObject *tb = PyException_GetTraceback(val);
+            Py_XDECREF(tb);
 
-                PyObject *stack[4] = {NULL, exc, val, tb};
-                res = PyObject_Vectorcall(exit_func, stack + 1,
-                        3 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
-            }
-            else {
-                res = PyObject_CallOneArg(exit_func, val);
-            }
+            PyObject *stack[4] = {NULL, exc, val, tb};
+            res = PyObject_Vectorcall(exit_func, stack + 1,
+                    3 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
             ERROR_IF(res == NULL, error);
         }
 

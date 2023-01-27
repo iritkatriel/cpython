@@ -541,7 +541,6 @@ fail:
 
 
 static int do_raise(PyThreadState *tstate, PyObject *exc, PyObject *cause);
-static int is_legacy___exit__(PyObject *exit_func);
 static int exception_group_match(
     PyObject* exc_value, PyObject *match_type,
     PyObject **match, PyObject **rest);
@@ -1789,27 +1788,6 @@ fail:
     PyMem_Free(newargs);
     Py_DECREF(defaults);
     return res;
-}
-
-static int
-is_legacy___exit__(PyObject *exit_func) {
-    if (PyMethod_Check(exit_func)) {
-        PyObject *func = PyMethod_GET_FUNCTION(exit_func);
-        if (PyFunction_Check(func)) {
-            PyCodeObject *code = (PyCodeObject*)PyFunction_GetCode(func);
-            if (code->co_argcount == 2) {
-                /* Python method that expects self + one more arg */
-                return false;
-            }
-        }
-    }
-    else if (PyCFunction_Check(exit_func)) {
-        if (PyCFunction_GET_FLAGS(exit_func) == METH_O) {
-            /* C function declared as single-arg */
-            return false;
-        }
-    }
-    return true;
 }
 
 /* Logic for the raise statement (too complicated for inlining).
