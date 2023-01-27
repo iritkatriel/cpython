@@ -749,5 +749,71 @@ class NestedWith(unittest.TestCase):
             self.assertEqual(10, b1)
             self.assertEqual(20, b2)
 
+
+class TestSingleArgExit(unittest.TestCase):
+    class CM:
+        def __init__(self, exit_raises=None, exit_returns=None):
+            self.exit_raises = exit_raises
+            self.exit_returns = exit_returns
+
+            self.enter_called = False
+            self.exit_called = False
+            self.exit_arg = False
+
+        def __enter__(self):
+            self.enter_called = True
+            return self
+
+        def __exit__(self, exc):
+            self.exit_called = True
+            self.exit_arg = exc
+            if self.exit_raises:
+                raise self.exit_raises
+            return self.exit_returns
+
+    def test_no_exception(self):
+        with self.CM() as cm:
+            self.assertTrue(cm.enter_called)
+        self.assertTrue(cm.exit_called)
+        self.assertEqual(cm.exit_arg, None)
+
+    def test_no_exception(self):
+        with self.CM() as cm:
+            self.assertTrue(cm.enter_called)
+        self.assertTrue(cm.exit_called)
+        self.assertEqual(cm.exit_arg, None)
+
+    def test_exception(self):
+        try:
+            with self.CM() as cm:
+                self.assertTrue(cm.enter_called)
+                raise ValueError(42)
+        except ValueError as e:
+            caught = e
+        self.assertTrue(cm.exit_called)
+        self.assertEqual(caught, cm.exit_arg)
+        self.assertIsInstance(cm.exit_arg, ValueError)
+        self.assertEqual(cm.exit_arg.args, (42,))
+
+    def test_exception_suppressed(self):
+        with self.CM(exit_returns=True) as cm:
+            self.assertTrue(cm.enter_called)
+            raise ValueError(42)
+        self.assertTrue(cm.exit_called)
+        self.assertIsInstance(cm.exit_arg, ValueError)
+        self.assertEqual(cm.exit_arg.args, (42,))
+
+    def test_exception_from_exit(self):
+        try:
+            with self.CM(exit_raises=TypeError(55)) as cm:
+                self.assertTrue(cm.enter_called)
+        except Exception as e:
+            caught = e
+        self.assertTrue(cm.exit_called)
+        self.assertEqual(cm.exit_arg, None)
+        self.assertIsInstance(caught, TypeError)
+        self.assertEqual(caught.args, (55,))
+
+
 if __name__ == '__main__':
     unittest.main()
