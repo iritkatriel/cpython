@@ -1223,6 +1223,8 @@ stack_effect(int opcode, int oparg, int jump)
         case PUSH_EXC_INFO:
             return 1;
 
+        case CALL_EXIT_WITH_NONES:
+            return 0;
         case WITH_EXCEPT_START:
             return 1;
 
@@ -1944,10 +1946,13 @@ compiler_pop_fblock(struct compiler *c, enum fblocktype t, jump_target_label blo
 static int
 compiler_call_exit_with_nones(struct compiler *c, location loc)
 {
+    ADDOP(c, loc, CALL_EXIT_WITH_NONES);
+/*
     ADDOP_LOAD_CONST(c, loc, Py_None);
     ADDOP_LOAD_CONST(c, loc, Py_None);
     ADDOP_LOAD_CONST(c, loc, Py_None);
     ADDOP_I(c, loc, CALL, 2);
+*/
     return SUCCESS;
 }
 
