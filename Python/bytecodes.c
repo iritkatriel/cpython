@@ -2370,6 +2370,7 @@ dummy_func(
             else {
                 res = PyObject_CallOneArg(exit_func, Py_None);
             }
+            DECREF_INPUTS();
             ERROR_IF(res == NULL, error);
         }
 

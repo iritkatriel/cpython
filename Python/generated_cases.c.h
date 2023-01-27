@@ -2786,6 +2786,7 @@
             else {
                 res = PyObject_CallOneArg(exit_func, Py_None);
             }
+            Py_DECREF(exit_func);
             if (res == NULL) goto pop_1_error;
             POKE(1, res);
             DISPATCH();
