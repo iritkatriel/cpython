@@ -896,7 +896,7 @@ static PyMethodDef oss_methods[] = {
 
     /* Support for the context management protocol */
     { "__enter__",      oss_self, METH_NOARGS },
-    { "__exit__",       oss_exit, METH_VARARGS },
+    { "__exit__",       oss_exit, METH_O },
 
     { NULL,             NULL}           /* sentinel */
 };
@@ -908,7 +908,7 @@ static PyMethodDef oss_mixer_methods[] = {
 
     /* Support for the context management protocol */
     { "__enter__",      oss_self, METH_NOARGS },
-    { "__exit__",       oss_exit, METH_VARARGS },
+    { "__exit__",       oss_exit, METH_O },
 
     /* Simple ioctl wrappers */
     { "controls",       (PyCFunction)oss_mixer_controls, METH_VARARGS },

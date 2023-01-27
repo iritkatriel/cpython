@@ -14489,7 +14489,7 @@ ScandirIterator_dealloc(ScandirIterator *iterator)
 
 static PyMethodDef ScandirIterator_methods[] = {
     {"__enter__", (PyCFunction)ScandirIterator_enter, METH_NOARGS},
-    {"__exit__", (PyCFunction)ScandirIterator_exit, METH_VARARGS},
+    {"__exit__", (PyCFunction)ScandirIterator_exit, METH_O},
     {"close", (PyCFunction)ScandirIterator_close, METH_NOARGS},
     {NULL}
 };
