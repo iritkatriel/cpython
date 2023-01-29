@@ -687,19 +687,15 @@ _multiprocessing_SemLock___enter___impl(SemLockObject *self)
 /*[clinic input]
 _multiprocessing.SemLock.__exit__
 
-    exc_type: object = None
-    exc_value: object = None
-    exc_tb: object = None
+    exc: object = None
     /
 
 Exit the semaphore/lock.
 [clinic start generated code]*/
 
 static PyObject *
-_multiprocessing_SemLock___exit___impl(SemLockObject *self,
-                                       PyObject *exc_type,
-                                       PyObject *exc_value, PyObject *exc_tb)
-/*[clinic end generated code: output=3b37c1a9f8b91a03 input=7d644b64a89903f8]*/
+_multiprocessing_SemLock___exit___impl(SemLockObject *self, PyObject *exc)
+/*[clinic end generated code: output=9ddd9147e7235e67 input=fa43d5e731f5bbbd]*/
 {
     return _multiprocessing_SemLock_release_impl(self);
 }

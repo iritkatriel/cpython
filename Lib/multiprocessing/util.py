@@ -378,8 +378,8 @@ class ForkAwareThreadLock(object):
     def __enter__(self):
         return self._lock.__enter__()
 
-    def __exit__(self, *args):
-        return self._lock.__exit__(*args)
+    def __exit__(self, exc):
+        return self._lock.__exit__(exc)
 
 
 class ForkAwareLocal(threading.local):

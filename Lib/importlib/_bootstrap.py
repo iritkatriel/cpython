@@ -82,7 +82,7 @@ class _BlockingOnManager:
         self.blocked_on = _blocking_on.setdefault(self.thread_id, [])
         self.blocked_on.append(self.lock)
 
-    def __exit__(self, *args, **kwargs):
+    def __exit__(self, exc):
         """Remove self.lock from this thread's _blocking_on list."""
         self.blocked_on.remove(self.lock)
 
@@ -329,7 +329,7 @@ class _ModuleLockManager:
         self._lock = _get_module_lock(self._name)
         self._lock.acquire()
 
-    def __exit__(self, *args, **kwargs):
+    def __exit__(self, exc):
         self._lock.release()
 
 
@@ -1158,7 +1158,7 @@ class _ImportLockContext:
         """Acquire the import lock."""
         _imp.acquire_lock()
 
-    def __exit__(self, exc_type, exc_value, exc_traceback):
+    def __exit__(self, exc):
         """Release the import lock regardless of any raised exceptions."""
         _imp.release_lock()
 

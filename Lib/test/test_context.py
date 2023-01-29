@@ -419,7 +419,7 @@ class HaskKeyCrasher:
             raise RuntimeError('cannot nest crashers')
         HashKey._crasher = self
 
-    def __exit__(self, *exc):
+    def __exit__(self, exc):
         HashKey._crasher = None
 
 

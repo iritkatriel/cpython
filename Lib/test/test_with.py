@@ -21,11 +21,10 @@ class MockContextManager(_GeneratorContextManager):
         self.enter_called = True
         return _GeneratorContextManager.__enter__(self)
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exc):
         self.exit_called = True
-        self.exit_args = (type, value, traceback)
-        return _GeneratorContextManager.__exit__(self, type,
-                                                 value, traceback)
+        self.exit_args = exc
+        return _GeneratorContextManager.__exit__(self, exc)
 
 
 def mock_contextmanager(func):
@@ -66,24 +65,24 @@ class Nested(object):
                 vars.append(mgr.__enter__())
                 self.entered.appendleft(mgr)
         except:
-            if not self.__exit__(*sys.exc_info()):
+            if not self.__exit__(sys.exception()):
                 raise
         return vars
 
-    def __exit__(self, *exc_info):
+    def __exit__(self, exc):
         # Behave like nested with statements
         # first in, last out
         # New exceptions override old ones
-        ex = exc_info
+        ex = exc
         for mgr in self.entered:
             try:
-                if mgr.__exit__(*ex):
-                    ex = (None, None, None)
+                if mgr.__exit__(exc):
+                    ex = None
             except:
-                ex = sys.exc_info()
+                ex = sys.exception()
         self.entered = None
-        if ex is not exc_info:
-            raise ex[0](ex[1]).with_traceback(ex[2])
+        if ex is not exc:
+            raise ex
 
 
 class MockNested(Nested):
@@ -97,10 +96,10 @@ class MockNested(Nested):
         self.enter_called = True
         return Nested.__enter__(self)
 
-    def __exit__(self, *exc_info):
+    def __exit__(self, exc):
         self.exit_called = True
-        self.exit_args = exc_info
-        return Nested.__exit__(self, *exc_info)
+        self.exit_args = exc
+        return Nested.__exit__(self, exc)
 
 
 class FailureTestCase(unittest.TestCase):
@@ -111,7 +110,7 @@ class FailureTestCase(unittest.TestCase):
 
     def testEnterAttributeError1(self):
         class LacksEnter(object):
-            def __exit__(self, type, value, traceback):
+            def __exit__(self, exc):
                 pass
 
         def fooLacksEnter():
@@ -164,7 +163,7 @@ class FailureTestCase(unittest.TestCase):
         class EnterThrows(object):
             def __enter__(self):
                 raise RuntimeError("Enter threw")
-            def __exit__(self, *args):
+            def __exit__(self, exc):
                 pass
 
         def shouldThrow():
@@ -179,7 +178,7 @@ class FailureTestCase(unittest.TestCase):
         class ExitThrows(object):
             def __enter__(self):
                 return
-            def __exit__(self, *args):
+            def __exit__(self, exc):
                 raise RuntimeError(42)
         def shouldThrow():
             with ExitThrows():
@@ -466,7 +465,7 @@ class ExceptionalTestCase(ContextmanagerAssertionMixin, unittest.TestCase):
         class cm(object):
             def __enter__(self):
                 pass
-            def __exit__(self, type, value, traceback):
+            def __exit__(self, exc):
                 pass
 
         def shouldThrow():
@@ -507,7 +506,7 @@ class ExceptionalTestCase(ContextmanagerAssertionMixin, unittest.TestCase):
         class cm (object):
             def __enter__(self):
                 pass
-            def __exit__(self, type, value, traceback):
+            def __exit__(self, exc):
                 pass
 
         def shouldThrow():
@@ -528,7 +527,7 @@ class ExceptionalTestCase(ContextmanagerAssertionMixin, unittest.TestCase):
                 self.exit_result = Bool()
             def __enter__(self):
                 return 3
-            def __exit__(self, a, b, c):
+            def __exit__(self, exc):
                 return self.exit_result
 
         def trueAsBool():
@@ -626,7 +625,7 @@ class AssignmentTargetTestCase(unittest.TestCase):
     def testMultipleComplexTargets(self):
         class C:
             def __enter__(self): return 1, 2, 3
-            def __exit__(self, t, v, tb): pass
+            def __exit__(self, exc): pass
         targets = {1: [0, 1, 2]}
         with C() as (targets[1][0], targets[1][1], targets[1][2]):
             self.assertEqual(targets, {1: [1, 2, 3]})
@@ -653,7 +652,7 @@ class ExitSwallowsExceptionTestCase(unittest.TestCase):
     def testExitTrueSwallowsException(self):
         class AfricanSwallow:
             def __enter__(self): pass
-            def __exit__(self, t, v, tb): return True
+            def __exit__(self, exc): return True
         try:
             with AfricanSwallow():
                 1/0
@@ -663,7 +662,7 @@ class ExitSwallowsExceptionTestCase(unittest.TestCase):
     def testExitFalseDoesntSwallowException(self):
         class EuropeanSwallow:
             def __enter__(self): pass
-            def __exit__(self, t, v, tb): return False
+            def __exit__(self, exc): return False
         try:
             with EuropeanSwallow():
                 1/0
@@ -688,9 +687,9 @@ class NestedWith(unittest.TestCase):
             self.enter_called = True
             return self.value
 
-        def __exit__(self, *exc_info):
+        def __exit__(self, exc):
             self.exit_called = True
-            self.exc_info = exc_info
+            self.exc_info = exc
             if self.gobble:
                 return True
 
@@ -699,11 +698,11 @@ class NestedWith(unittest.TestCase):
 
     class EnterRaises(object):
         def __enter__(self): raise RuntimeError()
-        def __exit__(self, *exc_info): pass
+        def __exit__(self, exc): pass
 
     class ExitRaises(object):
         def __enter__(self): pass
-        def __exit__(self, *exc_info): raise RuntimeError()
+        def __exit__(self, exc): raise RuntimeError()
 
     def testNoExceptions(self):
         with self.Dummy() as a, self.Dummy() as b:

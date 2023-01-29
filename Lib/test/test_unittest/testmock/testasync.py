@@ -590,12 +590,12 @@ class AsyncContextManagerTest(unittest.TestCase):
     class WithAsyncContextManager:
         async def __aenter__(self, *args, **kwargs): pass
 
-        async def __aexit__(self, *args, **kwargs): pass
+        async def __aexit__(self, exc): pass
 
     class WithSyncContextManager:
         def __enter__(self, *args, **kwargs): pass
 
-        def __exit__(self, *args, **kwargs): pass
+        def __exit__(self, exc): pass
 
     class ProductionCode:
         # Example real-world(ish) code

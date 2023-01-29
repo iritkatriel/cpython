@@ -4820,7 +4820,7 @@ class AsyncIteratorWrapper(typing.AsyncIterator[T_a]):
 class ACM:
     async def __aenter__(self) -> int:
         return 42
-    async def __aexit__(self, etype, eval, tb):
+    async def __aexit__(self, exc):
         return None
 
 class A:

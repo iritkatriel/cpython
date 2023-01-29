@@ -1521,7 +1521,7 @@ class PythonSymlink:
             self._linked.append(link)
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_tb):
+    def __exit__(self, exc):
         for link in self._linked:
             try:
                 os.remove(link)
@@ -1727,7 +1727,7 @@ class SuppressCrashReport:
 
         return self
 
-    def __exit__(self, *ignore_exc):
+    def __exit__(self, exc):
         """Restore Windows ErrorMode or core file behavior to initial value."""
         if self.old_value is None:
             return
@@ -2089,7 +2089,7 @@ class catch_unraisable_exception:
         sys.unraisablehook = self._hook
         return self
 
-    def __exit__(self, *exc_info):
+    def __exit__(self, exc):
         sys.unraisablehook = self._old_hook
         del self.unraisable
 

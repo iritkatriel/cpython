@@ -392,7 +392,7 @@ class TestPartialC(TestPartial, unittest.TestCase):
     class AllowPickle:
         def __enter__(self):
             return self
-        def __exit__(self, type, value, tb):
+        def __exit__(self, exc):
             return False
 
     def test_attributes_unwritable(self):
@@ -444,8 +444,8 @@ class TestPartialPy(TestPartial, unittest.TestCase):
             self._cm = replaced_module("functools", py_functools)
         def __enter__(self):
             return self._cm.__enter__()
-        def __exit__(self, type, value, tb):
-            return self._cm.__exit__(type, value, tb)
+        def __exit__(self, exc):
+            return self._cm.__exit__(exc)
 
 if c_functools:
     class CPartialSubclass(c_functools.partial):

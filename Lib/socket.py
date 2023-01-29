@@ -237,7 +237,7 @@ class socket(_socket.socket):
     def __enter__(self):
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         if not self._closed:
             self.close()
 

@@ -497,8 +497,8 @@ class _TemporaryFileWrapper:
 
     # Need to trap __exit__ as well to ensure the file gets
     # deleted when used in a with statement
-    def __exit__(self, exc, value, tb):
-        result = self.file.__exit__(exc, value, tb)
+    def __exit__(self, exc):
+        result = self.file.__exit__(exc)
         self._closer.cleanup()
         return result
 
@@ -724,7 +724,7 @@ class SpooledTemporaryFile(_io.IOBase):
             raise ValueError("Cannot enter context with closed file")
         return self
 
-    def __exit__(self, exc, value, tb):
+    def __exit__(self, exc):
         self._file.close()
 
     # file protocol
@@ -904,7 +904,7 @@ class TemporaryDirectory:
     def __enter__(self):
         return self.name
 
-    def __exit__(self, exc, value, tb):
+    def __exit__(self, exc):
         self.cleanup()
 
     def cleanup(self):

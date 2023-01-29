@@ -808,7 +808,7 @@ static PyMethodDef iobase_methods[] = {
     _IO__IOBASE_ISATTY_METHODDEF
 
     {"__enter__", iobase_enter, METH_NOARGS},
-    {"__exit__", iobase_exit, METH_VARARGS},
+    {"__exit__", iobase_exit, METH_O},
 
     _IO__IOBASE_READLINE_METHODDEF
     _IO__IOBASE_READLINES_METHODDEF

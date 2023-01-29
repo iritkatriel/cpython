@@ -496,7 +496,7 @@ class IOBase(metaclass=abc.ABCMeta):
         self._checkClosed()
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         """Context management protocol.  Calls close()"""
         self.close()
 

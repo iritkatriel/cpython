@@ -1822,7 +1822,7 @@ class GrammarTests(unittest.TestCase):
         class manager(object):
             def __enter__(self):
                 return (1, 2)
-            def __exit__(self, *args):
+            def __exit__(self, exc):
                 pass
 
         with manager():
@@ -1987,7 +1987,7 @@ class GrammarTests(unittest.TestCase):
         class manager:
             async def __aenter__(self):
                 return (1, 2)
-            async def __aexit__(self, *exc):
+            async def __aexit__(self, exc):
                 return False
 
         async def foo():

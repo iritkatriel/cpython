@@ -1992,7 +1992,7 @@ class _ProxyFile:
         """Context management protocol support."""
         return self
 
-    def __exit__(self, *exc):
+    def __exit__(self, exc):
         self.close()
 
     def readable(self):

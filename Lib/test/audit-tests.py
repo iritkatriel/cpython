@@ -27,7 +27,7 @@ class TestHook:
         sys.addaudithook(self)
         return self
 
-    def __exit__(self, *a):
+    def __exit__(self, exc):
         self.close()
 
     def close(self):

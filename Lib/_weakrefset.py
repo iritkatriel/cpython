@@ -24,7 +24,7 @@ class _IterationGuard:
             w._iterating.add(self)
         return self
 
-    def __exit__(self, e, t, b):
+    def __exit__(self, exc):
         w = self.weakcontainer()
         if w is not None:
             s = w._iterating

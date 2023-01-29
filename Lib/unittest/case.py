@@ -113,7 +113,7 @@ def _enter_context(cm, addcleanup):
         raise TypeError(f"'{cls.__module__}.{cls.__qualname__}' object does "
                         f"not support the context manager protocol") from None
     result = enter(cm)
-    addcleanup(exit, cm, None, None, None)
+    addcleanup(exit, cm, None)
     return result
 
 
@@ -249,7 +249,11 @@ class _AssertRaisesContext(_AssertRaisesBaseContext):
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_value, tb):
+    def __exit__(self, exc):
+        if exc:
+            exc_type, exc_value, tb = type(exc), exc, exc.__traceback__
+        else:
+            exc_type, exc_value, tb = (None, None, None)
         if exc_type is None:
             try:
                 exc_name = self.expected.__name__
@@ -296,8 +300,12 @@ class _AssertWarnsContext(_AssertRaisesBaseContext):
         warnings.simplefilter("always", self.expected)
         return self
 
-    def __exit__(self, exc_type, exc_value, tb):
-        self.warnings_manager.__exit__(exc_type, exc_value, tb)
+    def __exit__(self, exc):
+        if exc:
+            exc_type, exc_value, tb = type(exc), exc, exc.__traceback__
+        else:
+            exc_type, exc_value, tb = (None, None, None)
+        self.warnings_manager.__exit__(exc)
         if exc_type is not None:
             # let unexpected exceptions pass through
             return

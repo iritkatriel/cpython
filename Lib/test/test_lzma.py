@@ -527,7 +527,7 @@ class TempFile:
         with open(self.filename, "wb") as f:
             f.write(self.data)
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         unlink(self.filename)
 
 

@@ -426,7 +426,11 @@ class TracerRun():
         self._original_tracer = sys.gettrace()
         return self.tracer
 
-    def __exit__(self, type_=None, value=None, traceback=None):
+    def __exit__(self, exc):
+        if exc:
+            type_, value, traceback = type(exc), exc, exc.__traceback__
+        else:
+            type_, value, traceback = None, None, None
         reset_Breakpoint()
         sys.settrace(self._original_tracer)
 

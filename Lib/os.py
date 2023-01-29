@@ -1018,7 +1018,7 @@ if sys.platform != 'vxworks':
                 return returncode << 8  # Shift left to match old behavior
         def __enter__(self):
             return self
-        def __exit__(self, *args):
+        def __exit__(self, exc):
             self.close()
         def __getattr__(self, name):
             return getattr(self._stream, name)
@@ -1104,7 +1104,7 @@ if name == 'nt':
             self.path = None
         def __enter__(self):
             return self
-        def __exit__(self, *args):
+        def __exit__(self, exc):
             self.close()
         def __repr__(self):
             if self.path:

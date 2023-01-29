@@ -115,7 +115,7 @@ class Profile(_lsprof.Profiler):
         self.enable()
         return self
 
-    def __exit__(self, *exc_info):
+    def __exit__(self, exc):
         self.disable()
 
 # ____________________________________________________________

@@ -23,14 +23,14 @@ class TestCM:
         self.ordering.append('enter')
         return self.enter_result
 
-    async def __aexit__(self, *exc_info):
+    async def __aexit__(self, exc):
         self.ordering.append('exit')
 
 
 class LacksEnterAndExit:
     pass
 class LacksEnter:
-    async def __aexit__(self, *exc_info):
+    async def __aexit__(self, exc):
         pass
 class LacksExit:
     async def __aenter__(self):

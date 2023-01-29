@@ -75,7 +75,7 @@ class IsolatedAsyncioTestCase(TestCase):
                             f"not support the asynchronous context manager protocol"
                            ) from None
         result = await enter(cm)
-        self.addAsyncCleanup(exit, cm, None, None, None)
+        self.addAsyncCleanup(exit, cm, None)
         return result
 
     def _callSetUp(self):

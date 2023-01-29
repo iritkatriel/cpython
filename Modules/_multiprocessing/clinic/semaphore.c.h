@@ -458,7 +458,7 @@ _multiprocessing_SemLock___enter__(SemLockObject *self, PyObject *Py_UNUSED(igno
 #if defined(HAVE_MP_SEMAPHORE)
 
 PyDoc_STRVAR(_multiprocessing_SemLock___exit____doc__,
-"__exit__($self, exc_type=None, exc_value=None, exc_tb=None, /)\n"
+"__exit__($self, exc=None, /)\n"
 "--\n"
 "\n"
 "Exit the semaphore/lock.");
@@ -467,35 +467,23 @@ PyDoc_STRVAR(_multiprocessing_SemLock___exit____doc__,
     {"__exit__", _PyCFunction_CAST(_multiprocessing_SemLock___exit__), METH_FASTCALL, _multiprocessing_SemLock___exit____doc__},
 
 static PyObject *
-_multiprocessing_SemLock___exit___impl(SemLockObject *self,
-                                       PyObject *exc_type,
-                                       PyObject *exc_value, PyObject *exc_tb);
+_multiprocessing_SemLock___exit___impl(SemLockObject *self, PyObject *exc);
 
 static PyObject *
 _multiprocessing_SemLock___exit__(SemLockObject *self, PyObject *const *args, Py_ssize_t nargs)
 {
     PyObject *return_value = NULL;
-    PyObject *exc_type = Py_None;
-    PyObject *exc_value = Py_None;
-    PyObject *exc_tb = Py_None;
+    PyObject *exc = Py_None;
 
-    if (!_PyArg_CheckPositional("__exit__", nargs, 0, 3)) {
+    if (!_PyArg_CheckPositional("__exit__", nargs, 0, 1)) {
         goto exit;
     }
     if (nargs < 1) {
         goto skip_optional;
     }
-    exc_type = args[0];
-    if (nargs < 2) {
-        goto skip_optional;
-    }
-    exc_value = args[1];
-    if (nargs < 3) {
-        goto skip_optional;
-    }
-    exc_tb = args[2];
+    exc = args[0];
 skip_optional:
-    return_value = _multiprocessing_SemLock___exit___impl(self, exc_type, exc_value, exc_tb);
+    return_value = _multiprocessing_SemLock___exit___impl(self, exc);
 
 exit:
     return return_value;
@@ -542,4 +530,4 @@ exit:
 #ifndef _MULTIPROCESSING_SEMLOCK___EXIT___METHODDEF
     #define _MULTIPROCESSING_SEMLOCK___EXIT___METHODDEF
 #endif /* !defined(_MULTIPROCESSING_SEMLOCK___EXIT___METHODDEF) */
-/*[clinic end generated code: output=dae57a702cc01512 input=a9049054013a1b77]*/
+/*[clinic end generated code: output=b7aaecf6e48fc246 input=a9049054013a1b77]*/

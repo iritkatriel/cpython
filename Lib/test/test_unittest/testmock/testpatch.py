@@ -1669,8 +1669,12 @@ class PatchTest(unittest.TestCase):
             exc_info = None, None, None
 
         class custom_patch(_patch):
-            def __exit__(self, etype=None, val=None, tb=None):
-                _patch.__exit__(self, etype, val, tb)
+            def __exit__(self, exc):
+                _patch.__exit__(self, exc)
+                if exc:
+                    etype, val, tb = type(exc), exc, exc.__traceback__
+                else:
+                    etype, val, tb = None, None, None
                 holder.exc_info = etype, val, tb
             stop = __exit__
 

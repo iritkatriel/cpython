@@ -53,7 +53,12 @@ class TaskGroup:
 
         return self
 
-    async def __aexit__(self, et, exc, tb):
+    async def __aexit__(self, exc):
+        if exc:
+            et, exc, tb = type(exc), exc, exc.__traceback__
+        else:
+            et, exc, tb = (None, None, None)
+
         self._exiting = True
 
         if (exc is not None and

@@ -501,7 +501,7 @@ class FieldStorage:
     def __enter__(self):
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         self.file.close()
 
     def __repr__(self):

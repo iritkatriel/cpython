@@ -31,7 +31,7 @@ class PdbTestInput(object):
         sys.stdin = _FakeInput(self.input)
         self.orig_trace = sys.gettrace() if hasattr(sys, 'gettrace') else None
 
-    def __exit__(self, *exc):
+    def __exit__(self, exc):
         sys.stdin = self.real_stdin
         if self.orig_trace:
             sys.settrace(self.orig_trace)

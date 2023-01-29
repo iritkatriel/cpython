@@ -584,7 +584,7 @@ static PyMethodDef gdbm_methods[] = {
     _GDBM_GDBM_GET_METHODDEF
     _GDBM_GDBM_SETDEFAULT_METHODDEF
     {"__enter__", gdbm__enter__, METH_NOARGS, NULL},
-    {"__exit__",  gdbm__exit__, METH_VARARGS, NULL},
+    {"__exit__",  gdbm__exit__, METH_O, NULL},
     {NULL,              NULL}           /* sentinel */
 };
 

@@ -77,7 +77,7 @@ class BaseTestCase(unittest.TestCase):
     def tearDown(self):
         self.thread.stop()
         self.thread = None
-        os.environ.__exit__()
+        os.environ.__exit__(None)
         threading_helper.threading_cleanup(*self._threads)
 
     def request(self, uri, method='GET', body=None, headers={}):
@@ -754,7 +754,7 @@ class CGIHTTPServerTestCase(BaseTestCase):
         try:
             os.chdir(self.cwd)
             if self._pythonexe_symlink:
-                self._pythonexe_symlink.__exit__(None, None, None)
+                self._pythonexe_symlink.__exit__(None)
             if self.nocgi_path:
                 os.remove(self.nocgi_path)
             if self.file1_path:

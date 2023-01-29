@@ -17,8 +17,8 @@ class TestAbstractContextManager(unittest.TestCase):
 
     def test_enter(self):
         class DefaultEnter(AbstractContextManager):
-            def __exit__(self, *args):
-                super().__exit__(*args)
+            def __exit__(self, exc):
+                super().__exit__(exc)
 
         manager = DefaultEnter()
         self.assertIs(manager.__enter__(), manager)
@@ -34,14 +34,14 @@ class TestAbstractContextManager(unittest.TestCase):
         class ManagerFromScratch:
             def __enter__(self):
                 return self
-            def __exit__(self, exc_type, exc_value, traceback):
+            def __exit__(self, exc):
                 return None
 
         self.assertTrue(issubclass(ManagerFromScratch, AbstractContextManager))
 
         class DefaultEnter(AbstractContextManager):
-            def __exit__(self, *args):
-                super().__exit__(*args)
+            def __exit__(self, exc):
+                super().__exit__(exc)
 
         self.assertTrue(issubclass(DefaultEnter, AbstractContextManager))
 
@@ -145,7 +145,7 @@ class ContextManagerTestCase(unittest.TestCase):
         ctx = whee()
         ctx.__enter__()
         # Calling __exit__ should not result in an exception
-        self.assertFalse(ctx.__exit__(TypeError, TypeError("foo"), None))
+        self.assertFalse(ctx.__exit__(TypeError("foo")))
 
     def test_contextmanager_trap_yield_after_throw(self):
         @contextmanager
@@ -157,7 +157,7 @@ class ContextManagerTestCase(unittest.TestCase):
         ctx = whoo()
         ctx.__enter__()
         self.assertRaises(
-            RuntimeError, ctx.__exit__, TypeError, TypeError("foo"), None
+            RuntimeError, ctx.__exit__, TypeError("foo")
         )
 
     def test_contextmanager_except(self):
@@ -445,7 +445,7 @@ class mycontext(ContextDecorator):
         self.started = True
         return self
 
-    def __exit__(self, *exc):
+    def __exit__(self, exc):
         self.exc = exc
         return self.catch
 
@@ -465,7 +465,7 @@ class TestContextDecorator(unittest.TestCase):
             self.assertIs(result, context)
             self.assertTrue(context.started)
 
-        self.assertEqual(context.exc, (None, None, None))
+        self.assertEqual(context.exc, None)
 
 
     def test_contextdecorator_with_exception(self):
@@ -475,14 +475,14 @@ class TestContextDecorator(unittest.TestCase):
             with context:
                 raise NameError('foo')
         self.assertIsNotNone(context.exc)
-        self.assertIs(context.exc[0], NameError)
+        self.assertIsInstance(context.exc, NameError)
 
         context = mycontext()
         context.catch = True
         with context:
             raise NameError('foo')
         self.assertIsNotNone(context.exc)
-        self.assertIs(context.exc[0], NameError)
+        self.assertIsInstance(context.exc, NameError)
 
 
     def test_decorator(self):
@@ -493,7 +493,7 @@ class TestContextDecorator(unittest.TestCase):
             self.assertIsNone(context.exc)
             self.assertTrue(context.started)
         test()
-        self.assertEqual(context.exc, (None, None, None))
+        self.assertEqual(context.exc, None)
 
 
     def test_decorator_with_exception(self):
@@ -508,7 +508,7 @@ class TestContextDecorator(unittest.TestCase):
         with self.assertRaisesRegex(NameError, 'foo'):
             test()
         self.assertIsNotNone(context.exc)
-        self.assertIs(context.exc[0], NameError)
+        self.assertIsInstance(context.exc, NameError)
 
 
     def test_decorating_method(self):
@@ -545,7 +545,7 @@ class TestContextDecorator(unittest.TestCase):
         class mycontext(ContextDecorator):
             def __unter__(self):
                 pass
-            def __exit__(self, *exc):
+            def __exit__(self, exc):
                 pass
 
         with self.assertRaisesRegex(TypeError, 'the context manager'):
@@ -574,7 +574,7 @@ class TestContextDecorator(unittest.TestCase):
                 self.started = True
                 return self
 
-            def __exit__(self, *exc):
+            def __exit__(self, exc):
                 self.exc = exc
 
         class mycontext(somecontext, ContextDecorator):
@@ -586,7 +586,7 @@ class TestContextDecorator(unittest.TestCase):
             self.assertIsNone(context.exc)
             self.assertTrue(context.started)
         test()
-        self.assertEqual(context.exc, (None, None, None))
+        self.assertEqual(context.exc, None)
 
 
     def test_contextmanager_as_decorator(self):
@@ -667,21 +667,19 @@ class TestBaseExitStack:
 
     def test_push(self):
         exc_raised = ZeroDivisionError
-        def _expect_exc(exc_type, exc, exc_tb):
-            self.assertIs(exc_type, exc_raised)
-        def _suppress_exc(*exc_details):
+        def _expect_exc(exc):
+            self.assertIsInstance(exc, BaseException)
+        def _suppress_exc(exc):
             return True
-        def _expect_ok(exc_type, exc, exc_tb):
-            self.assertIsNone(exc_type)
+        def _expect_ok(exc):
             self.assertIsNone(exc)
-            self.assertIsNone(exc_tb)
         class ExitCM(object):
             def __init__(self, check_exc):
                 self.check_exc = check_exc
             def __enter__(self):
                 self.fail("Should not be called!")
-            def __exit__(self, *exc_details):
-                self.check_exc(*exc_details)
+            def __exit__(self, exc):
+                self.check_exc(exc)
         with self.exit_stack() as stack:
             stack.push(_expect_ok)
             self.assertIs(stack._exit_callbacks[-1][1], _expect_ok)
@@ -703,7 +701,7 @@ class TestBaseExitStack:
         class TestCM(object):
             def __enter__(self):
                 result.append(1)
-            def __exit__(self, *exc_details):
+            def __exit__(self, exc):
                 result.append(3)
 
         result = []
@@ -722,7 +720,7 @@ class TestBaseExitStack:
         class LacksEnterAndExit:
             pass
         class LacksEnter:
-            def __exit__(self, *exc_info):
+            def __exit__(self, exc):
                 pass
         class LacksExit:
             def __enter__(self):
@@ -812,7 +810,7 @@ class TestBaseExitStack:
                 self.exc = exc
             def __enter__(self):
                 return self
-            def __exit__(self, *exc_details):
+            def __exit__(self, exc):
                 raise self.exc
 
         class RaiseExcWithContext:
@@ -821,7 +819,7 @@ class TestBaseExitStack:
                 self.inner = inner
             def __enter__(self):
                 return self
-            def __exit__(self, *exc_details):
+            def __exit__(self, exc):
                 try:
                     raise self.inner
                 except:
@@ -830,7 +828,11 @@ class TestBaseExitStack:
         class SuppressExc:
             def __enter__(self):
                 return self
-            def __exit__(self, *exc_details):
+            def __exit__(self, exc):
+                if exc:
+                   exc_details = (type(exc), exc, exc.__traceback__)
+                else:
+                   exc_details = (None, None, None)
                 type(self).saved_details = exc_details
                 return True
 
@@ -858,9 +860,9 @@ class TestBaseExitStack:
             raise exc
 
         saved_details = None
-        def suppress_exc(*exc_details):
+        def suppress_exc(exc):
             nonlocal saved_details
-            saved_details = exc_details
+            saved_details = exc
             return True
 
         try:
@@ -879,7 +881,7 @@ class TestBaseExitStack:
         else:
             self.fail("Expected IndexError, but no exception was raised")
         # Check the inner exceptions
-        inner_exc = saved_details[1]
+        inner_exc = saved_details
         self.assertIsInstance(inner_exc, ValueError)
         self.assertIsInstance(inner_exc.__context__, ZeroDivisionError)
 
@@ -1075,7 +1077,7 @@ class TestExitStack(TestBaseExitStack, unittest.TestCase):
     exit_stack = ExitStack
     callback_error_internal_frames = [
         ('__exit__', 'raise exc_details[1]'),
-        ('__exit__', 'if cb(*exc_details):'),
+        ('__exit__', 'cb_res = cb(exc_details[1])'),
     ]
 
 

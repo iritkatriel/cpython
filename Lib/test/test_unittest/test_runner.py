@@ -55,14 +55,14 @@ class TestCM:
         self.ordering.append('enter')
         return self.enter_result
 
-    def __exit__(self, *exc_info):
+    def __exit__(self, exc):
         self.ordering.append('exit')
 
 
 class LacksEnterAndExit:
     pass
 class LacksEnter:
-    def __exit__(self, *exc_info):
+    def __exit__(self, exc):
         pass
 class LacksExit:
     def __enter__(self):

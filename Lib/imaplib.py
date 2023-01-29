@@ -275,7 +275,7 @@ class IMAP4:
     def __enter__(self):
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         if self.state == "LOGOUT":
             return
 

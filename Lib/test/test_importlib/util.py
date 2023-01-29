@@ -240,8 +240,8 @@ class _ImporterMock:
         self._uncache.__enter__()
         return self
 
-    def __exit__(self, *exc_info):
-        self._uncache.__exit__(None, None, None)
+    def __exit__(self, exc):
+        self._uncache.__exit__(None)
 
 
 class mock_modules(_ImporterMock):
@@ -386,9 +386,9 @@ def create_modules(*names):
         yield mapping
     finally:
         if state_manager is not None:
-            state_manager.__exit__(None, None, None)
+            state_manager.__exit__(None)
         if uncache_manager is not None:
-            uncache_manager.__exit__(None, None, None)
+            uncache_manager.__exit__(None)
         os_helper.rmtree(temp_dir)
 
 

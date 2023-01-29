@@ -904,7 +904,7 @@ class AbstractChildWatcher:
         This function must return self"""
         raise NotImplementedError()
 
-    def __exit__(self, a, b, c):
+    def __exit__(self, exc):
         """Exit the watcher's context"""
         raise NotImplementedError()
 
@@ -924,7 +924,7 @@ class PidfdChildWatcher(AbstractChildWatcher):
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_traceback):
+    def __exit__(self, exc):
         pass
 
     def is_active(self):
@@ -1045,7 +1045,7 @@ class SafeChildWatcher(BaseChildWatcher):
     def __enter__(self):
         return self
 
-    def __exit__(self, a, b, c):
+    def __exit__(self, exc):
         pass
 
     def add_child_handler(self, pid, callback, *args):
@@ -1132,7 +1132,7 @@ class FastChildWatcher(BaseChildWatcher):
 
             return self
 
-    def __exit__(self, a, b, c):
+    def __exit__(self, exc):
         with self._lock:
             self._forks -= 1
 
@@ -1255,7 +1255,7 @@ class MultiLoopChildWatcher(AbstractChildWatcher):
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc):
         pass
 
     def add_child_handler(self, pid, callback, *args):
@@ -1372,7 +1372,7 @@ class ThreadedChildWatcher(AbstractChildWatcher):
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc):
         pass
 
     def __del__(self, _warn=warnings.warn):

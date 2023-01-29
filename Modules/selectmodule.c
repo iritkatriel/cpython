@@ -1658,17 +1658,15 @@ select_epoll___enter___impl(pyEpoll_Object *self)
 /*[clinic input]
 select.epoll.__exit__
 
-    exc_type:  object = None
-    exc_value: object = None
-    exc_tb:    object = None
+    exc:  object = None
     /
 
 [clinic start generated code]*/
 
 static PyObject *
-select_epoll___exit___impl(pyEpoll_Object *self, PyObject *exc_type,
-                           PyObject *exc_value, PyObject *exc_tb)
-/*[clinic end generated code: output=c480f38ce361748e input=7ae81a5a4c1a98d8]*/
+select_epoll___exit___impl(pyEpoll_Object *self, PyObject *exc)
+/*[clinic end generated code: output=bec82396bcb2f331 input=c64f3b861d1607c2]*/
+
 {
     _selectstate *state = _selectstate_by_type(Py_TYPE(self));
     return PyObject_CallMethodObjArgs((PyObject *)self, state->close, NULL);

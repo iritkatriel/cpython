@@ -113,7 +113,7 @@ class AutoFileTests:
         methods.append(('truncate', ()))
 
         # __exit__ should close the file
-        self.f.__exit__(None, None, None)
+        self.f.__exit__(None)
         self.assertTrue(self.f.closed)
 
         for methodname, args in methods:
@@ -122,12 +122,12 @@ class AutoFileTests:
             self.assertRaises(ValueError, method, *args)
 
         # file is closed, __exit__ shouldn't do anything
-        self.assertEqual(self.f.__exit__(None, None, None), None)
+        self.assertEqual(self.f.__exit__(None), None)
         # it must also return None if an exception was given
         try:
             1/0
         except:
-            self.assertEqual(self.f.__exit__(*sys.exc_info()), None)
+            self.assertEqual(self.f.__exit__(sys.exception()), None)
 
     def testReadWhenWriting(self):
         self.assertRaises(OSError, self.f.read)

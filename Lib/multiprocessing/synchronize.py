@@ -94,8 +94,8 @@ class SemLock(object):
     def __enter__(self):
         return self._semlock.__enter__()
 
-    def __exit__(self, *args):
-        return self._semlock.__exit__(*args)
+    def __exit__(self, exc):
+        return self._semlock.__exit__(exc)
 
     def __getstate__(self):
         context.assert_spawning(self)
@@ -229,8 +229,8 @@ class Condition(object):
     def __enter__(self):
         return self._lock.__enter__()
 
-    def __exit__(self, *args):
-        return self._lock.__exit__(*args)
+    def __exit__(self, exc):
+        return self._lock.__exit__(exc)
 
     def _make_methods(self):
         self.acquire = self._lock.acquire

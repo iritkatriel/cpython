@@ -274,7 +274,7 @@ class Node(xml.dom.Node):
     def __enter__(self):
         return self
 
-    def __exit__(self, et, ev, tb):
+    def __exit__(self, exc):
         self.unlink()
 
 defproperty(Node, "firstChild", doc="First child node, or None.")

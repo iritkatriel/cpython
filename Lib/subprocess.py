@@ -1087,7 +1087,7 @@ class Popen:
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, value, traceback):
+    def __exit__(self, exc):
         if self.stdout:
             self.stdout.close()
         if self.stderr:
@@ -1096,7 +1096,7 @@ class Popen:
             if self.stdin:
                 self.stdin.close()
         finally:
-            if exc_type == KeyboardInterrupt:
+            if type(exc) == KeyboardInterrupt:
                 # https://bugs.python.org/issue25942
                 # In the case of a KeyboardInterrupt we assume the SIGINT
                 # was also already sent to our child processes.  We can't

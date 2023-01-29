@@ -25,7 +25,7 @@ class AbstractContextManager(abc.ABC):
         return self
 
     @abc.abstractmethod
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc):
         """Raise any exception triggered within the runtime context."""
         return None
 
@@ -47,7 +47,7 @@ class AbstractAsyncContextManager(abc.ABC):
         return self
 
     @abc.abstractmethod
-    async def __aexit__(self, exc_type, exc_value, traceback):
+    async def __aexit__(self, exc):
         """Raise any exception triggered within the runtime context."""
         return None
 
@@ -138,7 +138,11 @@ class _GeneratorContextManager(
         except StopIteration:
             raise RuntimeError("generator didn't yield") from None
 
-    def __exit__(self, typ, value, traceback):
+    def __exit__(self, exc):
+        if exc:
+           typ, value, traceback = type(exc), exc, exc.__traceback__
+        else:
+           typ, value, traceback = None, None, None
         if typ is None:
             try:
                 next(self.gen)
@@ -205,7 +209,11 @@ class _AsyncGeneratorContextManager(
         except StopAsyncIteration:
             raise RuntimeError("generator didn't yield") from None
 
-    async def __aexit__(self, typ, value, traceback):
+    async def __aexit__(self, exc):
+        if exc:
+           typ, value, traceback = type(exc), exc, exc.__traceback__
+        else:
+           typ, value, traceback = None, None, None
         if typ is None:
             try:
                 await anext(self.gen)
@@ -344,7 +352,7 @@ class closing(AbstractContextManager):
         self.thing = thing
     def __enter__(self):
         return self.thing
-    def __exit__(self, *exc_info):
+    def __exit__(self, exc):
         self.thing.close()
 
 
@@ -370,7 +378,7 @@ class aclosing(AbstractAsyncContextManager):
         self.thing = thing
     async def __aenter__(self):
         return self.thing
-    async def __aexit__(self, *exc_info):
+    async def __aexit__(self, exc):
         await self.thing.aclose()
 
 
@@ -388,7 +396,7 @@ class _RedirectStream(AbstractContextManager):
         setattr(sys, self._stream, self._new_target)
         return self._new_target
 
-    def __exit__(self, exctype, excinst, exctb):
+    def __exit__(self, exc):
         setattr(sys, self._stream, self._old_targets.pop())
 
 
@@ -431,7 +439,7 @@ class suppress(AbstractContextManager):
     def __enter__(self):
         pass
 
-    def __exit__(self, exctype, excinst, exctb):
+    def __exit__(self, exc):
         # Unlike isinstance and issubclass, CPython exception handling
         # currently only looks at the concrete type hierarchy (ignoring
         # the instance and subclass checking hooks). While Guido considers
@@ -441,6 +449,7 @@ class suppress(AbstractContextManager):
         # exactly reproduce the limitations of the CPython interpreter.
         #
         # See http://bugs.python.org/issue12029 for more details
+        exctype = type(exc) if exc else None
         return exctype is not None and issubclass(exctype, self._exceptions)
 
 
@@ -453,7 +462,7 @@ class _BaseExitStack:
 
     @staticmethod
     def _create_cb_wrapper(callback, /, *args, **kwds):
-        def _exit_wrapper(exc_type, exc, tb):
+        def _exit_wrapper(exc):
             callback(*args, **kwds)
         return _exit_wrapper
 
@@ -543,7 +552,12 @@ class ExitStack(_BaseExitStack, AbstractContextManager):
     def __enter__(self):
         return self
 
-    def __exit__(self, *exc_details):
+    def __exit__(self, exc):
+        if exc:
+           exc_details = (type(exc), exc, exc.__traceback__)
+        else:
+           exc_details = (None, None, None)
+
         received_exc = exc_details[0] is not None
 
         # We manipulate the exception state so it behaves as though
@@ -571,7 +585,13 @@ class ExitStack(_BaseExitStack, AbstractContextManager):
             is_sync, cb = self._exit_callbacks.pop()
             assert is_sync
             try:
-                if cb(*exc_details):
+                try:
+                    cb_res = cb(exc_details[1])
+                except TypeError as e:
+                    if "missing 2 required positional arguments" not in str(e):
+                        raise
+                    cb_res = cb(*exc_details)
+                if cb_res:
                     suppressed_exc = True
                     pending_raise = False
                     exc_details = (None, None, None)
@@ -594,7 +614,7 @@ class ExitStack(_BaseExitStack, AbstractContextManager):
 
     def close(self):
         """Immediately unwind the context stack."""
-        self.__exit__(None, None, None)
+        self.__exit__(None)
 
 
 # Inspired by discussions on https://bugs.python.org/issue29302
@@ -617,7 +637,7 @@ class AsyncExitStack(_BaseExitStack, AbstractAsyncContextManager):
 
     @staticmethod
     def _create_async_cb_wrapper(callback, /, *args, **kwds):
-        async def _exit_wrapper(exc_type, exc, tb):
+        async def _exit_wrapper(exc):
             await callback(*args, **kwds)
         return _exit_wrapper
 
@@ -672,7 +692,7 @@ class AsyncExitStack(_BaseExitStack, AbstractAsyncContextManager):
 
     async def aclose(self):
         """Immediately unwind the context stack."""
-        await self.__aexit__(None, None, None)
+        await self.__aexit__(None)
 
     def _push_async_cm_exit(self, cm, cm_exit):
         """Helper to correctly register coroutine function to __aexit__
@@ -683,7 +703,12 @@ class AsyncExitStack(_BaseExitStack, AbstractAsyncContextManager):
     async def __aenter__(self):
         return self
 
-    async def __aexit__(self, *exc_details):
+    async def __aexit__(self, exc):
+        if exc:
+           exc_details = (type(exc), exc, exc.__traceback__)
+        else:
+           exc_details = (None, None, None)
+
         received_exc = exc_details[0] is not None
 
         # We manipulate the exception state so it behaves as though
@@ -711,9 +736,19 @@ class AsyncExitStack(_BaseExitStack, AbstractAsyncContextManager):
             is_sync, cb = self._exit_callbacks.pop()
             try:
                 if is_sync:
-                    cb_suppress = cb(*exc_details)
+                    try:
+                        cb_suppress = cb(exc_details[1])
+                    except TypeError as e:
+                        if "missing 2 required positional arguments" not in str(e):
+                            raise
+                        cb_suppress = cb(*exc_details)
                 else:
-                    cb_suppress = await cb(*exc_details)
+                    try:
+                        cb_suppress = await cb(exc_details[1])
+                    except TypeError as e:
+                        if "missing 2 required positional arguments" not in str(e):
+                            raise
+                        cb_suppress = await cb(*exc_details)
 
                 if cb_suppress:
                     suppressed_exc = True
@@ -754,13 +789,13 @@ class nullcontext(AbstractContextManager, AbstractAsyncContextManager):
     def __enter__(self):
         return self.enter_result
 
-    def __exit__(self, *excinfo):
+    def __exit__(self, exc):
         pass
 
     async def __aenter__(self):
         return self.enter_result
 
-    async def __aexit__(self, *excinfo):
+    async def __aexit__(self, exc):
         pass
 
 
@@ -775,5 +810,5 @@ class chdir(AbstractContextManager):
         self._old_cwd.append(os.getcwd())
         os.chdir(self.path)
 
-    def __exit__(self, *excinfo):
+    def __exit__(self, exc):
         os.chdir(self._old_cwd.pop())

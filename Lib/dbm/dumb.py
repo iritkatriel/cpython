@@ -284,7 +284,7 @@ class _Database(collections.abc.MutableMapping):
     def __enter__(self):
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         self.close()
 
 

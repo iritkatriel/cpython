@@ -148,7 +148,7 @@ class _AcquireFutures(object):
         for future in self.futures:
             future._condition.acquire()
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         for future in self.futures:
             future._condition.release()
 
@@ -643,7 +643,7 @@ class Executor(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc):
         self.shutdown(wait=True)
         return False
 

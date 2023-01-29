@@ -77,12 +77,13 @@ class Timeout:
         self.reschedule(self._when)
         return self
 
-    async def __aexit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
-    ) -> Optional[bool]:
+    async def __aexit__(self, exc: Optional[BaseException]) -> Optional[bool]:
+
+        if exc:
+            exc_type, exc_val, exc_tb = type(exc), exc, exc.__traceback__
+        else:
+            exc_type, exc_val, exc_tb = (None, None, None)
+
         assert self._state in (_State.ENTERED, _State.EXPIRING)
 
         if self._timeout_handler is not None:

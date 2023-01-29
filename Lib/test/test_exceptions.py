@@ -857,7 +857,7 @@ class ExceptionTests(unittest.TestCase):
         class Context:
             def __enter__(self):
                 return self
-            def __exit__ (self, exc_type, exc_value, exc_tb):
+            def __exit__(self, exc):
                 return True
         obj = MyObj()
         wr = weakref.ref(obj)
@@ -2190,7 +2190,7 @@ class PEP626Tests(unittest.TestCase):
         class Noop:
             def __enter__(self):
                 return self
-            def __exit__(self, *args):
+            def __exit__(self, exc):
                 pass
         def after_with():
             with Noop():
@@ -2209,7 +2209,7 @@ class PEP626Tests(unittest.TestCase):
         class ExitFails:
             def __enter__(self):
                 return self
-            def __exit__(self, *args):
+            def __exit__(self, exc):
                 raise ValueError
 
         def after_with():

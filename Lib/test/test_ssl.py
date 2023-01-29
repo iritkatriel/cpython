@@ -2409,7 +2409,7 @@ class ThreadedEchoServer(threading.Thread):
         self.flag.wait()
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         self.stop()
         self.join()
 
@@ -2541,7 +2541,7 @@ class AsyncoreEchoServer(threading.Thread):
         self.flag.wait()
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         if support.verbose:
             sys.stdout.write(" cleanup: stopping server.\n")
         self.stop()

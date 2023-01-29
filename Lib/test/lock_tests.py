@@ -66,7 +66,7 @@ class Bunch(object):
         while len(self.finished) < self.n:
             _wait()
         # Wait for threads exit
-        self.wait_thread.__exit__(None, None, None)
+        self.wait_thread.__exit__(None)
 
     def do_finish(self):
         self._can_exit = True

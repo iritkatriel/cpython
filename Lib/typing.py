@@ -3252,7 +3252,7 @@ class IO(Generic[AnyStr]):
         pass
 
     @abstractmethod
-    def __exit__(self, type, value, traceback) -> None:
+    def __exit__(self, exc) -> None:
         pass
 
 

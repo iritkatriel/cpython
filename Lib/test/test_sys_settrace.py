@@ -21,7 +21,7 @@ class tracecontext:
     def __enter__(self):
         self.output.append(self.value)
 
-    def __exit__(self, *exc_info):
+    def __exit__(self, exc):
         self.output.append(-self.value)
 
 class asynctracecontext:
@@ -33,7 +33,7 @@ class asynctracecontext:
     async def __aenter__(self):
         self.output.append(self.value)
 
-    async def __aexit__(self, *exc_info):
+    async def __aexit__(self, exc):
         self.output.append(-self.value)
 
 async def asynciter(iterable):
@@ -1041,7 +1041,7 @@ class TraceTestCase(unittest.TestCase):
         class C:
             def __enter__(self):
                 return self
-            def __exit__(*args):
+            def __exit__(self, exc):
                 pass
 
         def func():
@@ -1176,7 +1176,7 @@ class TraceTestCase(unittest.TestCase):
         class C:
             def __enter__(self):
                 return self
-            def __exit__(*args):
+            def __exit__(self, exc):
                 pass
 
         def func_break():
@@ -1280,7 +1280,7 @@ class TraceTestCase(unittest.TestCase):
         class NullCtx:
             def __enter__(self):
                 return self
-            def __exit__(self, *excinfo):
+            def __exit__(self, exc):
                 pass
 
         def func():

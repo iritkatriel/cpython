@@ -306,7 +306,7 @@ class saved_test_environment:
             self.saved_values.append((name, get, restore, original))
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc):
         saved_values = self.saved_values
         self.saved_values = None
 

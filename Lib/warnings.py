@@ -484,7 +484,7 @@ class catch_warnings(object):
         else:
             return None
 
-    def __exit__(self, *exc_info):
+    def __exit__(self, exc):
         if not self._entered:
             raise RuntimeError("Cannot exit %r without entering first" % self)
         self._module.filters = self._filters

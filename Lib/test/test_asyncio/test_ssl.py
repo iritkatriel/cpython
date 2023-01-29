@@ -1631,7 +1631,7 @@ class SocketThread(threading.Thread):
         self.start()
         return self
 
-    def __exit__(self, *exc):
+    def __exit__(self, exc):
         self.stop()
 
 

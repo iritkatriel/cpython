@@ -16,7 +16,7 @@ class _ContextManagerMixin:
         # statement for locks.
         return None
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, exc):
         self.release()
 
 
@@ -474,7 +474,7 @@ class Barrier(mixins._LoopBoundMixin):
         # when start draining release and return index of waited task
         return await self.wait()
 
-    async def __aexit__(self, *args):
+    async def __aexit__(self, exc):
         pass
 
     async def wait(self):

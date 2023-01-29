@@ -28,8 +28,8 @@ class TestAbstractAsyncContextManager(unittest.TestCase):
     @_async_test
     async def test_enter(self):
         class DefaultEnter(AbstractAsyncContextManager):
-            async def __aexit__(self, *args):
-                await super().__aexit__(*args)
+            async def __aexit__(self, exc):
+                await super().__aexit__(exc)
 
         manager = DefaultEnter()
         self.assertIs(await manager.__aenter__(), manager)
@@ -70,14 +70,14 @@ class TestAbstractAsyncContextManager(unittest.TestCase):
         class ManagerFromScratch:
             async def __aenter__(self):
                 return self
-            async def __aexit__(self, exc_type, exc_value, traceback):
+            async def __aexit__(self, exc):
                 return None
 
         self.assertTrue(issubclass(ManagerFromScratch, AbstractAsyncContextManager))
 
         class DefaultEnter(AbstractAsyncContextManager):
-            async def __aexit__(self, *args):
-                await super().__aexit__(*args)
+            async def __aexit__(self, exc):
+                await super().__aexit__(exc)
 
         self.assertTrue(issubclass(DefaultEnter, AbstractAsyncContextManager))
 
@@ -190,7 +190,7 @@ class AsyncContextManagerTestCase(unittest.TestCase):
         ctx = whee()
         await ctx.__aenter__()
         # Calling __aexit__ should not result in an exception
-        self.assertFalse(await ctx.__aexit__(TypeError, TypeError("foo"), None))
+        self.assertFalse(await ctx.__aexit__(TypeError("foo")))
 
     @_async_test
     async def test_contextmanager_trap_yield_after_throw(self):
@@ -203,7 +203,7 @@ class AsyncContextManagerTestCase(unittest.TestCase):
         ctx = whoo()
         await ctx.__aenter__()
         with self.assertRaises(RuntimeError):
-            await ctx.__aexit__(TypeError, TypeError('foo'), None)
+            await ctx.__aexit__(TypeError('foo'))
 
     @_async_test
     async def test_contextmanager_trap_no_yield(self):
@@ -224,7 +224,7 @@ class AsyncContextManagerTestCase(unittest.TestCase):
         ctx = whoo()
         await ctx.__aenter__()
         with self.assertRaises(RuntimeError):
-            await ctx.__aexit__(None, None, None)
+            await ctx.__aexit__(None)
 
     @_async_test
     async def test_contextmanager_non_normalised(self):
@@ -238,7 +238,7 @@ class AsyncContextManagerTestCase(unittest.TestCase):
         ctx = whoo()
         await ctx.__aenter__()
         with self.assertRaises(SyntaxError):
-            await ctx.__aexit__(RuntimeError, None, None)
+            await ctx.__aexit__(RuntimeError())
 
     @_async_test
     async def test_contextmanager_except(self):
@@ -537,16 +537,16 @@ class TestAsyncExitStack(TestBaseExitStack, unittest.TestCase):
         def __enter__(self):
             return self.run_coroutine(self.__aenter__())
 
-        def __exit__(self, *exc_details):
-            return self.run_coroutine(self.__aexit__(*exc_details))
+        def __exit__(self, exc):
+            return self.run_coroutine(self.__aexit__(exc))
 
     exit_stack = SyncAsyncExitStack
     callback_error_internal_frames = [
-        ('__exit__', 'return self.run_coroutine(self.__aexit__(*exc_details))'),
+        ('__exit__', 'return self.run_coroutine(self.__aexit__(exc))'),
         ('run_coroutine', 'raise exc'),
         ('run_coroutine', 'raise exc'),
         ('__aexit__', 'raise exc_details[1]'),
-        ('__aexit__', 'cb_suppress = cb(*exc_details)'),
+        ('__aexit__', 'cb_suppress = cb(exc_details[1])'),
     ]
 
     def setUp(self):
@@ -601,21 +601,23 @@ class TestAsyncExitStack(TestBaseExitStack, unittest.TestCase):
     @_async_test
     async def test_async_push(self):
         exc_raised = ZeroDivisionError
-        async def _expect_exc(exc_type, exc, exc_tb):
-            self.assertIs(exc_type, exc_raised)
-        async def _suppress_exc(*exc_details):
+        async def _expect_exc(exc):
+            self.assertIs(type(exc), exc_raised)
+        async def _suppress_exc(exc):
             return True
-        async def _expect_ok(exc_type, exc, exc_tb):
-            self.assertIsNone(exc_type)
+        async def _expect_ok(exc):
             self.assertIsNone(exc)
-            self.assertIsNone(exc_tb)
         class ExitCM(object):
             def __init__(self, check_exc):
                 self.check_exc = check_exc
             async def __aenter__(self):
                 self.fail("Should not be called!")
-            async def __aexit__(self, *exc_details):
-                await self.check_exc(*exc_details)
+            async def __aexit__(self, exc):
+                if exc:
+                    exc_details = type(exc), exc, exc.__traceback__
+                else:
+                    exc_details = (None, None, None)
+                await self.check_exc(exc_details[1])
 
         async with self.exit_stack() as stack:
             stack.push_async_exit(_expect_ok)
@@ -639,7 +641,7 @@ class TestAsyncExitStack(TestBaseExitStack, unittest.TestCase):
         class TestCM(object):
             async def __aenter__(self):
                 result.append(1)
-            async def __aexit__(self, *exc_details):
+            async def __aexit__(self, exc):
                 result.append(3)
 
         result = []
@@ -661,7 +663,7 @@ class TestAsyncExitStack(TestBaseExitStack, unittest.TestCase):
         class LacksEnterAndExit:
             pass
         class LacksEnter:
-            async def __aexit__(self, *exc_info):
+            async def __aexit__(self, exc):
                 pass
         class LacksExit:
             async def __aenter__(self):
@@ -683,9 +685,9 @@ class TestAsyncExitStack(TestBaseExitStack, unittest.TestCase):
             raise exc
 
         saved_details = None
-        async def suppress_exc(*exc_details):
+        async def suppress_exc(exc):
             nonlocal saved_details
-            saved_details = exc_details
+            saved_details = exc
             return True
 
         try:
@@ -704,7 +706,7 @@ class TestAsyncExitStack(TestBaseExitStack, unittest.TestCase):
         else:
             self.fail("Expected IndexError, but no exception was raised")
         # Check the inner exceptions
-        inner_exc = saved_details[1]
+        inner_exc = saved_details
         self.assertIsInstance(inner_exc, ValueError)
         self.assertIsInstance(inner_exc.__context__, ZeroDivisionError)
 

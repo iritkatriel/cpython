@@ -384,7 +384,7 @@ class NNTP:
     def __enter__(self):
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         is_connected = lambda: hasattr(self, "file")
         if is_connected():
             try:

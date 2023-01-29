@@ -196,9 +196,9 @@ class CleanImport(object):
         self._frozen_modules.__enter__()
         return self
 
-    def __exit__(self, *ignore_exc):
+    def __exit__(self, exc):
         sys.modules.update(self.original_modules)
-        self._frozen_modules.__exit__(*ignore_exc)
+        self._frozen_modules.__exit__(exc)
 
 
 class DirsOnSysPath(object):
@@ -221,7 +221,7 @@ class DirsOnSysPath(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, *ignore_exc):
+    def __exit__(self, exc):
         sys.path = self.original_object
         sys.path[:] = self.original_value
 

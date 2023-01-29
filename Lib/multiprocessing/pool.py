@@ -735,7 +735,7 @@ class Pool(object):
         self._check_running()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc):
         self.terminate()
 
 #

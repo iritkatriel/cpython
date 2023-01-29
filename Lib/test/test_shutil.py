@@ -2271,8 +2271,11 @@ class TestCopyFile(unittest.TestCase):
             return ''
         def __enter__(self):
             self._entered = True
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            self._exited_with = exc_type, exc_val, exc_tb
+        def __exit__(self, exc):
+            if exc:
+                self._exited_with = type(exc), exc, exc.__traceback__
+            else:
+                self._exited_with = (None, None, None)
             if self._raise_in_exit:
                 self._raised = True
                 raise OSError("Cannot close")

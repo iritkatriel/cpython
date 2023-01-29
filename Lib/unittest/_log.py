@@ -60,7 +60,11 @@ class _AssertLogsContext(_BaseTestCaseContext):
             return
         return handler.watcher
 
-    def __exit__(self, exc_type, exc_value, tb):
+    def __exit__(self, exc):
+        if exc:
+            exc_type, exc_value, tb = type(exc), exc, exc.__traceback__
+        else:
+            exc_type, exc_value, tb = (None, None, None)
         self.logger.handlers = self.old_handlers
         self.logger.propagate = self.old_propagate
         self.logger.setLevel(self.old_level)

@@ -1496,7 +1496,7 @@ class ServerProxy:
     def __enter__(self):
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         self.__close()
 
 # compatibility

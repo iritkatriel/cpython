@@ -411,7 +411,7 @@ class StreamWriter(Codec):
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, exc):
         self.stream.close()
 
 ###
@@ -660,7 +660,7 @@ class StreamReader(Codec):
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, exc):
         self.stream.close()
 
 ###
@@ -747,7 +747,7 @@ class StreamReaderWriter:
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, exc):
         self.stream.close()
 
 ###
@@ -863,7 +863,7 @@ class StreamRecoder:
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, exc):
         self.stream.close()
 
 ### Shortcuts

@@ -366,7 +366,7 @@ class Aifc_read:
     def __enter__(self):
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         self.close()
 
     #
@@ -615,7 +615,7 @@ class Aifc_write:
     def __enter__(self):
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         self.close()
 
     #

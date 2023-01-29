@@ -141,7 +141,7 @@ class PreservePyIni:
             self._preserved = None
         self.path.write_text(self.content, encoding="utf-16")
 
-    def __exit__(self, *exc_info):
+    def __exit__(self, exc):
         if self._preserved is None:
             self.path.unlink()
         else:

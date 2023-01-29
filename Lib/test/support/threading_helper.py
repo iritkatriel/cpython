@@ -200,7 +200,7 @@ class catch_threading_exception:
         threading.excepthook = self._hook
         return self
 
-    def __exit__(self, *exc_info):
+    def __exit__(self, exc):
         threading.excepthook = self._old_hook
         del self.exc_type
         del self.exc_value

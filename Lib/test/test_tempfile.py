@@ -1553,7 +1553,7 @@ class NulledModules:
             for key in d:
                 d[key] = None
 
-    def __exit__(self, *exc_info):
+    def __exit__(self, exc):
         for d, c in zip(self.refs, self.contents):
             d.clear()
             d.update(c)

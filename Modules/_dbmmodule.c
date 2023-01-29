@@ -433,7 +433,7 @@ static PyMethodDef dbm_methods[] = {
     _DBM_DBM_GET_METHODDEF
     _DBM_DBM_SETDEFAULT_METHODDEF
     {"__enter__", dbm__enter__, METH_NOARGS, NULL},
-    {"__exit__",  dbm__exit__, METH_VARARGS, NULL},
+    {"__exit__",  dbm__exit__, METH_O, NULL},
     {NULL,  NULL}           /* sentinel */
 };
 

@@ -126,7 +126,7 @@ class FTP:
         return self
 
     # Context management protocol: try to quit() if active
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         if self.sock is not None:
             try:
                 self.quit()

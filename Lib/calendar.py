@@ -554,7 +554,7 @@ class different_locale:
         self.oldlocale = _locale.setlocale(_locale.LC_TIME, None)
         _locale.setlocale(_locale.LC_TIME, self.locale)
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         if self.oldlocale is None:
             return
         _locale.setlocale(_locale.LC_TIME, self.oldlocale)

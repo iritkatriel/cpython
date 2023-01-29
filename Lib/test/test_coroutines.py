@@ -1196,7 +1196,7 @@ class CoroutineTest(unittest.TestCase):
                                       'enter-2-' + self.name])
                 return self
 
-            async def __aexit__(self, *args):
+            async def __aexit__(self, exc):
                 await AsyncYieldFrom(['exit-1-' + self.name,
                                       'exit-2-' + self.name])
 
@@ -1282,7 +1282,7 @@ class CoroutineTest(unittest.TestCase):
             async def __aenter__(self):
                 return self
 
-            async def __aexit__(self, *exc):
+            async def __aexit__(self, exc):
                 pass
 
         async def func():
@@ -1297,7 +1297,7 @@ class CoroutineTest(unittest.TestCase):
             def __aenter__(self):
                 return 123
 
-            def __aexit__(self, *e):
+            def __aexit__(self, exc):
                 return 456
 
         async def foo():
@@ -1316,7 +1316,7 @@ class CoroutineTest(unittest.TestCase):
             async def __aenter__(self):
                 return self
 
-            def __aexit__(self, *e):
+            def __aexit__(self, exc):
                 return 444
 
         # Exit with exception
@@ -1344,7 +1344,7 @@ class CoroutineTest(unittest.TestCase):
             async def __aenter__(self):
                 return self
 
-            def __aexit__(self, *e):
+            def __aexit__(self, exc):
                 return 456
 
         # Normal exit
@@ -1408,7 +1408,7 @@ class CoroutineTest(unittest.TestCase):
             async def __aenter__(self):
                 return self
 
-            async def __aexit__(self, *e):
+            async def __aexit__(self, exc):
                 1/0
 
         async def foo():
@@ -1428,7 +1428,7 @@ class CoroutineTest(unittest.TestCase):
             async def __aenter__(self):
                 return self
 
-            async def __aexit__(self, *e):
+            async def __aexit__(self, exc):
                 1/0
 
         async def foo():
@@ -1454,7 +1454,7 @@ class CoroutineTest(unittest.TestCase):
             async def __aenter__(self):
                 raise NotImplementedError
 
-            async def __aexit__(self, *e):
+            async def __aexit__(self, exc):
                 1/0
 
         async def foo():
@@ -1476,7 +1476,7 @@ class CoroutineTest(unittest.TestCase):
             async def __aenter__(self):
                 return self
 
-            async def __aexit__(self, *e):
+            async def __aexit__(self, exc):
                 return True
 
         async def foo():
@@ -1494,7 +1494,7 @@ class CoroutineTest(unittest.TestCase):
             async def __aenter__(self):
                 1/0
 
-            async def __aexit__(self, *e):
+            async def __aexit__(self, exc):
                 return True
 
         async def foo():
@@ -1646,7 +1646,7 @@ class CoroutineTest(unittest.TestCase):
                 nonlocal I
                 I += 10000
 
-            async def __aexit__(self, *args):
+            async def __aexit__(self, exc):
                 nonlocal I
                 I += 100000
 
@@ -2263,9 +2263,9 @@ class CoroAsyncIOCompatTest(unittest.TestCase):
                 buffer.append(2)
                 return self
 
-            async def __aexit__(self, exc_type, exc_val, exc_tb):
+            async def __aexit__(self, exc):
                 await asyncio.sleep(0.01)
-                buffer.append(exc_type.__name__)
+                buffer.append(type(exc).__name__)
 
         async def f():
             async with CM() as c:

@@ -75,7 +75,7 @@ class TemporaryPyFile:
         self.file_path = f.name
         return self.file_path
 
-    def __exit__(self, exc_type, exc_value, exc_traceback):
+    def __exit__(self, exc):
         unlink(self.file_path)
 
 

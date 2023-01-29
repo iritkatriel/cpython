@@ -991,7 +991,7 @@ select_epoll___enter__(pyEpoll_Object *self, PyObject *Py_UNUSED(ignored))
 #if defined(HAVE_EPOLL)
 
 PyDoc_STRVAR(select_epoll___exit____doc__,
-"__exit__($self, exc_type=None, exc_value=None, exc_tb=None, /)\n"
+"__exit__($self, exc=None, /)\n"
 "--\n"
 "\n");
 
@@ -999,34 +999,23 @@ PyDoc_STRVAR(select_epoll___exit____doc__,
     {"__exit__", _PyCFunction_CAST(select_epoll___exit__), METH_FASTCALL, select_epoll___exit____doc__},
 
 static PyObject *
-select_epoll___exit___impl(pyEpoll_Object *self, PyObject *exc_type,
-                           PyObject *exc_value, PyObject *exc_tb);
+select_epoll___exit___impl(pyEpoll_Object *self, PyObject *exc);
 
 static PyObject *
 select_epoll___exit__(pyEpoll_Object *self, PyObject *const *args, Py_ssize_t nargs)
 {
     PyObject *return_value = NULL;
-    PyObject *exc_type = Py_None;
-    PyObject *exc_value = Py_None;
-    PyObject *exc_tb = Py_None;
+    PyObject *exc = Py_None;
 
-    if (!_PyArg_CheckPositional("__exit__", nargs, 0, 3)) {
+    if (!_PyArg_CheckPositional("__exit__", nargs, 0, 1)) {
         goto exit;
     }
     if (nargs < 1) {
         goto skip_optional;
     }
-    exc_type = args[0];
-    if (nargs < 2) {
-        goto skip_optional;
-    }
-    exc_value = args[1];
-    if (nargs < 3) {
-        goto skip_optional;
-    }
-    exc_tb = args[2];
+    exc = args[0];
 skip_optional:
-    return_value = select_epoll___exit___impl(self, exc_type, exc_value, exc_tb);
+    return_value = select_epoll___exit___impl(self, exc);
 
 exit:
     return return_value;
@@ -1310,4 +1299,4 @@ exit:
 #ifndef SELECT_KQUEUE_CONTROL_METHODDEF
     #define SELECT_KQUEUE_CONTROL_METHODDEF
 #endif /* !defined(SELECT_KQUEUE_CONTROL_METHODDEF) */
-/*[clinic end generated code: output=9556c7d6cd5192d1 input=a9049054013a1b77]*/
+/*[clinic end generated code: output=9460e682f20343df input=a9049054013a1b77]*/

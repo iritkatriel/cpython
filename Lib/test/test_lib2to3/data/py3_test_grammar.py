@@ -908,7 +908,7 @@ class GrammarTests(unittest.TestCase):
         class manager(object):
             def __enter__(self):
                 return (1, 2)
-            def __exit__(self, *args):
+            def __exit__(self, exc):
                 pass
 
         with manager():

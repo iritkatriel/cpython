@@ -3877,7 +3877,7 @@ class _ContextManager(object):
         self.saved_context = getcontext()
         setcontext(self.new_context)
         return self.new_context
-    def __exit__(self, t, v, tb):
+    def __exit__(self, exc):
         setcontext(self.saved_context)
 
 class Context(object):

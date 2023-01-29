@@ -19,7 +19,7 @@ def get_tb():
 class Context:
     def __enter__(self):
         return self
-    def __exit__(self, exc_type, exc_value, exc_tb):
+    def __exit__(self, exc):
         return True
 
 
@@ -381,7 +381,7 @@ class TestContext(unittest.TestCase):
         class ContextManager:
             def __enter__(self):
                 pass
-            def __exit__(self, t, v, tb):
+            def __exit__(self, exc):
                 xyzzy
         try:
             with ContextManager():

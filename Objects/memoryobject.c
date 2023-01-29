@@ -3181,7 +3181,7 @@ static PyMethodDef memory_methods[] = {
     MEMORYVIEW_CAST_METHODDEF
     MEMORYVIEW_TOREADONLY_METHODDEF
     {"__enter__",   memory_enter, METH_NOARGS, NULL},
-    {"__exit__",    memory_exit, METH_VARARGS, NULL},
+    {"__exit__",    memory_exit, METH_O, NULL},
     {NULL,          NULL}
 };
 

@@ -745,7 +745,7 @@ class Path(PurePath):
                       DeprecationWarning, stacklevel=2)
         return self
 
-    def __exit__(self, t, v, tb):
+    def __exit__(self, exc):
         pass
 
     # Public API

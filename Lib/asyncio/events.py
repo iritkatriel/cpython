@@ -199,7 +199,7 @@ class AbstractServer:
     async def __aenter__(self):
         return self
 
-    async def __aexit__(self, *exc):
+    async def __aexit__(self, exc):
         self.close()
         await self.wait_closed()
 

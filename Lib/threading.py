@@ -216,7 +216,7 @@ class _RLock:
             self._owner = None
             self._block.release()
 
-    def __exit__(self, t, v, tb):
+    def __exit__(self, exc):
         self.release()
 
     # Internal methods used by condition variables
@@ -278,8 +278,8 @@ class Condition:
     def __enter__(self):
         return self._lock.__enter__()
 
-    def __exit__(self, *args):
-        return self._lock.__exit__(*args)
+    def __exit__(self, exc):
+        return self._lock.__exit__(exc)
 
     def __repr__(self):
         return "<Condition(%s, %d)>" % (self._lock, len(self._waiters))
@@ -504,7 +504,7 @@ class Semaphore:
             self._value += n
             self._cond.notify(n)
 
-    def __exit__(self, t, v, tb):
+    def __exit__(self, exc):
         self.release()
 
 

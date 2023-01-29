@@ -33,7 +33,7 @@ class Listener(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_tb):
+    def __exit__(self, exc):
         self.close()
 
 
@@ -71,5 +71,5 @@ class Connection(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_tb):
+    def __exit__(self, exc):
         self.close()

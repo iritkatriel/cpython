@@ -47,15 +47,15 @@ class TransientResource(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, type_=None, value=None, traceback=None):
+    def __exit__(self, exc):
         """If type_ is a subclass of self.exc and value has attributes matching
         self.attrs, raise ResourceDenied.  Otherwise let the exception
         propagate (if any)."""
-        if type_ is not None and issubclass(self.exc, type_):
+        if exc is not None:
             for attr, attr_value in self.attrs.items():
-                if not hasattr(value, attr):
+                if not hasattr(exc, attr):
                     break
-                if getattr(value, attr) != attr_value:
+                if getattr(exc, attr) != attr_value:
                     break
             else:
                 raise ResourceDenied("an optional resource is not available")

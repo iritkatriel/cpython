@@ -1568,10 +1568,10 @@ class _patch(object):
 
             return new
         except:
-            if not self.__exit__(*sys.exc_info()):
+            if not self.__exit__(sys.exception()):
                 raise
 
-    def __exit__(self, *exc_info):
+    def __exit__(self, exc):
         """Undo the patch."""
         if self.is_local and self.temp_original is not DEFAULT:
             setattr(self.target, self.attribute, self.temp_original)
@@ -1589,7 +1589,7 @@ class _patch(object):
         del self.target
         exit_stack = self._exit_stack
         del self._exit_stack
-        return exit_stack.__exit__(*exc_info)
+        return exit_stack.__exit__(exc)
 
 
     def start(self):
@@ -1607,7 +1607,7 @@ class _patch(object):
             # If the patch hasn't been started this will fail
             return None
 
-        return self.__exit__(None, None, None)
+        return self.__exit__(None)
 
 
 
@@ -1908,7 +1908,7 @@ class _patch_dict(object):
                 in_dict[key] = original[key]
 
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         """Unpatch the dict."""
         if self._original is not None:
             self._unpatch_dict()
@@ -1930,7 +1930,7 @@ class _patch_dict(object):
             # If the patch hasn't been started this will fail
             return None
 
-        return self.__exit__(None, None, None)
+        return self.__exit__(None)
 
 
 def _clear_dict(in_dict):

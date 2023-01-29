@@ -39,7 +39,7 @@ class _TempModule(object):
         sys.modules[mod_name] = self.module
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         if self._saved_module:
             sys.modules[self.mod_name] = self._saved_module[0]
         else:
@@ -57,7 +57,7 @@ class _ModifiedArgv0(object):
         self._saved_value = sys.argv[0]
         sys.argv[0] = self.value
 
-    def __exit__(self, *args):
+    def __exit__(self, exc):
         self.value = self._sentinel
         sys.argv[0] = self._saved_value
 

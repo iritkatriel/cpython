@@ -652,7 +652,7 @@ class BaseManager(object):
                     "Unknown state {!r}".format(self._state.value))
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc):
         self.shutdown()
 
     @staticmethod
@@ -1053,7 +1053,7 @@ class AcquirerProxy(BaseProxy):
         return self._callmethod('release')
     def __enter__(self):
         return self._callmethod('acquire')
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc):
         return self._callmethod('release')
 
 
@@ -1189,7 +1189,7 @@ BasePoolProxy._method_to_typeid_ = {
 class PoolProxy(BasePoolProxy):
     def __enter__(self):
         return self
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc):
         self.terminate()
 
 #
