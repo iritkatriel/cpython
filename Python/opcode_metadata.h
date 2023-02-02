@@ -261,7 +261,7 @@ _PyOpcode_num_popped(int opcode, int oparg, bool jump) {
         case GET_YIELD_FROM_ITER:
             return 1;
         case FOR_ITER:
-            return -1;
+            return 1;
         case FOR_ITER_LIST:
             return -1;
         case FOR_ITER_TUPLE:
@@ -607,7 +607,7 @@ _PyOpcode_num_pushed(int opcode, int oparg, bool jump) {
         case GET_YIELD_FROM_ITER:
             return 1;
         case FOR_ITER:
-            return -1;
+            return ((!jump) ? 1 : 0) + ((!jump) ? 1 : 0);
         case FOR_ITER_LIST:
             return -1;
         case FOR_ITER_TUPLE:
