@@ -873,7 +873,7 @@ make_gen(PyTypeObject *type, PyFunctionObject *func)
 {
     PyCodeObject *code = (PyCodeObject *)func->func_code;
     int slots = _PyFrame_NumSlotsForCodeObject(code);
-    PyGenObject *gen = PyObject_GC_NewVar(PyGenObject, type, slots);
+    PyGenObject *gen = PyObject_GC_NewVarStaticType(PyGenObject, type, slots);
     if (gen == NULL) {
         return NULL;
     }
@@ -945,7 +945,7 @@ gen_new_with_qualname(PyTypeObject *type, PyFrameObject *f,
 {
     PyCodeObject *code = f->f_frame->f_code;
     int size = code->co_nlocalsplus + code->co_stacksize;
-    PyGenObject *gen = PyObject_GC_NewVar(PyGenObject, type, size);
+    PyGenObject *gen = PyObject_GC_NewVarStaticType(PyGenObject, type, size);
     if (gen == NULL) {
         Py_DECREF(f);
         return NULL;
@@ -1068,7 +1068,7 @@ coro_repr(PyCoroObject *coro)
 static PyObject *
 coro_await(PyCoroObject *coro)
 {
-    PyCoroWrapper *cw = PyObject_GC_New(PyCoroWrapper, &_PyCoroWrapper_Type);
+    PyCoroWrapper *cw = PyObject_GC_NewStaticType(PyCoroWrapper, &_PyCoroWrapper_Type);
     if (cw == NULL) {
         return NULL;
     }
@@ -1898,7 +1898,7 @@ async_gen_asend_new(PyAsyncGenObject *gen, PyObject *sendval)
     else
 #endif
     {
-        o = PyObject_GC_New(PyAsyncGenASend, &_PyAsyncGenASend_Type);
+        o = PyObject_GC_NewStaticType(PyAsyncGenASend, &_PyAsyncGenASend_Type);
         if (o == NULL) {
             return NULL;
         }
@@ -2016,8 +2016,8 @@ _PyAsyncGenValueWrapperNew(PyThreadState *tstate, PyObject *val)
     else
 #endif
     {
-        o = PyObject_GC_New(_PyAsyncGenWrappedValue,
-                            &_PyAsyncGenWrappedValue_Type);
+        o = PyObject_GC_NewStaticType(_PyAsyncGenWrappedValue,
+                                      &_PyAsyncGenWrappedValue_Type);
         if (o == NULL) {
             return NULL;
         }
@@ -2301,7 +2301,7 @@ static PyObject *
 async_gen_athrow_new(PyAsyncGenObject *gen, PyObject *args)
 {
     PyAsyncGenAThrow *o;
-    o = PyObject_GC_New(PyAsyncGenAThrow, &_PyAsyncGenAThrow_Type);
+    o = PyObject_GC_NewStaticType(PyAsyncGenAThrow, &_PyAsyncGenAThrow_Type);
     if (o == NULL) {
         return NULL;
     }

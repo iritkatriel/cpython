@@ -630,7 +630,7 @@ memory_alloc(int ndim)
     PyMemoryViewObject *mv;
 
     mv = (PyMemoryViewObject *)
-        PyObject_GC_NewVar(PyMemoryViewObject, &PyMemoryView_Type, 3*ndim);
+        PyObject_GC_NewVarStaticType(PyMemoryViewObject, &PyMemoryView_Type, 3*ndim);
     if (mv == NULL)
         return NULL;
 

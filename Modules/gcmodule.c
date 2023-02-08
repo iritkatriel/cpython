@@ -2348,6 +2348,43 @@ _PyObject_GC_New(PyTypeObject *tp)
     _PyObject_Init(op, tp);
     return op;
 }
+PyVarObject *
+_PyObject_GC_NewVarStaticType(PyTypeObject *tp, Py_ssize_t nitems)
+{   
+    PyVarObject *op;
+
+    if (nitems < 0) {
+        PyErr_BadInternalCall();
+        return NULL; 
+    }
+    size_t presize = _PyType_PreHeaderSize(tp);
+    size_t size = _PyObject_VAR_SIZE(tp, nitems);
+    op = (PyVarObject *)gc_alloc(size, presize);
+    if (op == NULL) {
+        return NULL;
+    }                                
+    _PyObject_InitVarStaticType(op, tp, nitems);
+    return op;
+}
+
+PyVarObject *
+_PyObject_GC_NewVarHeapType(PyTypeObject *tp, Py_ssize_t nitems)
+{   
+    PyVarObject *op;
+
+    if (nitems < 0) {
+        PyErr_BadInternalCall();
+        return NULL; 
+    }
+    size_t presize = _PyType_PreHeaderSize(tp);
+    size_t size = _PyObject_VAR_SIZE(tp, nitems);
+    op = (PyVarObject *)gc_alloc(size, presize);
+    if (op == NULL) {
+        return NULL;
+    }                                
+    _PyObject_InitVarHeapType(op, tp, nitems);
+    return op;
+}
 
 PyVarObject *
 _PyObject_GC_NewVar(PyTypeObject *tp, Py_ssize_t nitems)
@@ -2364,7 +2401,8 @@ _PyObject_GC_NewVar(PyTypeObject *tp, Py_ssize_t nitems)
     if (op == NULL) {
         return NULL;
     }
-// fprintf(stderr, "HEAPTYPE = %d tp = %s\n", _PyType_HasFeature(tp, Py_TPFLAGS_HEAPTYPE), tp->tp_name);
+//if(!_PyType_HasFeature(tp, Py_TPFLAGS_HEAPTYPE)) 
+//fprintf(stderr, "HEAPTYPE = %d tp = %s\n", _PyType_HasFeature(tp, Py_TPFLAGS_HEAPTYPE), tp->tp_name);
     _PyObject_InitVar(op, tp, nitems);
     return op;
 }

@@ -165,10 +165,12 @@ PyAPI_FUNC(PyVarObject *) _PyObject_GC_Resize(PyVarObject *, Py_ssize_t);
                 ( (type *) _PyObject_GC_Resize(_PyVarObject_CAST(op), (n)) )
 
 
-PyAPI_FUNC(PyObject *) _PyObject_GC_NewHeapType(PyTypeObject *);
-PyAPI_FUNC(PyObject *) _PyObject_GC_NewStaticType(PyTypeObject *);
 PyAPI_FUNC(PyObject *) _PyObject_GC_New(PyTypeObject *);
+PyAPI_FUNC(PyObject *) _PyObject_GC_NewStaticType(PyTypeObject *);
+PyAPI_FUNC(PyObject *) _PyObject_GC_NewHeapType(PyTypeObject *);
 PyAPI_FUNC(PyVarObject *) _PyObject_GC_NewVar(PyTypeObject *, Py_ssize_t);
+PyAPI_FUNC(PyVarObject *) _PyObject_GC_NewVarStaticType(PyTypeObject *, Py_ssize_t);
+PyAPI_FUNC(PyVarObject *) _PyObject_GC_NewVarHeapType(PyTypeObject *, Py_ssize_t);
 
 /* Tell the GC to track this object.
  *
@@ -191,6 +193,11 @@ PyAPI_FUNC(void) PyObject_GC_Del(void *);
 
 #define PyObject_GC_NewVar(type, typeobj, n) \
     _Py_CAST(type*, _PyObject_GC_NewVar((typeobj), (n)))
+#define PyObject_GC_NewVarStaticType(type, typeobj, n) \
+    _Py_CAST(type*, _PyObject_GC_NewVarStaticType((typeobj), (n)))
+#define PyObject_GC_NewVarHeapType(type, typeobj, n) \
+    _Py_CAST(type*, _PyObject_GC_NewVarHeapType((typeobj), (n)))
+
 
 PyAPI_FUNC(int) PyObject_GC_IsTracked(PyObject *);
 PyAPI_FUNC(int) PyObject_GC_IsFinalized(PyObject *);

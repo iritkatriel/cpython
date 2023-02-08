@@ -47,7 +47,7 @@ tuple_alloc(Py_ssize_t size)
                     sizeof(PyObject *))) / sizeof(PyObject *)) {
             return (PyTupleObject *)PyErr_NoMemory();
         }
-        op = PyObject_GC_NewVar(PyTupleObject, &PyTuple_Type, size);
+        op = PyObject_GC_NewVarStaticType(PyTupleObject, &PyTuple_Type, size);
         if (op == NULL)
             return NULL;
     }
