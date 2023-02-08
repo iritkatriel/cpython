@@ -1189,7 +1189,7 @@ PyUnicode_New(Py_ssize_t size, Py_UCS4 maxchar)
     if (obj == NULL) {
         return PyErr_NoMemory();
     }
-    _PyObject_Init(obj, &PyUnicode_Type);
+    _PyObject_InitStaticType(obj, &PyUnicode_Type);
 
     unicode = (PyCompactUnicodeObject *)obj;
     if (is_ascii)
@@ -7842,7 +7842,7 @@ PyUnicode_BuildEncodingMap(PyObject* string)
         return PyErr_NoMemory();
     }
 
-    _PyObject_Init(result, &EncodingMapType);
+    _PyObject_InitStaticType(result, &EncodingMapType);
     mresult = (struct encoding_map*)result;
     mresult->count2 = count2;
     mresult->count3 = count3;

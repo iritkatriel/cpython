@@ -103,7 +103,7 @@ _PyBytes_FromSize(Py_ssize_t size, int use_calloc)
     if (op == NULL) {
         return PyErr_NoMemory();
     }
-    _PyObject_InitVar((PyVarObject*)op, &PyBytes_Type, size);
+    _PyObject_InitVarStaticType((PyVarObject*)op, &PyBytes_Type, size);
 _Py_COMP_DIAG_PUSH
 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
     op->ob_shash = -1;
@@ -168,7 +168,7 @@ PyBytes_FromString(const char *str)
     if (op == NULL) {
         return PyErr_NoMemory();
     }
-    _PyObject_InitVar((PyVarObject*)op, &PyBytes_Type, size);
+    _PyObject_InitVarStaticType((PyVarObject*)op, &PyBytes_Type, size);
 _Py_COMP_DIAG_PUSH
 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
     op->ob_shash = -1;
@@ -1465,7 +1465,7 @@ bytes_repeat(PyBytesObject *a, Py_ssize_t n)
     if (op == NULL) {
         return PyErr_NoMemory();
     }
-    _PyObject_InitVar((PyVarObject*)op, &PyBytes_Type, size);
+    _PyObject_InitVarStaticType((PyVarObject*)op, &PyBytes_Type, size);
 _Py_COMP_DIAG_PUSH
 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
     op->ob_shash = -1;

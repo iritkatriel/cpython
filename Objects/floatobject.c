@@ -9,7 +9,7 @@
 #include "pycore_initconfig.h"    // _PyStatus_OK()
 #include "pycore_interp.h"        // _PyInterpreterState.float_state
 #include "pycore_long.h"          // _PyLong_GetOne()
-#include "pycore_object.h"        // _PyObject_Init()
+#include "pycore_object.h"        // _PyObject_InitStaticType()
 #include "pycore_pymath.h"        // _PY_SHORT_FLOAT_REPR
 #include "pycore_pystate.h"       // _PyInterpreterState_GET()
 #include "pycore_structseq.h"     // _PyStructSequence_FiniType()
@@ -151,7 +151,7 @@ PyFloat_FromDouble(double fval)
             return PyErr_NoMemory();
         }
     }
-    _PyObject_Init((PyObject*)op, &PyFloat_Type);
+    _PyObject_InitStaticType((PyObject*)op, &PyFloat_Type);
     op->ob_fval = fval;
     return (PyObject *) op;
 }

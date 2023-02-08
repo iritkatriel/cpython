@@ -13,7 +13,7 @@
 
 #include "Python.h"
 #include "pycore_long.h"          // _PyLong_GetOne()
-#include "pycore_object.h"        // _PyObject_Init()
+#include "pycore_object.h"        // _PyObject_InitStaticType()
 #include "datetime.h"
 #include "structmember.h"         // PyMemberDef
 
@@ -672,7 +672,7 @@ time_alloc(PyTypeObject *type, Py_ssize_t aware)
     if (self == NULL) {
         return PyErr_NoMemory();
     }
-    _PyObject_Init(self, type);
+    _PyObject_InitStaticType(self, type);
     return self;
 }
 
@@ -684,7 +684,7 @@ datetime_alloc(PyTypeObject *type, Py_ssize_t aware)
     if (self == NULL) {
         return PyErr_NoMemory();
     }
-    _PyObject_Init(self, type);
+    _PyObject_InitStaticType(self, type);
     return self;
 }
 

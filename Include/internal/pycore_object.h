@@ -97,21 +97,57 @@ _PyType_HasFeature(PyTypeObject *type, unsigned long feature) {
 
 extern void _PyType_InitCache(PyInterpreterState *interp);
 
-
 /* Inline functions trading binary compatibility for speed:
    _PyObject_Init() is the fast version of PyObject_Init(), and
    _PyObject_InitVar() is the fast version of PyObject_InitVar().
 
    These inline functions must not be called with op=NULL. */
+
+static inline void
+_PyObject_InitStaticType(PyObject *op, PyTypeObject *typeobj)
+{
+    assert(op != NULL);
+    assert(!_PyType_HasFeature(typeobj, Py_TPFLAGS_HEAPTYPE));
+    Py_SET_TYPE(op, typeobj);
+    _Py_NewReference(op);
+}
+
+static inline void
+_PyObject_InitHeapType(PyObject *op, PyTypeObject *typeobj)
+{
+    assert(op != NULL);
+    assert(_PyType_HasFeature(typeobj, Py_TPFLAGS_HEAPTYPE));
+    Py_SET_TYPE(op, typeobj);
+    Py_INCREF(typeobj);
+    _Py_NewReference(op);
+}
+
 static inline void
 _PyObject_Init(PyObject *op, PyTypeObject *typeobj)
 {
-    assert(op != NULL);
-    Py_SET_TYPE(op, typeobj);
+// fprintf(stderr, "HEAPTYPE = %d typeobj = %s\n", _PyType_HasFeature(typeobj, Py_TPFLAGS_HEAPTYPE), typeobj->tp_name);
     if (_PyType_HasFeature(typeobj, Py_TPFLAGS_HEAPTYPE)) {
-        Py_INCREF(typeobj);
+        _PyObject_InitHeapType(op, typeobj);
     }
-    _Py_NewReference(op);
+    else {
+        _PyObject_InitStaticType(op, typeobj);
+    }
+}
+
+static inline void
+_PyObject_InitVarStaticType(PyVarObject *op, PyTypeObject *typeobj, Py_ssize_t size)
+{
+    assert(op != NULL);
+    Py_SET_SIZE(op, size);
+    _PyObject_InitStaticType((PyObject *)op, typeobj);
+}
+
+static inline void
+_PyObject_InitVarHeapType(PyVarObject *op, PyTypeObject *typeobj, Py_ssize_t size)
+{
+    assert(op != NULL);
+    Py_SET_SIZE(op, size);
+    _PyObject_InitHeapType((PyObject *)op, typeobj);
 }
 
 static inline void

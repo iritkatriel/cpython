@@ -6,7 +6,7 @@
 #include "pycore_bitutils.h"      // _Py_popcount32()
 #include "pycore_initconfig.h"    // _PyStatus_OK()
 #include "pycore_long.h"          // _Py_SmallInts
-#include "pycore_object.h"        // _PyObject_InitVar()
+#include "pycore_object.h"        // _PyObject_InitVarStaticType()
 #include "pycore_pystate.h"       // _Py_IsMainInterpreter()
 #include "pycore_runtime.h"       // _PY_NSMALLPOSINTS
 #include "pycore_structseq.h"     // _PyStructSequence_FiniType()
@@ -166,7 +166,7 @@ _PyLong_New(Py_ssize_t size)
         PyErr_NoMemory();
         return NULL;
     }
-    _PyObject_InitVar((PyVarObject*)result, &PyLong_Type, size);
+    _PyObject_InitVarStaticType((PyVarObject*)result, &PyLong_Type, size);
     return result;
 }
 
@@ -209,7 +209,7 @@ _PyLong_FromMedium(sdigit x)
     }
     Py_ssize_t sign = x < 0 ? -1: 1;
     digit abs_x = x < 0 ? -x : x;
-    _PyObject_InitVar((PyVarObject*)v, &PyLong_Type, sign);
+    _PyObject_InitVarStaticType((PyVarObject*)v, &PyLong_Type, sign);
     v->long_value.ob_digit[0] = abs_x;
     return (PyObject*)v;
 }
