@@ -17,7 +17,6 @@ extern "C" {
 #include "pycore_context.h"       // struct _Py_context_state
 #include "pycore_dict_state.h"    // struct _Py_dict_state
 #include "pycore_exceptions.h"    // struct _Py_exc_state
-#include "pycore_floatobject.h"   // struct _Py_float_state
 #include "pycore_pymem.h"         // free lists
 #include "pycore_function.h"      // FUNC_MAX_WATCHERS
 #include "pycore_genobject.h"     // struct _Py_async_gen_state
@@ -169,7 +168,6 @@ struct _is {
     uint8_t active_code_watchers;
 
     struct _Py_unicode_state unicode;
-    struct _Py_float_state float_state;
     struct _Py_long_state long_state;
     /* Using a cache is very effective since typically only a single slice is
        created and then deleted again. */
@@ -235,8 +233,16 @@ PyAPI_FUNC(int) _PyInterpreterState_IDInitref(PyInterpreterState *);
 PyAPI_FUNC(int) _PyInterpreterState_IDIncref(PyInterpreterState *);
 PyAPI_FUNC(void) _PyInterpreterState_IDDecref(PyInterpreterState *);
 
-#define FREELIST_QUANTUM (2*sizeof(void*))
-#define SIZE_TO_FREELIST_INDEX(size) (((size) + FREELIST_QUANTUM - 1)/FREELIST_QUANTUM)
+#if SIZEOF_VOID_P == 4
+#define LOG_BASE_2_OF_FREELIST_QUANTUM 3
+#elif SIZEOF_VOID_P == 8
+#define LOG_BASE_2_OF_FREELIST_QUANTUM 4
+#else
+#error "void pointer size not in (32, 64)"
+#endif
+
+#define FREELIST_QUANTUM (2*SIZEOF_VOID_P)
+#define SIZE_TO_FREELIST_INDEX(size) (((size) + FREELIST_QUANTUM - 1) >> LOG_BASE_2_OF_FREELIST_QUANTUM)
 #define FREELIST_INDEX_TO_ALLOCATED_SIZE(idx) ((idx) * FREELIST_QUANTUM)
 
 static inline PyObject*
