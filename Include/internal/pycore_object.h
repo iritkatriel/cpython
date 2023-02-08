@@ -101,6 +101,9 @@ extern void _PyType_InitCache(PyInterpreterState *interp);
    _PyObject_Init() is the fast version of PyObject_Init(), and
    _PyObject_InitVar() is the fast version of PyObject_InitVar().
 
+   Their StaticType/HeapType variants are optimized for the
+   respective type.
+
    These inline functions must not be called with op=NULL. */
 
 static inline void
