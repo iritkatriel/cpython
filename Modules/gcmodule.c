@@ -2314,6 +2314,30 @@ gc_alloc(size_t basicsize, size_t presize)
 }
 
 PyObject *
+_PyObject_GC_NewStaticType(PyTypeObject *tp)
+{ 
+    size_t presize = _PyType_PreHeaderSize(tp);
+    PyObject *op = gc_alloc(_PyObject_SIZE(tp), presize); 
+    if (op == NULL) {
+        return NULL;
+    }
+    _PyObject_InitStaticType(op, tp);
+    return op;
+} 
+
+PyObject *
+_PyObject_GC_NewHeapType(PyTypeObject *tp)
+{ 
+    size_t presize = _PyType_PreHeaderSize(tp);
+    PyObject *op = gc_alloc(_PyObject_SIZE(tp), presize); 
+    if (op == NULL) {
+        return NULL;
+    }
+    _PyObject_InitHeapType(op, tp);
+    return op;
+} 
+
+PyObject *
 _PyObject_GC_New(PyTypeObject *tp)
 {
     size_t presize = _PyType_PreHeaderSize(tp);
@@ -2340,6 +2364,7 @@ _PyObject_GC_NewVar(PyTypeObject *tp, Py_ssize_t nitems)
     if (op == NULL) {
         return NULL;
     }
+// fprintf(stderr, "HEAPTYPE = %d tp = %s\n", _PyType_HasFeature(tp, Py_TPFLAGS_HEAPTYPE), tp->tp_name);
     _PyObject_InitVar(op, tp, nitems);
     return op;
 }

@@ -84,7 +84,7 @@ PyCMethod_New(PyMethodDef *ml, PyObject *self, PyObject *module, PyTypeObject *c
                             "flag but no class");
             return NULL;
         }
-        PyCMethodObject *om = PyObject_GC_New(PyCMethodObject, &PyCMethod_Type);
+        PyCMethodObject *om = PyObject_GC_NewStaticType(PyCMethodObject, &PyCMethod_Type);
         if (om == NULL) {
             return NULL;
         }
@@ -97,7 +97,7 @@ PyCMethod_New(PyMethodDef *ml, PyObject *self, PyObject *module, PyTypeObject *c
                             "but no METH_METHOD flag");
             return NULL;
         }
-        op = PyObject_GC_New(PyCFunctionObject, &PyCFunction_Type);
+        op = PyObject_GC_NewStaticType(PyCFunctionObject, &PyCFunction_Type);
         if (op == NULL) {
             return NULL;
         }

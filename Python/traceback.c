@@ -50,7 +50,7 @@ tb_create_raw(PyTracebackObject *next, PyFrameObject *frame, int lasti,
         PyErr_BadInternalCall();
         return NULL;
     }
-    tb = PyObject_GC_New(PyTracebackObject, &PyTraceBack_Type);
+    tb = PyObject_GC_NewStaticType(PyTracebackObject, &PyTraceBack_Type);
     if (tb != NULL) {
         tb->tb_next = (PyTracebackObject*)Py_XNewRef(next);
         tb->tb_frame = (PyFrameObject*)Py_XNewRef(frame);

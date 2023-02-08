@@ -863,7 +863,7 @@ PyTypeObject PySetIter_Type = {
 static PyObject *
 set_iter(PySetObject *so)
 {
-    setiterobject *si = PyObject_GC_New(setiterobject, &PySetIter_Type);
+    setiterobject *si = PyObject_GC_NewStaticType(setiterobject, &PySetIter_Type);
     if (si == NULL)
         return NULL;
     si->si_set = (PySetObject*)Py_NewRef(so);

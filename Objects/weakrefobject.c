@@ -37,7 +37,7 @@ new_weakref(PyObject *ob, PyObject *callback)
 {
     PyWeakReference *result;
 
-    result = PyObject_GC_New(PyWeakReference, &_PyWeakref_RefType);
+    result = PyObject_GC_NewStaticType(PyWeakReference, &_PyWeakref_RefType);
     if (result) {
         init_weakref(result, ob, callback);
         PyObject_GC_Track(result);

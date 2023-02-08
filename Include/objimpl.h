@@ -165,7 +165,8 @@ PyAPI_FUNC(PyVarObject *) _PyObject_GC_Resize(PyVarObject *, Py_ssize_t);
                 ( (type *) _PyObject_GC_Resize(_PyVarObject_CAST(op), (n)) )
 
 
-
+PyAPI_FUNC(PyObject *) _PyObject_GC_NewHeapType(PyTypeObject *);
+PyAPI_FUNC(PyObject *) _PyObject_GC_NewStaticType(PyTypeObject *);
 PyAPI_FUNC(PyObject *) _PyObject_GC_New(PyTypeObject *);
 PyAPI_FUNC(PyVarObject *) _PyObject_GC_NewVar(PyTypeObject *, Py_ssize_t);
 
@@ -183,6 +184,11 @@ PyAPI_FUNC(void) PyObject_GC_Del(void *);
 
 #define PyObject_GC_New(type, typeobj) \
     _Py_CAST(type*, _PyObject_GC_New(typeobj))
+#define PyObject_GC_NewStaticType(type, typeobj) \
+    _Py_CAST(type*, _PyObject_GC_NewStaticType(typeobj))
+#define PyObject_GC_NewHeapType(type, typeobj) \
+    _Py_CAST(type*, _PyObject_GC_NewHeapType(typeobj))
+
 #define PyObject_GC_NewVar(type, typeobj, n) \
     _Py_CAST(type*, _PyObject_GC_NewVar((typeobj), (n)))
 

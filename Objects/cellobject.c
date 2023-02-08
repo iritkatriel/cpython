@@ -8,7 +8,7 @@ PyCell_New(PyObject *obj)
 {
     PyCellObject *op;
 
-    op = (PyCellObject *)PyObject_GC_New(PyCellObject, &PyCell_Type);
+    op = (PyCellObject *)PyObject_GC_NewStaticType(PyCellObject, &PyCell_Type);
     if (op == NULL)
         return NULL;
     op->ob_ref = Py_XNewRef(obj);

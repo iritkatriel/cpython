@@ -108,7 +108,7 @@ PyMethod_New(PyObject *func, PyObject *self)
         PyErr_BadInternalCall();
         return NULL;
     }
-    PyMethodObject *im = PyObject_GC_New(PyMethodObject, &PyMethod_Type);
+    PyMethodObject *im = PyObject_GC_NewStaticType(PyMethodObject, &PyMethod_Type);
     if (im == NULL) {
         return NULL;
     }

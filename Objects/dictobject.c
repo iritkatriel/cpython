@@ -729,7 +729,7 @@ new_dict(PyDictKeysObject *keys, PyDictValues *values, Py_ssize_t used, int free
     else
 #endif
     {
-        mp = PyObject_GC_New(PyDictObject, &PyDict_Type);
+        mp = PyObject_GC_NewStaticType(PyDictObject, &PyDict_Type);
         if (mp == NULL) {
             dictkeys_decref(keys);
             if (free_values_on_failure) {
@@ -2974,7 +2974,7 @@ PyDict_Copy(PyObject *o)
         PyDictValues *newvalues = new_values(size);
         if (newvalues == NULL)
             return PyErr_NoMemory();
-        split_copy = PyObject_GC_New(PyDictObject, &PyDict_Type);
+        split_copy = PyObject_GC_NewStaticType(PyDictObject, &PyDict_Type);
         if (split_copy == NULL) {
             free_values(newvalues);
             return NULL;
@@ -3896,7 +3896,7 @@ static PyObject *
 dictiter_new(PyDictObject *dict, PyTypeObject *itertype)
 {
     dictiterobject *di;
-    di = PyObject_GC_New(dictiterobject, itertype);
+    di = PyObject_GC_NewStaticType(dictiterobject, itertype);
     if (di == NULL) {
         return NULL;
     }
@@ -4511,7 +4511,7 @@ _PyDictView_New(PyObject *dict, PyTypeObject *type)
                      type->tp_name, Py_TYPE(dict)->tp_name);
         return NULL;
     }
-    dv = PyObject_GC_New(_PyDictViewObject, type);
+    dv = PyObject_GC_NewStaticType(_PyDictViewObject, type);
     if (dv == NULL)
         return NULL;
     dv->dv_dict = (PyDictObject *)Py_NewRef(dict);

@@ -78,7 +78,7 @@ PyFunctionObject *
 _PyFunction_FromConstructor(PyFrameConstructor *constr)
 {
 
-    PyFunctionObject *op = PyObject_GC_New(PyFunctionObject, &PyFunction_Type);
+    PyFunctionObject *op = PyObject_GC_NewStaticType(PyFunctionObject, &PyFunction_Type);
     if (op == NULL) {
         return NULL;
     }
@@ -153,7 +153,7 @@ PyFunction_NewWithQualName(PyObject *code, PyObject *globals, PyObject *qualname
     }
     Py_INCREF(builtins);
 
-    PyFunctionObject *op = PyObject_GC_New(PyFunctionObject, &PyFunction_Type);
+    PyFunctionObject *op = PyObject_GC_NewStaticType(PyFunctionObject, &PyFunction_Type);
     if (op == NULL) {
         goto error;
     }

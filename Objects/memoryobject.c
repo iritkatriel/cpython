@@ -73,7 +73,7 @@ mbuf_alloc(void)
     _PyManagedBufferObject *mbuf;
 
     mbuf = (_PyManagedBufferObject *)
-        PyObject_GC_New(_PyManagedBufferObject, &_PyManagedBuffer_Type);
+        PyObject_GC_NewStaticType(_PyManagedBufferObject, &_PyManagedBuffer_Type);
     if (mbuf == NULL)
         return NULL;
     mbuf->flags = 0;

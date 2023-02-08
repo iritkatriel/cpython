@@ -14881,10 +14881,10 @@ unicode_iter(PyObject *seq)
         return NULL;
     }
     if (PyUnicode_IS_COMPACT_ASCII(seq)) {
-        it = PyObject_GC_New(unicodeiterobject, &_PyUnicodeASCIIIter_Type);
+        it = PyObject_GC_NewStaticType(unicodeiterobject, &_PyUnicodeASCIIIter_Type);
     }
     else {
-        it = PyObject_GC_New(unicodeiterobject, &PyUnicodeIter_Type);
+        it = PyObject_GC_NewStaticType(unicodeiterobject, &PyUnicodeIter_Type);
     }
     if (it == NULL)
         return NULL;

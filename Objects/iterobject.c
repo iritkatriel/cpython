@@ -19,7 +19,7 @@ PySeqIter_New(PyObject *seq)
         PyErr_BadInternalCall();
         return NULL;
     }
-    it = PyObject_GC_New(seqiterobject, &PySeqIter_Type);
+    it = PyObject_GC_NewStaticType(seqiterobject, &PySeqIter_Type);
     if (it == NULL)
         return NULL;
     it->it_index = 0;
@@ -179,7 +179,7 @@ PyObject *
 PyCallIter_New(PyObject *callable, PyObject *sentinel)
 {
     calliterobject *it;
-    it = PyObject_GC_New(calliterobject, &PyCallIter_Type);
+    it = PyObject_GC_NewStaticType(calliterobject, &PyCallIter_Type);
     if (it == NULL)
         return NULL;
     it->it_callable = Py_NewRef(callable);
@@ -488,7 +488,7 @@ PyTypeObject _PyAnextAwaitable_Type = {
 PyObject *
 PyAnextAwaitable_New(PyObject *awaitable, PyObject *default_value)
 {
-    anextawaitableobject *anext = PyObject_GC_New(
+    anextawaitableobject *anext = PyObject_GC_NewStaticType(
             anextawaitableobject, &_PyAnextAwaitable_Type);
     if (anext == NULL) {
         return NULL;

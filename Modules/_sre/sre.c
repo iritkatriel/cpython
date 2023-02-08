@@ -2756,7 +2756,7 @@ pattern_scanner(_sremodulestate *module_state,
     ScannerObject* scanner;
 
     /* create scanner object */
-    scanner = PyObject_GC_New(ScannerObject, module_state->Scanner_Type);
+    scanner = PyObject_GC_NewHeapType(ScannerObject, module_state->Scanner_Type);
     if (!scanner)
         return NULL;
     scanner->pattern = NULL;

@@ -176,7 +176,7 @@ PyList_New(Py_ssize_t size)
     else
 #endif
     {
-        op = PyObject_GC_New(PyListObject, &PyList_Type);
+        op = PyObject_GC_NewStaticType(PyListObject, &PyList_Type);
         if (op == NULL) {
             return NULL;
         }
@@ -3207,7 +3207,7 @@ list_iter(PyObject *seq)
         PyErr_BadInternalCall();
         return NULL;
     }
-    it = PyObject_GC_New(_PyListIterObject, &PyListIter_Type);
+    it = PyObject_GC_NewStaticType(_PyListIterObject, &PyListIter_Type);
     if (it == NULL)
         return NULL;
     it->it_index = 0;
@@ -3355,7 +3355,7 @@ list___reversed___impl(PyListObject *self)
 {
     listreviterobject *it;
 
-    it = PyObject_GC_New(listreviterobject, &PyListRevIter_Type);
+    it = PyObject_GC_NewStaticType(listreviterobject, &PyListRevIter_Type);
     if (it == NULL)
         return NULL;
     assert(PyList_Check(self));

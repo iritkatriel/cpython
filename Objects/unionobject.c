@@ -390,7 +390,7 @@ make_union(PyObject *args)
 {
     assert(PyTuple_CheckExact(args));
 
-    unionobject *result = PyObject_GC_New(unionobject, &_PyUnion_Type);
+    unionobject *result = PyObject_GC_NewStaticType(unionobject, &_PyUnion_Type);
     if (result == NULL) {
         return NULL;
     }

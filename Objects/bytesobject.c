@@ -3249,7 +3249,7 @@ bytes_iter(PyObject *seq)
         PyErr_BadInternalCall();
         return NULL;
     }
-    it = PyObject_GC_New(striterobject, &PyBytesIter_Type);
+    it = PyObject_GC_NewStaticType(striterobject, &PyBytesIter_Type);
     if (it == NULL)
         return NULL;
     it->it_index = 0;

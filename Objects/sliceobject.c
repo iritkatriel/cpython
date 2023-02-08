@@ -122,7 +122,7 @@ _PyBuildSlice_Consume2(PyObject *start, PyObject *stop, PyObject *step)
         _Py_NewReference((PyObject *)obj);
     }
     else {
-        obj = PyObject_GC_New(PySliceObject, &PySlice_Type);
+        obj = PyObject_GC_NewStaticType(PySliceObject, &PySlice_Type);
         if (obj == NULL) {
             goto error;
         }

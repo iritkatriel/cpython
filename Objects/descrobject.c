@@ -1238,7 +1238,7 @@ mappingproxy_new_impl(PyTypeObject *type, PyObject *mapping)
     if (mappingproxy_check_mapping(mapping) == -1)
         return NULL;
 
-    mappingproxy = PyObject_GC_New(mappingproxyobject, &PyDictProxy_Type);
+    mappingproxy = PyObject_GC_NewStaticType(mappingproxyobject, &PyDictProxy_Type);
     if (mappingproxy == NULL)
         return NULL;
     mappingproxy->mapping = Py_NewRef(mapping);
@@ -1254,7 +1254,7 @@ PyDictProxy_New(PyObject *mapping)
     if (mappingproxy_check_mapping(mapping) == -1)
         return NULL;
 
-    pp = PyObject_GC_New(mappingproxyobject, &PyDictProxy_Type);
+    pp = PyObject_GC_NewStaticType(mappingproxyobject, &PyDictProxy_Type);
     if (pp != NULL) {
         pp->mapping = Py_NewRef(mapping);
         _PyObject_GC_TRACK(pp);
@@ -1458,7 +1458,7 @@ PyWrapper_New(PyObject *d, PyObject *self)
     assert(_PyObject_RealIsSubclass((PyObject *)Py_TYPE(self),
                                     (PyObject *)PyDescr_TYPE(descr)));
 
-    wp = PyObject_GC_New(wrapperobject, &_PyMethodWrapper_Type);
+    wp = PyObject_GC_NewStaticType(wrapperobject, &_PyMethodWrapper_Type);
     if (wp != NULL) {
         wp->descr = (PyWrapperDescrObject*)Py_NewRef(descr);
         wp->self = Py_NewRef(self);
