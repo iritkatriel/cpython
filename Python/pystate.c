@@ -765,10 +765,8 @@ interpreter_clear(PyInterpreterState *interp, PyThreadState *tstate)
     }
     HEAD_UNLOCK(runtime);
 
-    for (int i=0; i < INTERP_NUM_FREELISTS; i++) {
-        _PyFreeList_Clear(&interp->freelists[i]);
-        _PyFreeList_Disable(&interp->freelists[i]);
-    }
+    _PyInterpreterState_ClearFreeLists(interp);
+    _PyInterpreterState_DisableFreeLists(interp);
 
     /* It is possible that any of the objects below have a finalizer
        that runs Python code or otherwise relies on a thread state

@@ -1043,6 +1043,7 @@ clear_freelists(PyInterpreterState *interp)
     _PyDict_ClearFreeList(interp);
     _PyAsyncGen_ClearFreeLists(interp);
     _PyContext_ClearFreeList(interp);
+    _PyInterpreterState_ClearFreeLists(interp);
 }
 
 // Show stats for objects in each generations

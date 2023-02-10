@@ -117,6 +117,19 @@ static inline PyInterpreterState* _PyInterpreterState_GET(void) {
     return tstate->interp;
 }
 
+static inline void
+_PyInterpreterState_ClearFreeLists(PyInterpreterState *interp) {
+    for (int i=0; i < INTERP_NUM_FREELISTS; i++) {
+        _PyFreeList_Clear(&interp->freelists[i]);
+    }
+}
+
+static inline void
+_PyInterpreterState_DisableFreeLists(PyInterpreterState *interp) {
+    for (int i=0; i < INTERP_NUM_FREELISTS; i++) {
+        _PyFreeList_Disable(&interp->freelists[i]);
+    }
+}
 
 // PyThreadState functions
 
