@@ -54,6 +54,8 @@ struct _Py_long_state {
 #define SMALL_OBJECT_FREELIST_SIZE 1024
 #define INTERP_NUM_FREELISTS 30
 
+_PyFreeList global_freelists[INTERP_NUM_FREELISTS];
+
 /* PyInterpreterState holds the global state for one of the runtime's
    interpreters.  Typically the initial (main) interpreter is the only one.
 
@@ -182,7 +184,6 @@ struct _is {
     struct _Py_context_state context;
     struct _Py_exc_state exc_state;
 
-    _PyFreeList freelists[INTERP_NUM_FREELISTS];
     struct ast_state ast;
     struct types_state types;
     struct callable_cache callable_cache;
@@ -252,7 +253,7 @@ static inline PyObject*
 _PyInterpreterState_FreelistAlloc(PyInterpreterState *interp, Py_ssize_t size) {
     Py_ssize_t index = SIZE_TO_FREELIST_SIZE_CLASS(size);
     assert(index >= 0 && index < INTERP_NUM_FREELISTS);
-    return _PyFreeList_Alloc(&interp->freelists[index]);
+    return _PyFreeList_Alloc(&global_freelists[index]);
 }
 
 static inline void
@@ -260,7 +261,7 @@ _PyInterpreterState_FreelistFree(PyInterpreterState * interp, PyObject *op, Py_s
     /* todo: assert the size is correct? */
     Py_ssize_t index = SIZE_TO_FREELIST_SIZE_CLASS(size);
     assert(index >= 0 && index < INTERP_NUM_FREELISTS);
-    _PyFreeList_Free(&interp->freelists[index], op);
+    _PyFreeList_Free(&global_freelists[index], op);
 }
 
 
