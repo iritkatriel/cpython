@@ -72,6 +72,8 @@ typedef struct _PyInterpreterFrame {
      * If there is no callee, then it is meaningless. */
     uint16_t return_offset;
     char owner;
+    /* Used by INSTRUMENTED_LINE */
+    int last_traced_index;
     /* Locals and stack */
     PyObject *localsplus[1];
 } _PyInterpreterFrame;
@@ -137,6 +139,7 @@ _PyFrame_Initialize(
     frame->prev_instr = _PyCode_CODE(code) - 1;
     frame->return_offset = 0;
     frame->owner = FRAME_OWNED_BY_THREAD;
+    frame->last_traced_index = 0;
 
     for (int i = null_locals_from; i < code->co_nlocalsplus; i++) {
         frame->localsplus[i] = NULL;
@@ -300,6 +303,7 @@ _PyFrame_PushTrampolineUnchecked(PyThreadState *tstate, PyCodeObject *code, int 
     frame->prev_instr = _PyCode_CODE(code) + prev_instr;
     frame->owner = FRAME_OWNED_BY_THREAD;
     frame->return_offset = 0;
+    frame->last_traced_index = 0;
     return frame;
 }
 

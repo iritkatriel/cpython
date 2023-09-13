@@ -776,11 +776,10 @@ resume_frame:
         case INSTRUMENTED_LINE:
 #endif
     {
-        _Py_CODEUNIT *prev = frame->prev_instr;
         _Py_CODEUNIT *here = frame->prev_instr = next_instr;
         _PyFrame_SetStackPointer(frame, stack_pointer);
         int original_opcode = _Py_call_instrumentation_line(
-                tstate, frame, here, prev);
+                tstate, frame, here);
         stack_pointer = _PyFrame_GetStackPointer(frame);
         if (original_opcode < 0) {
             next_instr = here+1;

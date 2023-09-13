@@ -1113,7 +1113,7 @@ _Py_Instrumentation_GetLine(PyCodeObject *code, int index)
 }
 
 int
-_Py_call_instrumentation_line(PyThreadState *tstate, _PyInterpreterFrame* frame, _Py_CODEUNIT *instr, _Py_CODEUNIT *prev)
+_Py_call_instrumentation_line(PyThreadState *tstate, _PyInterpreterFrame* frame, _Py_CODEUNIT *instr)
 {
     assert(frame->prev_instr == instr);
     PyCodeObject *code = _PyFrame_GetCode(frame);
@@ -1130,10 +1130,10 @@ _Py_call_instrumentation_line(PyThreadState *tstate, _PyInterpreterFrame* frame,
     int8_t line_delta = line_data->line_delta;
     int line = compute_line(code, i, line_delta);
     assert(line >= 0);
-    int prev_index = (int)(prev - _PyCode_CODE(code));
-    int prev_line = _Py_Instrumentation_GetLine(code, prev_index);
+    int prev_line = frame->last_traced_index == 0 ? -1 :
+                    _Py_Instrumentation_GetLine(code, frame->last_traced_index);
     if (prev_line == line) {
-        int prev_opcode = _PyCode_CODE(code)[prev_index].op.code;
+        int prev_opcode = _PyCode_CODE(code)[frame->last_traced_index].op.code;
         /* RESUME and INSTRUMENTED_RESUME are needed for the operation of
          * instrumentation, so must never be hidden by an INSTRUMENTED_LINE.
          */
@@ -1141,6 +1141,7 @@ _Py_call_instrumentation_line(PyThreadState *tstate, _PyInterpreterFrame* frame,
             goto done;
         }
     }
+    frame->last_traced_index = i;
     uint8_t tools = code->_co_monitoring->line_tools != NULL ?
         code->_co_monitoring->line_tools[i] :
         (interp->monitors.tools[PY_MONITORING_EVENT_LINE] |
