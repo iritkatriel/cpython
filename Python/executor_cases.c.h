@@ -3281,7 +3281,6 @@
             #if TIER_TWO
             frame->next_instr_offset = oparg;
             #endif
-            assert(frame->next_instr_offset != 0);
             break;
         }
 

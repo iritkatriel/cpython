@@ -997,7 +997,6 @@
                 #if TIER_TWO
                 frame->next_instr_offset = oparg;
                 #endif
-                assert(frame->next_instr_offset != 0);
             }
             // _POP_FRAME
             retval = stack_pointer[-1];
@@ -1063,7 +1062,6 @@
                 #if TIER_TWO
                 frame->next_instr_offset = oparg;
                 #endif
-                assert(frame->next_instr_offset != 0);
             }
             // _POP_FRAME
             retval = value;
@@ -3958,7 +3956,6 @@
                 #if TIER_TWO
                 frame->next_instr_offset = oparg;
                 #endif
-                assert(frame->next_instr_offset != 0);
             }
             // _PUSH_FRAME
             STACK_SHRINK(oparg);
@@ -4036,7 +4033,6 @@
                 #if TIER_TWO
                 frame->next_instr_offset = oparg;
                 #endif
-                assert(frame->next_instr_offset != 0);
             }
             // _PUSH_FRAME
             STACK_SHRINK(oparg);
