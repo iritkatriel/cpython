@@ -1,0 +1,2 @@
+Assign a line number to the synthetic handler for :exc:`StopIteration` which
+the compiler wraps around coroutines, generators and comprehensions.
