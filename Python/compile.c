@@ -2178,7 +2178,7 @@ compiler_check_debug_args(struct compiler *c, arguments_ty args)
 }
 
 static int
-wrap_in_stopiteration_handler(struct compiler *c)
+wrap_in_stopiteration_handler(struct compiler *c, location loc)
 {
     NEW_JUMP_TARGET_LABEL(c, handler);
 
@@ -2191,8 +2191,9 @@ wrap_in_stopiteration_handler(struct compiler *c)
     ADDOP_LOAD_CONST(c, NO_LOCATION, Py_None);
     ADDOP(c, NO_LOCATION, RETURN_VALUE);
     USE_LABEL(c, handler);
-    ADDOP_I(c, NO_LOCATION, CALL_INTRINSIC_1, INTRINSIC_STOPITERATION_ERROR);
-    ADDOP_I(c, NO_LOCATION, RERAISE, 1);
+
+    ADDOP_I(c, loc, CALL_INTRINSIC_1, INTRINSIC_STOPITERATION_ERROR);
+    ADDOP_I(c, loc, RERAISE, 1);
     return SUCCESS;
 }
 
@@ -2313,8 +2314,10 @@ compiler_function_body(struct compiler *c, stmt_ty s, int is_async, Py_ssize_t f
     for (Py_ssize_t i = docstring ? 1 : 0; i < asdl_seq_LEN(body); i++) {
         VISIT_IN_SCOPE(c, stmt, (stmt_ty)asdl_seq_GET(body, i));
     }
+
+    location loc = LOC(s);
     if (c->u->u_ste->ste_coroutine || c->u->u_ste->ste_generator) {
-        if (wrap_in_stopiteration_handler(c) < 0) {
+        if (wrap_in_stopiteration_handler(c, loc) < 0) {
             compiler_exit_scope(c);
             return ERROR;
         }
@@ -2325,7 +2328,6 @@ compiler_function_body(struct compiler *c, stmt_ty s, int is_async, Py_ssize_t f
         Py_XDECREF(co);
         return ERROR;
     }
-    location loc = LOC(s);
     if (compiler_make_closure(c, loc, co, funcflags) < 0) {
         Py_DECREF(co);
         return ERROR;
@@ -5825,7 +5827,7 @@ compiler_comprehension(struct compiler *c, expr_ty e, int type,
         ADDOP(c, LOC(e), RETURN_VALUE);
     }
     if (type == COMP_GENEXP) {
-        if (wrap_in_stopiteration_handler(c) < 0) {
+        if (wrap_in_stopiteration_handler(c, LOC(e)) < 0) {
             goto error_in_scope;
         }
     }

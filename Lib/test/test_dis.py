@@ -591,7 +591,8 @@ None        JUMP_BACKWARD           11 (to 60)
 None     >> COPY                     3
             POP_EXCEPT
             RERAISE                  1
-         >> CALL_INTRINSIC_1         3 (INTRINSIC_STOPITERATION_ERROR)
+
+%4d     >> CALL_INTRINSIC_1         3 (INTRINSIC_STOPITERATION_ERROR)
             RERAISE                  1
 ExceptionTable:
 12 rows
@@ -604,6 +605,7 @@ ExceptionTable:
        _asyncwith.__code__.co_firstlineno + 1,
        _asyncwith.__code__.co_firstlineno + 1,
        _asyncwith.__code__.co_firstlineno + 3,
+       _asyncwith.__code__.co_firstlineno,
        )
 
 
@@ -768,8 +770,7 @@ None        COPY_FREE_VARS           1
             JUMP_BACKWARD           12 (to 10)
          >> END_FOR
             RETURN_CONST             0 (None)
-
-None     >> CALL_INTRINSIC_1         3 (INTRINSIC_STOPITERATION_ERROR)
+         >> CALL_INTRINSIC_1         3 (INTRINSIC_STOPITERATION_ERROR)
             RERAISE                  1
 ExceptionTable:
 1 row

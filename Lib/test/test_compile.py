@@ -1075,7 +1075,7 @@ class TestSpecifics(unittest.TestCase):
             async for i in aseq:
                 body
 
-        expected_lines = [0, 1, 2, 1]
+        expected_lines = [0, 1, 2, 1, 0]
         code_lines = self.get_code_lines(test.__code__)
         self.assertEqual(expected_lines, code_lines)
 
