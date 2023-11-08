@@ -11,19 +11,21 @@ class Stage(ttk.Frame):
     def __init__(self, title, refresh_action, editable=False,
                  master=None):
         super().__init__(master)
-        self.pack()
         self.title = title
         self.refresh_action = refresh_action
-        self.text = tk.Text(self) #, wrap=WORD)
-        self.text.pack()
+        self.text = tk.Text(self)
+        self.text.grid(row=0,column=0, padx=5, pady=5)
         if editable:
-            self.refresh = ttk.Button(text="Refresh",
-                                      command=self.do_refresh)
-            self.refresh.pack()
+            bottom_widget = ttk.Button(text="Refresh",
+                                       command=self.do_refresh,
+                                       master=self)
+        else:
+            bottom_widget = ttk.Label(text="", master=self)
+
+        bottom_widget.grid(row=1, column=0, padx=5, pady=5)
 
     def do_refresh(self):
         text = self.text.get(1.0, "end-1c")
-        print(f'{self.title}: {text}')
         self.refresh_action(text)
 
     def replace_text(self, value):
@@ -45,16 +47,26 @@ class App(tk.Tk):
     def __init__(self, master=None):
         super().__init__(master)
         self.title(f'CPython Codoscope {sys.version.split()[0]}')
-        ttk.Label(text="Hello, Tkinter").pack()
+
+        self.displays = ttk.Frame(self)
+        self.controls = ttk.Frame(self)
+        self.displays.grid(row=0, column=0)
+        self.controls.grid(row=1, column=0)
+
         self.source = Stage('source',
                             self.source_refreshed,
                             editable=True,
-                            master=master)
-        self.tokens = Stage('tokens', self.tokens_refreshed, master=master)
+                            master=self.displays)
+        self.tokens = Stage('tokens', self.tokens_refreshed, master=self.displays)
         self.source.set_output(self.tokens)
 
+        self.source.grid(row=0, column=0, padx=10, pady=5)
+        self.tokens.grid(row=0, column=1, padx=10, pady=5)
+
         self.source.replace_text(self.DEFAULT_SOURCE)
-        ttk.Button(text="close", command=self.close).pack()
+        ttk.Button(text="close",
+                   command=self.close,
+                   master=self.controls).grid(row=0, column=0)
 
     def source_refreshed(self, text):
         tokens = list(tokenize.tokenize(
