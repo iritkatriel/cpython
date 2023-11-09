@@ -1,11 +1,13 @@
 
 import ast
 import io
+import opcode
 from pprint import pprint
 import sys
 import tkinter as tk
 import tkinter.ttk as ttk
 import tokenize
+from _testinternalcapi import compiler_codegen, optimize_cfg, assemble_code_object
 
 class Stage(ttk.Frame):
     def __init__(self, title, master=None):
@@ -40,8 +42,8 @@ class App(tk.Tk):
 
         self.displays = ttk.Frame(self)
         self.controls = ttk.Frame(self)
-        self.displays.grid(row=0, column=0)
-        self.controls.grid(row=1, column=0)
+        self.controls.grid(row=0, column=0)
+        self.displays.grid(row=1, column=0)
 
         self.source = Stage('Source', master=self.displays)
         self.tokens = Stage('Tokens', master=self.displays)
@@ -53,11 +55,11 @@ class App(tk.Tk):
 
         self.source.grid(row=0, column=0, padx=10, pady=5)
         self.tokens.grid(row=0, column=1, padx=10, pady=5)
-        self.ast.grid(row=1, column=0, padx=10, pady=5)
-        self.opt_ast.grid(row=1, column=1, padx=10, pady=5)
-        self.pseudo_bytecode.grid(row=2, column=0, padx=10, pady=5)
-        self.opt_pseudo_bytecode.grid(row=2, column=1, padx=10, pady=5)
-        self.code_object.grid(row=3, column=0, padx=10, pady=5)
+        self.ast.grid(row=0, column=2, padx=10, pady=5)
+        self.opt_ast.grid(row=1, column=0, padx=10, pady=5)
+        self.pseudo_bytecode.grid(row=1, column=1, padx=10, pady=5)
+        self.opt_pseudo_bytecode.grid(row=1, column=2, padx=10, pady=5)
+        self.code_object.grid(row=2, column=1, padx=10, pady=5)
 
         ttk.Button(text="refresh",
                    command=self.refresh,
@@ -79,6 +81,8 @@ class App(tk.Tk):
         self.refresh_optimized_ast()
         self.refresh_ast()
         self.refresh_tokens()
+        self.refresh_bytecode()
+        self.refresh_code_object()
 
     def refresh_tokens(self):
         src = self.source.getvalue()
@@ -95,6 +99,22 @@ class App(tk.Tk):
         src = self.source.getvalue()
         self.opt_ast.replace_text(
             ast.dump(ast.parse(src, optimize=1), indent=3))
+
+    def refresh_bytecode(self):
+        def display_insts(insts):
+            return [(opcode.opname[inst[0]],) + inst[1:] for inst in insts]
+
+        src = self.source.getvalue()
+        insts, metadata  = compiler_codegen(ast.parse(src, optimize=1), "<src>", 0)
+        self.pseudo_bytecode.replace_text(self._pretty(display_insts(insts)))
+
+        consts = [v[1] for v in sorted([(v, k) for k, v in metadata['consts'].items()])]
+        nlocals = 0
+        insts = optimize_cfg(insts, consts, nlocals)
+        self.opt_pseudo_bytecode.replace_text(self._pretty(display_insts(insts)))
+
+    def refresh_code_object(self):
+        pass
 
     def close(self):
         self.destroy()
