@@ -84,12 +84,12 @@ class App(tk.Tk):
     def refresh_ast(self):
         src = self.source.getvalue()
         self.ast.replace_text(
-            self._pretty(ast.dump(ast.parse(src))))
+            ast.dump(ast.parse(src), indent=3))
 
     def refresh_optimized_ast(self):
         src = self.source.getvalue()
         self.opt_ast.replace_text(
-            self._pretty(ast.dump(ast.parse(src, optimize=1))))
+            ast.dump(ast.parse(src, optimize=1), indent=3))
 
     def close(self):
         self.destroy()
