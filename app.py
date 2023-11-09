@@ -1,4 +1,5 @@
 
+import ast
 import io
 from pprint import pprint
 import sys
@@ -33,11 +34,12 @@ class Stage(ttk.Frame):
         self.text.insert(tk.INSERT, value or "")
         self.do_refresh()
 
-    def set_output(self, output):
-        self.output = output
+    def set_outputs(self, *outputs):
+        self.outputs = outputs
 
-    def write_output(self, value):
-       self.output.replace_text(value)
+    def write_output(self, values):
+       for output, value in zip(self.outputs, values):
+           output.replace_text(value)
 
 
 class App(tk.Tk):
@@ -58,25 +60,42 @@ class App(tk.Tk):
                             editable=True,
                             master=self.displays)
         self.tokens = Stage('tokens', self.tokens_refreshed, master=self.displays)
-        self.source.set_output(self.tokens)
+        self.ast = Stage('ast', self.ast_refreshed, master=self.displays)
+        self.opt_ast = Stage('opt ast', self.opt_ast_refreshed, master=self.displays)
+
+        self.source.set_outputs(self.tokens, self.ast, self.opt_ast)
 
         self.source.grid(row=0, column=0, padx=10, pady=5)
         self.tokens.grid(row=0, column=1, padx=10, pady=5)
+        self.ast.grid(row=0, column=2, padx=10, pady=5)
+        self.opt_ast.grid(row=0, column=3, padx=10, pady=5)
 
         self.source.replace_text(self.DEFAULT_SOURCE)
         ttk.Button(text="close",
                    command=self.close,
                    master=self.controls).grid(row=0, column=0)
 
-    def source_refreshed(self, text):
+    def source_refreshed(self, src):
+        def pretty(input):
+            stream = io.StringIO()
+            pprint(input, stream=stream)
+            return stream.getvalue()
+
         tokens = list(tokenize.tokenize(
-                     io.BytesIO(text.encode('utf-8')).readline))
-        s = io.StringIO()
-        pprint(tokens, stream=s)
-        self.source.write_output(s.getvalue())
+                     io.BytesIO(src.encode('utf-8')).readline))
+        self.source.write_output([pretty(tokens),
+                                  pretty(ast.dump(ast.parse(src))),
+                                  pretty(ast.dump(ast.parse(src, optimize=1))),
+                                 ])
 
     def tokens_refreshed(self, text):
         print('tokens_refreshed')
+
+    def ast_refreshed(self, text):
+       print('ast_refreshed')
+
+    def opt_ast_refreshed(self, text):
+       print('opt_ast_refreshed')
 
     def close(self):
         self.destroy()
