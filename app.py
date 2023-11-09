@@ -18,6 +18,9 @@ class Stage(ttk.Frame):
     def init_layout(self):
         self.text = tk.Text(self)
         self.text.grid(row=1,column=0, padx=5, pady=5)
+        vscroll = ttk.Scrollbar(self, orient=tk.VERTICAL, command=self.text.yview)
+        vscroll.grid(row=1, column=1, sticky='nsew')
+        self.text['yscrollcommand'] = vscroll.set
 
     def getvalue(self):
         return self.text.get(1.0, "end-1c")
@@ -40,19 +43,21 @@ class App(tk.Tk):
         self.displays.grid(row=0, column=0)
         self.controls.grid(row=1, column=0)
 
-        self.source = Stage('Source',
-                            master=self.displays)
-        self.tokens = Stage('Tokens',
-                            master=self.displays)
-        self.ast = Stage('AST',
-                         master=self.displays)
-        self.opt_ast = Stage('Optimized AST',
-                             master=self.displays)
+        self.source = Stage('Source', master=self.displays)
+        self.tokens = Stage('Tokens', master=self.displays)
+        self.ast = Stage('AST', master=self.displays)
+        self.opt_ast = Stage('Optimized AST', master=self.displays)
+        self.pseudo_bytecode = Stage('Pseudo Bytecode', master=self.displays)
+        self.opt_pseudo_bytecode = Stage('Optimized Pseudo Bytecode', master=self.displays)
+        self.code_object = Stage('Code Object', master=self.displays)
 
         self.source.grid(row=0, column=0, padx=10, pady=5)
         self.tokens.grid(row=0, column=1, padx=10, pady=5)
         self.ast.grid(row=1, column=0, padx=10, pady=5)
         self.opt_ast.grid(row=1, column=1, padx=10, pady=5)
+        self.pseudo_bytecode.grid(row=2, column=0, padx=10, pady=5)
+        self.opt_pseudo_bytecode.grid(row=2, column=1, padx=10, pady=5)
+        self.code_object.grid(row=3, column=0, padx=10, pady=5)
 
         ttk.Button(text="refresh",
                    command=self.refresh,
