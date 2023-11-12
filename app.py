@@ -1,5 +1,6 @@
 
 import ast
+import dis
 import io
 import opcode
 from pprint import pprint
@@ -82,7 +83,6 @@ class App(tk.Tk):
         self.refresh_ast()
         self.refresh_tokens()
         self.refresh_bytecode()
-        self.refresh_code_object()
 
     def refresh_tokens(self):
         src = self.source.getvalue()
@@ -101,20 +101,48 @@ class App(tk.Tk):
             ast.dump(ast.parse(src, optimize=1), indent=3))
 
     def refresh_bytecode(self):
+        print('refresh_bytecode')
         def display_insts(insts):
-            return [(opcode.opname[inst[0]],) + inst[1:] for inst in insts]
+            jump_targets = [inst[1] for inst in insts if inst[0] in dis.hasjump]
+            prev_line = None
+            for offset, inst in enumerate(insts):
+                op, arg = inst[:2]
+                start_offset = 0
+                positions = dis.Positions(*inst[2:])
+                line_number = positions.lineno
+                starts_line = line_number != prev_line
+                prev_line = line_number
+                is_jump_target = offset in jump_targets
+                if op in dis.hasjump:
+                    argval, argrepr = arg, f"to {arg}"
+                    instr = dis.Instruction(dis._all_opname[op], op, arg,
+                           argval, argrepr, offset, start_offset, starts_line,
+                           line_number, is_jump_target, positions)
+                else:
+                    instr = dis.Instruction._create(op, arg, offset, start_offset,
+                                                    starts_line, line_number,
+                                                    is_jump_target, positions)
+                yield instr._disassemble()
 
+        print('codegen ...')
         src = self.source.getvalue()
-        insts, metadata  = compiler_codegen(ast.parse(src, optimize=1), "<src>", 0)
-        self.pseudo_bytecode.replace_text(self._pretty(display_insts(insts)))
+        filename = "<src>"
+        insts, metadata  = compiler_codegen(ast.parse(src, optimize=1), filename, 0)
+        self.pseudo_bytecode.replace_text("\n".join(display_insts(insts)))
 
+        print('optimization ...')
         consts = [v[1] for v in sorted([(v, k) for k, v in metadata['consts'].items()])]
         nlocals = 0
         insts = optimize_cfg(insts, consts, nlocals)
-        self.opt_pseudo_bytecode.replace_text(self._pretty(display_insts(insts)))
+        self.opt_pseudo_bytecode.replace_text("\n".join(display_insts(insts)))
 
-    def refresh_code_object(self):
-        pass
+        print('assembly ...')
+        from test.test_compiler_assemble import IsolatedAssembleTests
+        IsolatedAssembleTests().complete_metadata(metadata)
+        co = assemble_code_object(filename, insts, metadata)
+        stream = io.StringIO()
+        dis.dis(co, file=stream)
+        self.code_object.replace_text(stream.getvalue())
 
     def close(self):
         self.destroy()
