@@ -14,7 +14,7 @@ class Stage(ttk.Frame):
     def __init__(self, title, master=None):
         super().__init__(master)
         self.title = title
-        self.visible = True
+        self.visible = tk.IntVar()
 
         tk.Label(self, text=title).grid(row=0,column=0, padx=5, pady=5)
         self.init_layout()
@@ -57,19 +57,31 @@ class App(tk.Tk):
 
         self.stages = [self.source, self.tokens, self.ast, self.opt_ast,
                        self.pseudo_bytecode, self.opt_pseudo_bytecode, self.code_object]
+
         ttk.Button(text="refresh",
                    command=self.refresh,
-                   master=self.controls).grid(row=0, column=0)
+                   master=self.controls).grid(row=0, column=3)
         ttk.Button(text="close",
                    command=self.close,
-                   master=self.controls).grid(row=0, column=1)
+                   master=self.controls).grid(row=0, column=4)
 
+        for i, stage in enumerate(self.stages):
+            tk.Checkbutton(self.controls,
+                           text=stage.title,
+                           variable=stage.visible,
+                           onvalue=1,
+                           offvalue=0).grid(row=1, column=i)
+
+        self.source.visible.set(1)
         self.source.replace_text(self.DEFAULT_SOURCE)
         self.refresh()
 
     def show_stages(self):
-        for i, stage in enumerate(s for s in self.stages if s.visible):
-            stage.grid(row=i//3, column=i%3, padx=10, pady=5)
+        i = 0
+        for stage in self.stages:
+            if stage.visible.get():
+                stage.grid(row=i//3, column=i%3, padx=10, pady=5)
+                i += 1
 
     @staticmethod
     def _pretty(input):
