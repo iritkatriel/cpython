@@ -14,6 +14,7 @@ class Stage(ttk.Frame):
     def __init__(self, title, master=None):
         super().__init__(master)
         self.title = title
+        self.visible = True
 
         tk.Label(self, text=title).grid(row=0,column=0, padx=5, pady=5)
         self.init_layout()
@@ -54,14 +55,8 @@ class App(tk.Tk):
         self.opt_pseudo_bytecode = Stage('Optimized Pseudo Bytecode', master=self.displays)
         self.code_object = Stage('Code Object', master=self.displays)
 
-        self.source.grid(row=0, column=0, padx=10, pady=5)
-        self.tokens.grid(row=0, column=1, padx=10, pady=5)
-        self.ast.grid(row=0, column=2, padx=10, pady=5)
-        self.opt_ast.grid(row=1, column=0, padx=10, pady=5)
-        self.pseudo_bytecode.grid(row=1, column=1, padx=10, pady=5)
-        self.opt_pseudo_bytecode.grid(row=1, column=2, padx=10, pady=5)
-        self.code_object.grid(row=2, column=1, padx=10, pady=5)
-
+        self.stages = [self.source, self.tokens, self.ast, self.opt_ast,
+                       self.pseudo_bytecode, self.opt_pseudo_bytecode, self.code_object]
         ttk.Button(text="refresh",
                    command=self.refresh,
                    master=self.controls).grid(row=0, column=0)
@@ -71,6 +66,10 @@ class App(tk.Tk):
 
         self.source.replace_text(self.DEFAULT_SOURCE)
         self.refresh()
+
+    def show_stages(self):
+        for i, stage in enumerate(s for s in self.stages if s.visible):
+            stage.grid(row=i//3, column=i%3, padx=10, pady=5)
 
     @staticmethod
     def _pretty(input):
@@ -83,6 +82,7 @@ class App(tk.Tk):
         self.refresh_ast()
         self.refresh_tokens()
         self.refresh_bytecode()
+        self.show_stages()
 
     def refresh_tokens(self):
         src = self.source.getvalue()
