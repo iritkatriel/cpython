@@ -510,6 +510,7 @@ def get_instructions(x, *, first_line=None, show_caches=False, adaptive=False):
                                    co._varname_from_oparg,
                                    co.co_names, co.co_consts,
                                    linestarts, line_offset,
+                                   labels=_all_labels(co.co_code, ()),
                                    co_positions=co.co_positions(),
                                    show_caches=show_caches,
                                    original_code=co.co_code)
@@ -584,7 +585,7 @@ def _is_backward_jump(op):
 
 def _get_instructions_bytes(code, varname_from_oparg=None,
                             names=None, co_consts=None,
-                            linestarts=None, line_offset=0,
+                            linestarts=None, line_offset=0, labels=(),
                             exception_entries=(), co_positions=None,
                             show_caches=False, original_code=None):
     """Iterate over the instructions in a bytecode string.
@@ -601,10 +602,6 @@ def _get_instructions_bytes(code, varname_from_oparg=None,
     original_code = original_code or code
     co_positions = co_positions or iter(())
     get_name = None if names is None else names.__getitem__
-    labels = set(findlabels(original_code))
-    for start, end, target, _, _ in exception_entries:
-        for i in range(start, end):
-            labels.add(target)
     starts_line = False
     local_line_number = None
     line_number = None
@@ -703,7 +700,7 @@ def _disassemble_bytes(code, lasti=-1, varname_from_oparg=None,
     for instr in _get_instructions_bytes(code, varname_from_oparg, names,
                                          co_consts, linestarts,
                                          line_offset=line_offset,
-                                         exception_entries=exception_entries,
+                                         labels=_all_labels(code or original_code, exception_entries),
                                          co_positions=co_positions,
                                          show_caches=show_caches,
                                          original_code=original_code):
@@ -785,6 +782,15 @@ def findlabels(code):
             if label not in labels:
                 labels.append(label)
     return labels
+
+def _all_labels(code, exception_entries):
+    # jump targets and exception handlers
+
+    labels = findlabels(code)
+    for start, end, target, _, _ in exception_entries:
+        for i in range(start, end):
+            labels.append(target)
+    return set(labels)
 
 def findlinestarts(code):
     """Find the offsets in a byte code which are start of lines in the source.
@@ -868,7 +874,7 @@ class Bytecode:
                                        co.co_names, co.co_consts,
                                        self._linestarts,
                                        line_offset=self._line_offset,
-                                       exception_entries=self.exception_entries,
+                                       labels=_all_labels(co.co_code, self.exception_entries),
                                        co_positions=co.co_positions(),
                                        show_caches=self.show_caches,
                                        original_code=co.co_code)
