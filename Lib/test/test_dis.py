@@ -2002,7 +2002,7 @@ class InstructionTests(InstructionTestCase):
         self.assertEqual(10 + 2 + 1*2 + 100*2, instruction.jump_target)
 
     def test_argval_argrepr(self):
-        f = dis.Instruction._get_argval_argrepr
+        f = dis._get_argval_argrepr
 
         offset = 42
         co_consts = (0, 1, 2, 3)

@@ -307,6 +307,72 @@ def _get_jump_target(op, arg, offset):
         target = None
     return target
 
+def _get_argval_argrepr(op, arg, offset, co_consts, names, varname_from_oparg):
+    get_name = None if names is None else names.__getitem__
+    argval = None
+    argrepr = ''
+    deop = _deoptop(op)
+    if arg is not None:
+        #  Set argval to the dereferenced value of the argument when
+        #  available, and argrepr to the string representation of argval.
+        #    _disassemble_bytes needs the string repr of the
+        #    raw name index for LOAD_GLOBAL, LOAD_CONST, etc.
+        argval = arg
+        if deop in hasconst:
+            argval, argrepr = _get_const_info(deop, arg, co_consts)
+        elif deop in hasname:
+            if deop == LOAD_GLOBAL:
+                argval, argrepr = _get_name_info(arg//2, get_name)
+                if (arg & 1) and argrepr:
+                    argrepr = f"{argrepr} + NULL"
+            elif deop == LOAD_ATTR:
+                argval, argrepr = _get_name_info(arg//2, get_name)
+                if (arg & 1) and argrepr:
+                    argrepr = f"{argrepr} + NULL|self"
+            elif deop == LOAD_SUPER_ATTR:
+                argval, argrepr = _get_name_info(arg//4, get_name)
+                if (arg & 1) and argrepr:
+                    argrepr = f"{argrepr} + NULL|self"
+            else:
+                argval, argrepr = _get_name_info(arg, get_name)
+        elif deop in hasjabs:
+            argval = arg*2
+            argrepr = "to " + repr(argval)
+        elif deop in hasjrel:
+            signed_arg = -arg if _is_backward_jump(deop) else arg
+            argval = offset + 2 + signed_arg*2
+            caches = _get_cache_size(_all_opname[deop])
+            argval += 2 * caches
+            argrepr = "to " + repr(argval)
+        elif deop in (LOAD_FAST_LOAD_FAST, STORE_FAST_LOAD_FAST, STORE_FAST_STORE_FAST):
+            arg1 = arg >> 4
+            arg2 = arg & 15
+            val1, argrepr1 = _get_name_info(arg1, varname_from_oparg)
+            val2, argrepr2 = _get_name_info(arg2, varname_from_oparg)
+            argrepr = argrepr1 + ", " + argrepr2
+            argval = val1, val2
+        elif deop in haslocal or deop in hasfree:
+            argval, argrepr = _get_name_info(arg, varname_from_oparg)
+        elif deop in hascompare:
+            argval = cmp_op[arg >> 5]
+            argrepr = argval
+            if arg & 16:
+                argrepr = f"bool({argrepr})"
+        elif deop == CONVERT_VALUE:
+            argval = (None, str, repr, ascii)[arg]
+            argrepr = ('', 'str', 'repr', 'ascii')[arg]
+        elif deop == SET_FUNCTION_ATTRIBUTE:
+            argrepr = ', '.join(s for i, s in enumerate(FUNCTION_ATTR_FLAGS)
+                                if arg & (1<<i))
+        elif deop == BINARY_OP:
+            _, argrepr = _nb_ops[arg]
+        elif deop == CALL_INTRINSIC_1:
+            argrepr = _intrinsic_1_descs[arg]
+        elif deop == CALL_INTRINSIC_2:
+            argrepr = _intrinsic_2_descs[arg]
+    return argval, argrepr
+
+
 class Instruction(_Instruction):
     """Details for a bytecode operation.
 
@@ -325,84 +391,6 @@ class Instruction(_Instruction):
          positions - Optional dis.Positions object holding the span of source code
                      covered by this instruction
     """
-
-    @staticmethod
-    def _get_argval_argrepr(op, arg, offset, co_consts, names, varname_from_oparg):
-        get_name = None if names is None else names.__getitem__
-        argval = None
-        argrepr = ''
-        deop = _deoptop(op)
-        if arg is not None:
-            #  Set argval to the dereferenced value of the argument when
-            #  available, and argrepr to the string representation of argval.
-            #    _disassemble_bytes needs the string repr of the
-            #    raw name index for LOAD_GLOBAL, LOAD_CONST, etc.
-            argval = arg
-            if deop in hasconst:
-                argval, argrepr = _get_const_info(deop, arg, co_consts)
-            elif deop in hasname:
-                if deop == LOAD_GLOBAL:
-                    argval, argrepr = _get_name_info(arg//2, get_name)
-                    if (arg & 1) and argrepr:
-                        argrepr = f"{argrepr} + NULL"
-                elif deop == LOAD_ATTR:
-                    argval, argrepr = _get_name_info(arg//2, get_name)
-                    if (arg & 1) and argrepr:
-                        argrepr = f"{argrepr} + NULL|self"
-                elif deop == LOAD_SUPER_ATTR:
-                    argval, argrepr = _get_name_info(arg//4, get_name)
-                    if (arg & 1) and argrepr:
-                        argrepr = f"{argrepr} + NULL|self"
-                else:
-                    argval, argrepr = _get_name_info(arg, get_name)
-            elif deop in hasjabs:
-                argval = arg*2
-                argrepr = "to " + repr(argval)
-            elif deop in hasjrel:
-                signed_arg = -arg if _is_backward_jump(deop) else arg
-                argval = offset + 2 + signed_arg*2
-                caches = _get_cache_size(_all_opname[deop])
-                argval += 2 * caches
-                argrepr = "to " + repr(argval)
-            elif deop in (LOAD_FAST_LOAD_FAST, STORE_FAST_LOAD_FAST, STORE_FAST_STORE_FAST):
-                arg1 = arg >> 4
-                arg2 = arg & 15
-                val1, argrepr1 = _get_name_info(arg1, varname_from_oparg)
-                val2, argrepr2 = _get_name_info(arg2, varname_from_oparg)
-                argrepr = argrepr1 + ", " + argrepr2
-                argval = val1, val2
-            elif deop in haslocal or deop in hasfree:
-                argval, argrepr = _get_name_info(arg, varname_from_oparg)
-            elif deop in hascompare:
-                argval = cmp_op[arg >> 5]
-                argrepr = argval
-                if arg & 16:
-                    argrepr = f"bool({argrepr})"
-            elif deop == CONVERT_VALUE:
-                argval = (None, str, repr, ascii)[arg]
-                argrepr = ('', 'str', 'repr', 'ascii')[arg]
-            elif deop == SET_FUNCTION_ATTRIBUTE:
-                argrepr = ', '.join(s for i, s in enumerate(FUNCTION_ATTR_FLAGS)
-                                    if arg & (1<<i))
-            elif deop == BINARY_OP:
-                _, argrepr = _nb_ops[arg]
-            elif deop == CALL_INTRINSIC_1:
-                argrepr = _intrinsic_1_descs[arg]
-            elif deop == CALL_INTRINSIC_2:
-                argrepr = _intrinsic_2_descs[arg]
-        return argval, argrepr
-
-
-    @classmethod
-    def _create(cls, op, arg, offset, start_offset, starts_line, line_number,
-               is_jump_target, positions,
-               co_consts=None, varname_from_oparg=None, names=None):
-        argval, argrepr = cls._get_argval_argrepr(
-                               op, arg, offset,
-                               co_consts, names, varname_from_oparg)
-        return Instruction(_all_opname[op], op, arg, argval, argrepr,
-                           offset, start_offset, starts_line, line_number,
-                           is_jump_target, positions)
 
     @property
     def oparg(self):
@@ -489,6 +477,46 @@ class Instruction(_Instruction):
     def __str__(self):
         return self._disassemble()
 
+
+class InstructionFactory:
+
+    def __init__(self, varname_from_oparg=None, co_names=None, co_consts=None,
+                 linestarts=None, line_offset=0, labels=()):
+        self.co_consts = co_consts
+        self.co_names = co_names
+        self.varname_from_oparg = varname_from_oparg
+        self.line_offset = line_offset
+        self.linestarts = linestarts
+        self.labels = labels
+
+        self.local_line_number = None
+
+    def make_instr(self, op, arg, offset, start_offset, positions,
+                   co_consts=None, varname_from_oparg=None, names=None):
+
+        is_jump_target = offset in self.labels
+
+        if self.linestarts is not None:
+            starts_line = offset in self.linestarts
+            if starts_line:
+                self.local_line_number = self.linestarts[offset]
+            if self.local_line_number is not None:
+                line_number = self.local_line_number + self.line_offset
+            else:
+                line_number = None
+        else:
+            starts_line = False
+            local_line_number = None
+            line_number = None
+
+        argval, argrepr = _get_argval_argrepr(op, arg, offset,
+                           self.co_consts, self.co_names, self.varname_from_oparg)
+
+        return Instruction(_all_opname[op], op, arg, argval, argrepr,
+                           offset, start_offset, starts_line, line_number,
+                           is_jump_target, positions)
+
+
 def get_instructions(x, *, first_line=None, show_caches=False, adaptive=False):
     """Iterator for the opcodes in methods, functions or code
 
@@ -506,14 +534,18 @@ def get_instructions(x, *, first_line=None, show_caches=False, adaptive=False):
         line_offset = first_line - co.co_firstlineno
     else:
         line_offset = 0
-    return _get_instructions_bytes(_get_code_array(co, adaptive),
-                                   co._varname_from_oparg,
-                                   co.co_names, co.co_consts,
-                                   linestarts, line_offset,
-                                   labels=_all_labels(co.co_code, ()),
+
+    original_code = co.co_code
+    labels=_all_labels(original_code, ())
+    instr_factory = InstructionFactory(varname_from_oparg=co._varname_from_oparg,
+                                       co_names=co.co_names, co_consts=co.co_consts,
+                                       linestarts=linestarts, line_offset=line_offset,
+                                       labels=labels)
+
+    return _get_instructions_bytes(_get_code_array(co, adaptive), instr_factory,
                                    co_positions=co.co_positions(),
                                    show_caches=show_caches,
-                                   original_code=co.co_code)
+                                   original_code=original_code)
 
 def _get_const_value(op, arg, co_consts):
     """Helper to get the value of the const in a hasconst op.
@@ -583,10 +615,7 @@ def _parse_exception_table(code):
 def _is_backward_jump(op):
     return 'JUMP_BACKWARD' in opname[op]
 
-def _get_instructions_bytes(code, varname_from_oparg=None,
-                            names=None, co_consts=None,
-                            linestarts=None, line_offset=0, labels=(),
-                            exception_entries=(), co_positions=None,
+def _get_instructions_bytes(code, instr_factory=None, co_positions=None,
                             show_caches=False, original_code=None):
     """Iterate over the instructions in a bytecode string.
 
@@ -601,27 +630,14 @@ def _get_instructions_bytes(code, varname_from_oparg=None,
     # mess that logic up pretty badly:
     original_code = original_code or code
     co_positions = co_positions or iter(())
-    get_name = None if names is None else names.__getitem__
-    starts_line = False
-    local_line_number = None
-    line_number = None
+    instr_factory = instr_factory or InstructionFactory(labels=_all_labels(original_code, ()))
+
     for offset, start_offset, op, arg in _unpack_opargs(original_code):
-        if linestarts is not None:
-            starts_line = offset in linestarts
-            if starts_line:
-                local_line_number = linestarts[offset]
-            if local_line_number is not None:
-                line_number = local_line_number + line_offset
-            else:
-                line_number = None
-        is_jump_target = offset in labels
         positions = Positions(*next(co_positions, ()))
         deop = _deoptop(op)
         op = code[offset]
 
-        yield Instruction._create(op, arg, offset, start_offset, starts_line, line_number,
-                                  is_jump_target, positions, co_consts=co_consts,
-                                  varname_from_oparg=varname_from_oparg, names=names)
+        yield instr_factory.make_instr(op, arg, offset, start_offset, positions)
 
         caches = _get_cache_size(_all_opname[deop])
         if not caches:
@@ -650,12 +666,18 @@ def disassemble(co, lasti=-1, *, file=None, show_caches=False, adaptive=False):
     """Disassemble a code object."""
     linestarts = dict(findlinestarts(co))
     exception_entries = _parse_exception_table(co)
-    _disassemble_bytes(_get_code_array(co, adaptive),
+    original_code = co.co_code
+    labels=_all_labels(original_code, exception_entries)
+    instr_factory = InstructionFactory(varname_from_oparg=co._varname_from_oparg,
+                                       co_names=co.co_names, co_consts=co.co_consts,
+                                       linestarts=linestarts, labels=labels)
+
+    _disassemble_bytes(_get_code_array(co, adaptive), instr_factory,
                        lasti, co._varname_from_oparg,
                        co.co_names, co.co_consts, linestarts, file=file,
                        exception_entries=exception_entries,
                        co_positions=co.co_positions(), show_caches=show_caches,
-                       original_code=co.co_code)
+                       original_code=original_code)
 
 def _disassemble_recursive(co, *, file=None, depth=None, show_caches=False, adaptive=False):
     disassemble(co, file=file, show_caches=show_caches, adaptive=adaptive)
@@ -670,10 +692,13 @@ def _disassemble_recursive(co, *, file=None, depth=None, show_caches=False, adap
                     x, file=file, depth=depth, show_caches=show_caches, adaptive=adaptive
                 )
 
-def _disassemble_bytes(code, lasti=-1, varname_from_oparg=None,
+def _disassemble_bytes(code, instr_factory=None, lasti=-1, varname_from_oparg=None,
                        names=None, co_consts=None, linestarts=None,
                        *, file=None, line_offset=0, exception_entries=(),
                        co_positions=None, show_caches=False, original_code=None):
+
+    labels=_all_labels(original_code or code, ())
+    instr_factory = instr_factory or InstructionFactory(labels=labels)
     # Omit the line number column entirely if we have no line number info
     if bool(linestarts):
         linestarts_ints = [line for line in linestarts.values() if line is not None]
@@ -697,10 +722,13 @@ def _disassemble_bytes(code, lasti=-1, varname_from_oparg=None,
         offset_width = len(str(maxoffset))
     else:
         offset_width = 4
-    for instr in _get_instructions_bytes(code, varname_from_oparg, names,
-                                         co_consts, linestarts,
-                                         line_offset=line_offset,
-                                         labels=_all_labels(code or original_code, exception_entries),
+
+    labels=_all_labels(original_code or code, exception_entries)
+    instr_factory_ = InstructionFactory(varname_from_oparg=varname_from_oparg,
+                                       co_names=names, co_consts=co_consts,
+                                       linestarts=linestarts, line_offset=line_offset,
+                                       labels=labels)
+    for instr in _get_instructions_bytes(code, instr_factory,
                                          co_positions=co_positions,
                                          show_caches=show_caches,
                                          original_code=original_code):
@@ -869,15 +897,18 @@ class Bytecode:
 
     def __iter__(self):
         co = self.codeobj
-        return _get_instructions_bytes(_get_code_array(co, self.adaptive),
-                                       co._varname_from_oparg,
-                                       co.co_names, co.co_consts,
-                                       self._linestarts,
-                                       line_offset=self._line_offset,
-                                       labels=_all_labels(co.co_code, self.exception_entries),
+        original_code = co.co_code
+        labels=_all_labels(original_code, self.exception_entries)
+        instr_factory = InstructionFactory(varname_from_oparg=co._varname_from_oparg,
+                                           co_names=co.co_names, co_consts=co.co_consts,
+                                           linestarts=self._linestarts,
+                                           line_offset=self._line_offset,
+                                           labels=labels)
+
+        return _get_instructions_bytes(_get_code_array(co, self.adaptive), instr_factory,
                                        co_positions=co.co_positions(),
                                        show_caches=self.show_caches,
-                                       original_code=co.co_code)
+                                       original_code=original_code)
 
     def __repr__(self):
         return "{}({!r})".format(self.__class__.__name__,
@@ -903,18 +934,23 @@ class Bytecode:
             offset = self.current_offset
         else:
             offset = -1
+        import sys
+        print(f"{offset=}", file=sys.stderr)
         with io.StringIO() as output:
-            _disassemble_bytes(_get_code_array(co, self.adaptive),
-                               varname_from_oparg=co._varname_from_oparg,
-                               names=co.co_names, co_consts=co.co_consts,
-                               linestarts=self._linestarts,
-                               line_offset=self._line_offset,
+            original_code = co.co_code
+            labels=_all_labels(original_code, self.exception_entries)
+            instr_factory = InstructionFactory(varname_from_oparg=co._varname_from_oparg,
+                                               co_names=co.co_names, co_consts=co.co_consts,
+                                               linestarts=self._linestarts,
+                                               line_offset=self._line_offset,
+                                               labels=labels)
+            _disassemble_bytes(_get_code_array(co, self.adaptive), instr_factory,
                                file=output,
                                lasti=offset,
                                exception_entries=self.exception_entries,
                                co_positions=co.co_positions(),
                                show_caches=self.show_caches,
-                               original_code=co.co_code)
+                               original_code=original_code)
             return output.getvalue()
 
 
