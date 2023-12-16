@@ -2479,7 +2479,7 @@
             _PyFrame_StackPush(gen_frame, Py_None);
             gen->gi_frame_state = FRAME_EXECUTING;
             gen->gi_exc_state.previous_item = tstate->exc_info;
-            tstate->exc_info = &gen->gi_exc_state;
+            tstate->exc_info = _PyErr_GetTopmostExceptionInStack(&gen->gi_exc_state);
             assert(next_instr[oparg].op.code == END_FOR ||
                    next_instr[oparg].op.code == INSTRUMENTED_END_FOR);
             assert(next_instr - this_instr + oparg <= UINT16_MAX);
@@ -3165,7 +3165,7 @@
                 tstate, PY_MONITORING_EVENT_PY_YIELD,
                 frame, this_instr, retval);
             if (err) GOTO_ERROR(error);
-            tstate->exc_info = gen->gi_exc_state.previous_item;
+            tstate->exc_info = _PyErr_GetTopmostExceptionInStack(gen->gi_exc_state.previous_item);
             gen->gi_exc_state.previous_item = NULL;
             _Py_LeaveRecursiveCallPy(tstate);
             _PyInterpreterFrame *gen_frame = frame;
@@ -4889,8 +4889,8 @@
                     STACK_SHRINK(1);
                     _PyFrame_StackPush(gen_frame, v);
                     gen->gi_frame_state = FRAME_EXECUTING;
-                    gen->gi_exc_state.previous_item = tstate->exc_info;
-                    tstate->exc_info = &gen->gi_exc_state;
+                    gen->gi_exc_state.previous_item = _PyErr_GetTopmostException(tstate);
+                    tstate->exc_info = _PyErr_GetTopmostExceptionInStack(&gen->gi_exc_state);
                     assert(next_instr - this_instr + oparg <= UINT16_MAX);
                     frame->return_offset = (uint16_t)(next_instr - this_instr + oparg);
                     DISPATCH_INLINED(gen_frame);
@@ -4939,7 +4939,7 @@
             _PyFrame_StackPush(gen_frame, v);
             gen->gi_frame_state = FRAME_EXECUTING;
             gen->gi_exc_state.previous_item = tstate->exc_info;
-            tstate->exc_info = &gen->gi_exc_state;
+            tstate->exc_info = _PyErr_GetTopmostExceptionInStack(&gen->gi_exc_state);
             assert(next_instr - this_instr + oparg <= UINT16_MAX);
             frame->return_offset = (uint16_t)(next_instr - this_instr + oparg);
             DISPATCH_INLINED(gen_frame);
@@ -5781,7 +5781,7 @@
             assert(oparg == 0 || oparg == 1);
             gen->gi_frame_state = FRAME_SUSPENDED + oparg;
             _PyFrame_SetStackPointer(frame, stack_pointer - 1);
-            tstate->exc_info = gen->gi_exc_state.previous_item;
+            tstate->exc_info = _PyErr_GetTopmostExceptionInStack(gen->gi_exc_state.previous_item);
             gen->gi_exc_state.previous_item = NULL;
             _Py_LeaveRecursiveCallPy(tstate);
             _PyInterpreterFrame *gen_frame = frame;

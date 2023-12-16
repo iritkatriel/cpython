@@ -116,17 +116,21 @@ PyErr_SetRaisedException(PyObject *exc)
 }
 
 _PyErr_StackItem *
-_PyErr_GetTopmostException(PyThreadState *tstate)
+_PyErr_GetTopmostExceptionInStack(_PyErr_StackItem *exc_info)
 {
-    _PyErr_StackItem *exc_info = tstate->exc_info;
     assert(exc_info);
-
     while ((exc_info->exc_value == NULL || exc_info->exc_value == Py_None) &&
            exc_info->previous_item != NULL)
     {
         exc_info = exc_info->previous_item;
-    }
+    }      
     return exc_info;
+}
+
+_PyErr_StackItem *
+_PyErr_GetTopmostException(PyThreadState *tstate)
+{
+    return _PyErr_GetTopmostExceptionInStack(tstate->exc_info);
 }
 
 static PyObject *

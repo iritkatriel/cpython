@@ -1643,7 +1643,7 @@ clear_gen_frame(PyThreadState *tstate, _PyInterpreterFrame * frame)
     assert(frame->owner == FRAME_OWNED_BY_GENERATOR);
     PyGenObject *gen = _PyFrame_GetGenerator(frame);
     gen->gi_frame_state = FRAME_CLEARED;
-    assert(tstate->exc_info == &gen->gi_exc_state);
+    assert(tstate->exc_info == _PyErr_GetTopmostExceptionInStack(&gen->gi_exc_state));
     tstate->exc_info = gen->gi_exc_state.previous_item;
     gen->gi_exc_state.previous_item = NULL;
     tstate->c_recursion_remaining--;

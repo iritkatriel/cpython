@@ -213,10 +213,9 @@ gen_send_ex2(PyGenObject *gen, PyObject *arg, PyObject **presult,
     PyObject *arg_obj = arg ? arg : Py_None;
     _PyFrame_StackPush(frame, Py_NewRef(arg_obj));
 
-    _PyErr_StackItem *prev_exc_info = tstate->exc_info;
+    _PyErr_StackItem *prev_exc_info = _PyErr_GetTopmostException(tstate);
     gen->gi_exc_state.previous_item = prev_exc_info;
-    tstate->exc_info = &gen->gi_exc_state;
-
+    tstate->exc_info = _PyErr_GetTopmostExceptionInStack(&gen->gi_exc_state);
     if (exc) {
         assert(_PyErr_Occurred(tstate));
         _PyErr_ChainStackItem();
