@@ -20,7 +20,7 @@ class Stage(ttk.Frame):
         self.init_layout()
 
     def init_layout(self):
-        self.text = tk.Text(self)
+        self.text = tk.Text(self, wrap=tk.NONE)
         self.text.grid(row=1,column=0, padx=5, pady=5)
         vscroll = ttk.Scrollbar(self, orient=tk.VERTICAL, command=self.text.yview)
         vscroll.grid(row=1, column=1, sticky='nsew')
@@ -37,6 +37,12 @@ class Stage(ttk.Frame):
 class App(tk.Tk):
 
     DEFAULT_SOURCE = "print('Hello World!')"
+    DEFAULT_SOURCE = """
+if x:
+    y = 12
+else:
+    y = 14
+"""
 
     def __init__(self, master=None):
         super().__init__(master)
@@ -61,6 +67,7 @@ class App(tk.Tk):
         ttk.Button(text="refresh",
                    command=self.refresh,
                    master=self.controls).grid(row=0, column=3)
+
         ttk.Button(text="close",
                    command=self.close,
                    master=self.controls).grid(row=0, column=4)
@@ -69,6 +76,7 @@ class App(tk.Tk):
             tk.Checkbutton(self.controls,
                            text=stage.title,
                            variable=stage.visible,
+                           command=self.refresh,
                            onvalue=1,
                            offvalue=0).grid(row=1, column=i)
 
@@ -78,6 +86,7 @@ class App(tk.Tk):
 
     def show_stages(self):
         i = 0
+        [stage.grid_forget() for stage in self.stages]
         for stage in self.stages:
             if stage.visible.get():
                 stage.grid(row=i//3, column=i%3, padx=10, pady=5)
@@ -114,41 +123,54 @@ class App(tk.Tk):
 
     def refresh_bytecode(self):
         print('refresh_bytecode')
-        def display_insts(insts):
+
+        class PseudoInstrsArgResolver(dis.ArgResolver):
+            def offset_from_jump_arg(self, op, arg, offset):
+                if op in dis.hasjump or op in dis.hasexc:
+                    return arg
+                return super().offset_from_jump_arg(op, arg, offset)
+
+        def display_insts(insts, co_consts, arg_resolver=None):
+
             jump_targets = [inst[1] for inst in insts if inst[0] in dis.hasjump]
+            labels_map = {offset : (i+1) for i, offset in enumerate(jump_targets)}
+            arg_resolver = PseudoInstrsArgResolver(co_consts=co_consts, labels_map=labels_map)
+
             prev_line = None
+            offset_width = len(str(len(insts))) + 2
             for offset, inst in enumerate(insts):
                 op, arg = inst[:2]
                 start_offset = 0
                 positions = dis.Positions(*inst[2:])
-                line_number = positions.lineno
+                line_number = positions.lineno if positions.lineno > 0 else None
                 starts_line = line_number != prev_line
                 prev_line = line_number
                 is_jump_target = offset in jump_targets
-                if op in dis.hasjump:
-                    argval, argrepr = arg, f"to {arg}"
-                    instr = dis.Instruction(dis._all_opname[op], op, arg,
-                           argval, argrepr, offset, start_offset, starts_line,
-                           line_number, is_jump_target, positions)
-                else:
-                    instr = dis.Instruction._create(op, arg, offset, start_offset,
-                                                    starts_line, line_number,
-                                                    is_jump_target, positions)
-                yield instr._disassemble()
+                label = labels_map.get(offset, None)
+                argval, argrepr = arg_resolver.get_argval_argrepr(op, arg, offset)
+                instr = dis.Instruction(dis._all_opname[op], op, arg, argval, argrepr,
+                                        offset, start_offset, starts_line, line_number,
+                                        label, positions)
+                stream = io.StringIO()
+                formatter = dis.Formatter(file=stream)
+                formatter.print_instruction(instr)
+                yield stream.getvalue()
 
         print('codegen ...')
         src = self.source.getvalue()
         filename = "<src>"
         insts, metadata  = compiler_codegen(ast.parse(src, optimize=1), filename, 0)
-        self.pseudo_bytecode.replace_text("\n".join(display_insts(insts)))
+        co_consts = [p[1] for p in sorted([(v, k) for k, v in metadata['consts'].items()])]
+
+        self.pseudo_bytecode.replace_text("".join(display_insts(insts, co_consts)))
 
         print('optimization ...')
-        consts = [v[1] for v in sorted([(v, k) for k, v in metadata['consts'].items()])]
         nlocals = 0
-        insts = optimize_cfg(insts, consts, nlocals)
-        self.opt_pseudo_bytecode.replace_text("\n".join(display_insts(insts)))
+        insts = optimize_cfg(insts, co_consts, nlocals)
+        self.opt_pseudo_bytecode.replace_text("".join(display_insts(insts, co_consts)))
 
         print('assembly ...')
+        metadata['consts'] = {name : i for i, name in enumerate(co_consts)}
         from test.test_compiler_assemble import IsolatedAssembleTests
         IsolatedAssembleTests().complete_metadata(metadata)
         co = assemble_code_object(filename, insts, metadata)
