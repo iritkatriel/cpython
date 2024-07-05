@@ -559,7 +559,7 @@ compiler_unit_free(struct compiler_unit *u)
 }
 
 static int
-add_static_attribute_to_class(struct compiler *c, PyObject *attr)
+compiler_add_static_attribute_to_class(struct compiler *c, PyObject *attr)
 {
     Py_ssize_t stack_size = PyList_GET_SIZE(c->c_stack);
     for (Py_ssize_t i = stack_size - 1; i >= 0; i--) {
@@ -6205,7 +6205,7 @@ compiler_visit_expr(struct compiler *c, expr_ty e)
         if (e->v.Attribute.value->kind == Name_kind &&
             _PyUnicode_EqualToASCIIString(e->v.Attribute.value->v.Name.id, "self"))
         {
-            RETURN_IF_ERROR(add_static_attribute_to_class(c, e->v.Attribute.attr));
+            RETURN_IF_ERROR(compiler_add_static_attribute_to_class(c, e->v.Attribute.attr));
         }
         VISIT(c, expr, e->v.Attribute.value);
         loc = LOC(e);
