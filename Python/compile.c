@@ -74,6 +74,7 @@
 struct compiler;
 
 static int compiler_future_features(struct compiler *c);
+static PyObject *compiler_maybe_mangle(struct compiler *c, PyObject *name);
 
 #define FUTURE_FEATURES(C) compiler_future_features(C)
 
@@ -7479,6 +7480,12 @@ static int
 compiler_future_features(struct compiler *c)
 {
     return c->c_future.ff_features;
+}
+
+static PyObject *
+compiler_maybe_mangle(struct compiler *c, PyObject *name)
+{
+    return _Py_MaybeMangle(c->u->u_private, c->u->u_ste, name);
 }
 
 static int
