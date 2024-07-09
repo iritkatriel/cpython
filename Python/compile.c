@@ -86,9 +86,6 @@ static PyObject *compiler_maybe_mangle(struct compiler *c, PyObject *name);
 typedef _Py_SourceLocation location;
 typedef struct _PyCfgBuilder cfg_builder;
 
-struct compiler;
-
-static PyObject *compiler_maybe_mangle(struct compiler *c, PyObject *name);
 
 #define LOCATION(LNO, END_LNO, COL, END_COL) \
     ((const _Py_SourceLocation){(LNO), (END_LNO), (COL), (END_COL)})
@@ -7465,12 +7462,6 @@ consts_dict_keys_inorder(PyObject *dict)
         PyList_SET_ITEM(consts, i, Py_NewRef(k));
     }
     return consts;
-}
-
-static PyObject *
-compiler_maybe_mangle(struct compiler *c, PyObject *name)
-{
-    return _Py_MaybeMangle(c->u->u_private, c->u->u_ste, name);
 }
 
 static instr_sequence *
