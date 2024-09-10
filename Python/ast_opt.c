@@ -676,8 +676,9 @@ static int astfold_type_param(type_param_ty node_, PyArena *ctx_, _PyASTOptimize
 static int
 astfold_body(asdl_stmt_seq *stmts, PyArena *ctx_, _PyASTOptimizeState *state)
 {
-    int docstring = _PyAST_GetDocString(stmts) != NULL;
+//    int docstring = _PyAST_GetDocString(stmts) != NULL;
     CALL_SEQ(astfold_stmt, stmt, stmts);
+#if 0
     if (!docstring && _PyAST_GetDocString(stmts) != NULL) {
         stmt_ty st = (stmt_ty)asdl_seq_GET(stmts, 0);
         asdl_expr_seq *values = _Py_asdl_expr_seq_new(1, ctx_);
@@ -693,6 +694,7 @@ astfold_body(asdl_stmt_seq *stmts, PyArena *ctx_, _PyASTOptimizeState *state)
         }
         st->v.Expr.value = expr;
     }
+#endif
     return 1;
 }
 
