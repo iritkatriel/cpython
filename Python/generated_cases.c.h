@@ -11,10 +11,10 @@
 
         TARGET(BINARY_OP) {
             frame->instr_ptr = next_instr;
-            next_instr += 2;
+            next_instr += 6;
             INSTRUCTION_STATS(BINARY_OP);
             PREDICTED(BINARY_OP);
-            _Py_CODEUNIT *this_instr = next_instr - 2;
+            _Py_CODEUNIT *this_instr = next_instr - 6;
             (void)this_instr;
             _PyStackRef lhs;
             _PyStackRef rhs;
@@ -37,6 +37,7 @@
                 assert(NB_ADD <= oparg);
                 assert(oparg <= NB_INPLACE_XOR);
             }
+            /* Skip 4 cache entries */
             // _BINARY_OP
             {
                 PyObject *lhs_o = PyStackRef_AsPyObjectBorrow(lhs);
@@ -56,9 +57,9 @@
 
         TARGET(BINARY_OP_ADD_FLOAT) {
             frame->instr_ptr = next_instr;
-            next_instr += 2;
+            next_instr += 6;
             INSTRUCTION_STATS(BINARY_OP_ADD_FLOAT);
-            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 1, "incorrect cache size");
+            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 5, "incorrect cache size");
             _PyStackRef left;
             _PyStackRef right;
             _PyStackRef res;
@@ -71,7 +72,7 @@
                 DEOPT_IF(!PyFloat_CheckExact(left_o), BINARY_OP);
                 DEOPT_IF(!PyFloat_CheckExact(right_o), BINARY_OP);
             }
-            /* Skip 1 cache entry */
+            /* Skip 5 cache entries */
             // _BINARY_OP_ADD_FLOAT
             {
                 PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
@@ -92,9 +93,9 @@
 
         TARGET(BINARY_OP_ADD_INT) {
             frame->instr_ptr = next_instr;
-            next_instr += 2;
+            next_instr += 6;
             INSTRUCTION_STATS(BINARY_OP_ADD_INT);
-            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 1, "incorrect cache size");
+            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 5, "incorrect cache size");
             _PyStackRef left;
             _PyStackRef right;
             _PyStackRef res;
@@ -107,7 +108,7 @@
                 DEOPT_IF(!PyLong_CheckExact(left_o), BINARY_OP);
                 DEOPT_IF(!PyLong_CheckExact(right_o), BINARY_OP);
             }
-            /* Skip 1 cache entry */
+            /* Skip 5 cache entries */
             // _BINARY_OP_ADD_INT
             {
                 PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
@@ -127,9 +128,9 @@
 
         TARGET(BINARY_OP_ADD_UNICODE) {
             frame->instr_ptr = next_instr;
-            next_instr += 2;
+            next_instr += 6;
             INSTRUCTION_STATS(BINARY_OP_ADD_UNICODE);
-            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 1, "incorrect cache size");
+            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 5, "incorrect cache size");
             _PyStackRef left;
             _PyStackRef right;
             _PyStackRef res;
@@ -142,7 +143,7 @@
                 DEOPT_IF(!PyUnicode_CheckExact(left_o), BINARY_OP);
                 DEOPT_IF(!PyUnicode_CheckExact(right_o), BINARY_OP);
             }
-            /* Skip 1 cache entry */
+            /* Skip 5 cache entries */
             // _BINARY_OP_ADD_UNICODE
             {
                 PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
@@ -160,11 +161,54 @@
             DISPATCH();
         }
 
+        TARGET(BINARY_OP_EXTEND) {
+            frame->instr_ptr = next_instr;
+            next_instr += 6;
+            INSTRUCTION_STATS(BINARY_OP_EXTEND);
+            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 5, "incorrect cache size");
+            _PyStackRef left;
+            _PyStackRef right;
+            _PyStackRef res;
+            // _GUARD_BINARY_OP_EXTEND
+            right = stack_pointer[-1];
+            left = stack_pointer[-2];
+            {
+                PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
+                PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+                _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - 5);
+                PyInterpreterState *interp = tstate->interp;
+                PyBinaryOpSpecializationDescr *descr = &interp->binary_op_spec[oparg];
+                // void *data = read_void(cache->external_cache);
+                void *data = NULL;
+                DEOPT_IF(!descr->guard(left_o, right_o, data), BINARY_OP);
+            }
+            /* Skip 5 cache entries */
+            // _BINARY_OP_EXTEND
+            {
+                PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
+                PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+                _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - 5);
+                PyInterpreterState *interp = tstate->interp;
+                PyBinaryOpSpecializationDescr *descr = &interp->binary_op_spec[oparg];
+                // void *data = read_void(cache->external_cache);
+                void *data = NULL;
+                STAT_INC(BINARY_OP, hit);
+                PyObject *res_o = descr->action(left_o, right_o, data);
+                PyStackRef_CLOSE(left);
+                PyStackRef_CLOSE(right);
+                res = PyStackRef_FromPyObjectSteal(res_o);
+            }
+            stack_pointer[-2] = res;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
+            DISPATCH();
+        }
+
         TARGET(BINARY_OP_INPLACE_ADD_UNICODE) {
             frame->instr_ptr = next_instr;
-            next_instr += 2;
+            next_instr += 6;
             INSTRUCTION_STATS(BINARY_OP_INPLACE_ADD_UNICODE);
-            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 1, "incorrect cache size");
+            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 5, "incorrect cache size");
             _PyStackRef left;
             _PyStackRef right;
             // _GUARD_BOTH_UNICODE
@@ -176,7 +220,7 @@
                 DEOPT_IF(!PyUnicode_CheckExact(left_o), BINARY_OP);
                 DEOPT_IF(!PyUnicode_CheckExact(right_o), BINARY_OP);
             }
-            /* Skip 1 cache entry */
+            /* Skip 5 cache entries */
             // _BINARY_OP_INPLACE_ADD_UNICODE
             {
                 PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
@@ -223,9 +267,9 @@
 
         TARGET(BINARY_OP_MULTIPLY_FLOAT) {
             frame->instr_ptr = next_instr;
-            next_instr += 2;
+            next_instr += 6;
             INSTRUCTION_STATS(BINARY_OP_MULTIPLY_FLOAT);
-            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 1, "incorrect cache size");
+            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 5, "incorrect cache size");
             _PyStackRef left;
             _PyStackRef right;
             _PyStackRef res;
@@ -238,7 +282,7 @@
                 DEOPT_IF(!PyFloat_CheckExact(left_o), BINARY_OP);
                 DEOPT_IF(!PyFloat_CheckExact(right_o), BINARY_OP);
             }
-            /* Skip 1 cache entry */
+            /* Skip 5 cache entries */
             // _BINARY_OP_MULTIPLY_FLOAT
             {
                 PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
@@ -259,9 +303,9 @@
 
         TARGET(BINARY_OP_MULTIPLY_INT) {
             frame->instr_ptr = next_instr;
-            next_instr += 2;
+            next_instr += 6;
             INSTRUCTION_STATS(BINARY_OP_MULTIPLY_INT);
-            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 1, "incorrect cache size");
+            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 5, "incorrect cache size");
             _PyStackRef left;
             _PyStackRef right;
             _PyStackRef res;
@@ -274,7 +318,7 @@
                 DEOPT_IF(!PyLong_CheckExact(left_o), BINARY_OP);
                 DEOPT_IF(!PyLong_CheckExact(right_o), BINARY_OP);
             }
-            /* Skip 1 cache entry */
+            /* Skip 5 cache entries */
             // _BINARY_OP_MULTIPLY_INT
             {
                 PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
@@ -294,9 +338,9 @@
 
         TARGET(BINARY_OP_SUBTRACT_FLOAT) {
             frame->instr_ptr = next_instr;
-            next_instr += 2;
+            next_instr += 6;
             INSTRUCTION_STATS(BINARY_OP_SUBTRACT_FLOAT);
-            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 1, "incorrect cache size");
+            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 5, "incorrect cache size");
             _PyStackRef left;
             _PyStackRef right;
             _PyStackRef res;
@@ -309,7 +353,7 @@
                 DEOPT_IF(!PyFloat_CheckExact(left_o), BINARY_OP);
                 DEOPT_IF(!PyFloat_CheckExact(right_o), BINARY_OP);
             }
-            /* Skip 1 cache entry */
+            /* Skip 5 cache entries */
             // _BINARY_OP_SUBTRACT_FLOAT
             {
                 PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
@@ -330,9 +374,9 @@
 
         TARGET(BINARY_OP_SUBTRACT_INT) {
             frame->instr_ptr = next_instr;
-            next_instr += 2;
+            next_instr += 6;
             INSTRUCTION_STATS(BINARY_OP_SUBTRACT_INT);
-            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 1, "incorrect cache size");
+            static_assert(INLINE_CACHE_ENTRIES_BINARY_OP == 5, "incorrect cache size");
             _PyStackRef left;
             _PyStackRef right;
             _PyStackRef res;
@@ -345,7 +389,7 @@
                 DEOPT_IF(!PyLong_CheckExact(left_o), BINARY_OP);
                 DEOPT_IF(!PyLong_CheckExact(right_o), BINARY_OP);
             }
-            /* Skip 1 cache entry */
+            /* Skip 5 cache entries */
             // _BINARY_OP_SUBTRACT_INT
             {
                 PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);

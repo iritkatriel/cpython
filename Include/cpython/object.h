@@ -230,6 +230,9 @@ struct _typeobject {
     /* bitset of which type-watchers care about this type */
     unsigned char tp_watched;
     uint16_t tp_versions_used;
+
+    /* hooks to specializers */
+    binaryopspecfunc tp_binary_op_specialize;
 };
 
 /* This struct is used by the specializer

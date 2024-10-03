@@ -43,6 +43,8 @@ int _PyOpcode_num_popped(int opcode, int oparg)  {
             return 2;
         case BINARY_OP_ADD_UNICODE:
             return 2;
+        case BINARY_OP_EXTEND:
+            return 2;
         case BINARY_OP_INPLACE_ADD_UNICODE:
             return 2;
         case BINARY_OP_MULTIPLY_FLOAT:
@@ -504,6 +506,8 @@ int _PyOpcode_num_pushed(int opcode, int oparg)  {
             return 1;
         case BINARY_OP_ADD_UNICODE:
             return 1;
+        case BINARY_OP_EXTEND:
+            return 1;
         case BINARY_OP_INPLACE_ADD_UNICODE:
             return 0;
         case BINARY_OP_MULTIPLY_FLOAT:
@@ -958,11 +962,13 @@ enum InstructionFormat {
     INSTR_FMT_IBC = 2,
     INSTR_FMT_IBC00 = 3,
     INSTR_FMT_IBC000 = 4,
-    INSTR_FMT_IBC00000000 = 5,
-    INSTR_FMT_IX = 6,
-    INSTR_FMT_IXC = 7,
-    INSTR_FMT_IXC00 = 8,
-    INSTR_FMT_IXC000 = 9,
+    INSTR_FMT_IBC0000 = 5,
+    INSTR_FMT_IBC00000000 = 6,
+    INSTR_FMT_IX = 7,
+    INSTR_FMT_IXC = 8,
+    INSTR_FMT_IXC00 = 9,
+    INSTR_FMT_IXC000 = 10,
+    INSTR_FMT_IXC0000 = 11,
 };
 
 #define IS_VALID_OPCODE(OP) \
@@ -1018,15 +1024,16 @@ struct opcode_metadata {
 extern const struct opcode_metadata _PyOpcode_opcode_metadata[266];
 #ifdef NEED_OPCODE_METADATA
 const struct opcode_metadata _PyOpcode_opcode_metadata[266] = {
-    [BINARY_OP] = { true, INSTR_FMT_IBC, HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
-    [BINARY_OP_ADD_FLOAT] = { true, INSTR_FMT_IXC, HAS_EXIT_FLAG },
-    [BINARY_OP_ADD_INT] = { true, INSTR_FMT_IXC, HAS_EXIT_FLAG | HAS_ERROR_FLAG },
-    [BINARY_OP_ADD_UNICODE] = { true, INSTR_FMT_IXC, HAS_EXIT_FLAG | HAS_ERROR_FLAG },
-    [BINARY_OP_INPLACE_ADD_UNICODE] = { true, INSTR_FMT_IXC, HAS_LOCAL_FLAG | HAS_DEOPT_FLAG | HAS_EXIT_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
-    [BINARY_OP_MULTIPLY_FLOAT] = { true, INSTR_FMT_IXC, HAS_EXIT_FLAG },
-    [BINARY_OP_MULTIPLY_INT] = { true, INSTR_FMT_IXC, HAS_EXIT_FLAG | HAS_ERROR_FLAG },
-    [BINARY_OP_SUBTRACT_FLOAT] = { true, INSTR_FMT_IXC, HAS_EXIT_FLAG },
-    [BINARY_OP_SUBTRACT_INT] = { true, INSTR_FMT_IXC, HAS_EXIT_FLAG | HAS_ERROR_FLAG },
+    [BINARY_OP] = { true, INSTR_FMT_IBC0000, HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
+    [BINARY_OP_ADD_FLOAT] = { true, INSTR_FMT_IXC0000, HAS_EXIT_FLAG },
+    [BINARY_OP_ADD_INT] = { true, INSTR_FMT_IXC0000, HAS_EXIT_FLAG | HAS_ERROR_FLAG },
+    [BINARY_OP_ADD_UNICODE] = { true, INSTR_FMT_IXC0000, HAS_EXIT_FLAG | HAS_ERROR_FLAG },
+    [BINARY_OP_EXTEND] = { true, INSTR_FMT_IBC0000, HAS_ARG_FLAG | HAS_EXIT_FLAG },
+    [BINARY_OP_INPLACE_ADD_UNICODE] = { true, INSTR_FMT_IXC0000, HAS_LOCAL_FLAG | HAS_DEOPT_FLAG | HAS_EXIT_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
+    [BINARY_OP_MULTIPLY_FLOAT] = { true, INSTR_FMT_IXC0000, HAS_EXIT_FLAG },
+    [BINARY_OP_MULTIPLY_INT] = { true, INSTR_FMT_IXC0000, HAS_EXIT_FLAG | HAS_ERROR_FLAG },
+    [BINARY_OP_SUBTRACT_FLOAT] = { true, INSTR_FMT_IXC0000, HAS_EXIT_FLAG },
+    [BINARY_OP_SUBTRACT_INT] = { true, INSTR_FMT_IXC0000, HAS_EXIT_FLAG | HAS_ERROR_FLAG },
     [BINARY_SLICE] = { true, INSTR_FMT_IX, HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [BINARY_SUBSCR] = { true, INSTR_FMT_IXC, HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [BINARY_SUBSCR_DICT] = { true, INSTR_FMT_IXC, HAS_DEOPT_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
@@ -1260,6 +1267,7 @@ _PyOpcode_macro_expansion[256] = {
     [BINARY_OP_ADD_FLOAT] = { .nuops = 2, .uops = { { _GUARD_BOTH_FLOAT, 0, 0 }, { _BINARY_OP_ADD_FLOAT, 0, 0 } } },
     [BINARY_OP_ADD_INT] = { .nuops = 2, .uops = { { _GUARD_BOTH_INT, 0, 0 }, { _BINARY_OP_ADD_INT, 0, 0 } } },
     [BINARY_OP_ADD_UNICODE] = { .nuops = 2, .uops = { { _GUARD_BOTH_UNICODE, 0, 0 }, { _BINARY_OP_ADD_UNICODE, 0, 0 } } },
+    [BINARY_OP_EXTEND] = { .nuops = 2, .uops = { { _GUARD_BINARY_OP_EXTEND, 0, 0 }, { _BINARY_OP_EXTEND, 0, 0 } } },
     [BINARY_OP_INPLACE_ADD_UNICODE] = { .nuops = 2, .uops = { { _GUARD_BOTH_UNICODE, 0, 0 }, { _BINARY_OP_INPLACE_ADD_UNICODE, 0, 0 } } },
     [BINARY_OP_MULTIPLY_FLOAT] = { .nuops = 2, .uops = { { _GUARD_BOTH_FLOAT, 0, 0 }, { _BINARY_OP_MULTIPLY_FLOAT, 0, 0 } } },
     [BINARY_OP_MULTIPLY_INT] = { .nuops = 2, .uops = { { _GUARD_BOTH_INT, 0, 0 }, { _BINARY_OP_MULTIPLY_INT, 0, 0 } } },
@@ -1441,6 +1449,7 @@ const char *_PyOpcode_OpName[266] = {
     [BINARY_OP_ADD_FLOAT] = "BINARY_OP_ADD_FLOAT",
     [BINARY_OP_ADD_INT] = "BINARY_OP_ADD_INT",
     [BINARY_OP_ADD_UNICODE] = "BINARY_OP_ADD_UNICODE",
+    [BINARY_OP_EXTEND] = "BINARY_OP_EXTEND",
     [BINARY_OP_INPLACE_ADD_UNICODE] = "BINARY_OP_INPLACE_ADD_UNICODE",
     [BINARY_OP_MULTIPLY_FLOAT] = "BINARY_OP_MULTIPLY_FLOAT",
     [BINARY_OP_MULTIPLY_INT] = "BINARY_OP_MULTIPLY_INT",
@@ -1687,7 +1696,7 @@ const uint8_t _PyOpcode_Caches[256] = {
     [FOR_ITER] = 1,
     [CALL] = 3,
     [CALL_KW] = 3,
-    [BINARY_OP] = 1,
+    [BINARY_OP] = 5,
 };
 #endif
 
@@ -1698,6 +1707,7 @@ const uint8_t _PyOpcode_Deopt[256] = {
     [BINARY_OP_ADD_FLOAT] = BINARY_OP,
     [BINARY_OP_ADD_INT] = BINARY_OP,
     [BINARY_OP_ADD_UNICODE] = BINARY_OP,
+    [BINARY_OP_EXTEND] = BINARY_OP,
     [BINARY_OP_INPLACE_ADD_UNICODE] = BINARY_OP,
     [BINARY_OP_MULTIPLY_FLOAT] = BINARY_OP,
     [BINARY_OP_MULTIPLY_INT] = BINARY_OP,
@@ -1946,7 +1956,6 @@ const uint8_t _PyOpcode_Deopt[256] = {
     case 146: \
     case 147: \
     case 148: \
-    case 227: \
     case 228: \
     case 229: \
     case 230: \

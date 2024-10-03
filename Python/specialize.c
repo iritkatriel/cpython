@@ -2232,6 +2232,13 @@ _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *in
     assert(ENABLE_SPECIALIZATION);
     assert(_PyOpcode_Caches[BINARY_OP] == INLINE_CACHE_ENTRIES_BINARY_OP);
     _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(instr + 1);
+
+    if (instr->op.code == BINARY_OP_EXTEND) {
+        void *data = read_void(cache->external_cache);
+        PyMem_Free(data);
+        write_void(cache->external_cache, NULL);
+    }
+
     switch (oparg) {
         case NB_ADD:
         case NB_INPLACE_ADD:
@@ -2286,6 +2293,18 @@ _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *in
             }
             break;
     }
+
+    if (Py_TYPE(lhs)->tp_binary_op_specialize) {
+        int descr_idx;
+        void *data = NULL;
+        if (Py_TYPE(lhs)->tp_binary_op_specialize(lhs, rhs, oparg, &descr_idx, &data)) {
+            instr->op.code = BINARY_OP_EXTEND;
+            instr->op.arg = descr_idx;
+            write_void(cache->external_cache, data);
+            goto success;
+        }
+    }
+
     SPECIALIZATION_FAIL(BINARY_OP, binary_op_fail_kind(oparg, lhs, rhs));
     STAT_INC(BINARY_OP, failure);
     instr->op.code = BINARY_OP;

@@ -280,7 +280,15 @@ struct _is {
     /* the initial PyInterpreterState.threads.head */
     _PyThreadStateImpl _initial_thread;
     Py_ssize_t _interactive_src_count;
+
+    PyBinaryOpSpecializationDescr binary_op_spec[256];
 };
+
+
+#define BINOP_FLOAT_INT_MULTIPLY 0
+#define BINOP_FLOAT_INT_SUBTRACT 1
+#define BINOP_INT_FLOAT_MULTIPLY 2
+#define BINOP_INT_FLOAT_SUBTRACT 3
 
 
 /* other API */

@@ -438,6 +438,7 @@ dummy_func(
             BINARY_OP_ADD_FLOAT,
             BINARY_OP_SUBTRACT_FLOAT,
             BINARY_OP_ADD_UNICODE,
+            BINARY_OP_EXTEND,
             // BINARY_OP_INPLACE_ADD_UNICODE,  // See comments at that opcode.
         };
 
@@ -495,11 +496,11 @@ dummy_func(
         }
 
         macro(BINARY_OP_MULTIPLY_INT) =
-            _GUARD_BOTH_INT + unused/1 + _BINARY_OP_MULTIPLY_INT;
+            _GUARD_BOTH_INT + unused/5 + _BINARY_OP_MULTIPLY_INT;
         macro(BINARY_OP_ADD_INT) =
-            _GUARD_BOTH_INT + unused/1 + _BINARY_OP_ADD_INT;
+            _GUARD_BOTH_INT + unused/5 + _BINARY_OP_ADD_INT;
         macro(BINARY_OP_SUBTRACT_INT) =
-            _GUARD_BOTH_INT + unused/1 + _BINARY_OP_SUBTRACT_INT;
+            _GUARD_BOTH_INT + unused/5 + _BINARY_OP_SUBTRACT_INT;
 
         op(_GUARD_BOTH_FLOAT, (left, right -- left, right)) {
             PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
@@ -558,11 +559,11 @@ dummy_func(
         }
 
         macro(BINARY_OP_MULTIPLY_FLOAT) =
-            _GUARD_BOTH_FLOAT + unused/1 + _BINARY_OP_MULTIPLY_FLOAT;
+            _GUARD_BOTH_FLOAT + unused/5 + _BINARY_OP_MULTIPLY_FLOAT;
         macro(BINARY_OP_ADD_FLOAT) =
-            _GUARD_BOTH_FLOAT + unused/1 + _BINARY_OP_ADD_FLOAT;
+            _GUARD_BOTH_FLOAT + unused/5 + _BINARY_OP_ADD_FLOAT;
         macro(BINARY_OP_SUBTRACT_FLOAT) =
-            _GUARD_BOTH_FLOAT + unused/1 + _BINARY_OP_SUBTRACT_FLOAT;
+            _GUARD_BOTH_FLOAT + unused/5 + _BINARY_OP_SUBTRACT_FLOAT;
 
         op(_GUARD_BOTH_UNICODE, (left, right -- left, right)) {
             PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
@@ -585,7 +586,7 @@ dummy_func(
         }
 
         macro(BINARY_OP_ADD_UNICODE) =
-            _GUARD_BOTH_UNICODE + unused/1 + _BINARY_OP_ADD_UNICODE;
+            _GUARD_BOTH_UNICODE + unused/5 + _BINARY_OP_ADD_UNICODE;
 
         // This is a subtle one. It's a super-instruction for
         // BINARY_OP_ADD_UNICODE followed by STORE_FAST
@@ -634,7 +635,37 @@ dummy_func(
         }
 
         macro(BINARY_OP_INPLACE_ADD_UNICODE) =
-            _GUARD_BOTH_UNICODE + unused/1 + _BINARY_OP_INPLACE_ADD_UNICODE;
+            _GUARD_BOTH_UNICODE + unused/5 + _BINARY_OP_INPLACE_ADD_UNICODE;
+
+        op(_GUARD_BINARY_OP_EXTEND, (left, right -- left, right)) {
+            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - 5);
+            PyInterpreterState *interp = tstate->interp;
+            PyBinaryOpSpecializationDescr *descr = &interp->binary_op_spec[oparg];
+            // void *data = read_void(cache->external_cache);
+            void *data = NULL;
+            EXIT_IF(!descr->guard(left_o, right_o, data));
+        }
+
+        pure op(_BINARY_OP_EXTEND, (left, right -- res)) {
+            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - 5);
+            PyInterpreterState *interp = tstate->interp;
+            PyBinaryOpSpecializationDescr *descr = &interp->binary_op_spec[oparg];
+            // void *data = read_void(cache->external_cache);
+            void *data = NULL;
+
+            STAT_INC(BINARY_OP, hit);
+
+            PyObject *res_o = descr->action(left_o, right_o, data);
+            DECREF_INPUTS();
+            res = PyStackRef_FromPyObjectSteal(res_o);
+        }
+
+        macro(BINARY_OP_EXTEND) =
+            _GUARD_BINARY_OP_EXTEND + unused/5 + _BINARY_OP_EXTEND;
 
         family(BINARY_SUBSCR, INLINE_CACHE_ENTRIES_BINARY_SUBSCR) = {
             BINARY_SUBSCR_DICT,
@@ -4507,7 +4538,7 @@ dummy_func(
             res = PyStackRef_FromPyObjectSteal(res_o);
         }
 
-        macro(BINARY_OP) = _SPECIALIZE_BINARY_OP + _BINARY_OP;
+        macro(BINARY_OP) = _SPECIALIZE_BINARY_OP + unused/4 + _BINARY_OP;
 
         pure inst(SWAP, (bottom, unused[oparg-2], top --
                     top, unused[oparg-2], bottom)) {

@@ -11,6 +11,8 @@
 #include "pycore_runtime.h"       // _PY_NSMALLPOSINTS
 #include "pycore_structseq.h"     // _PyStructSequence_FiniBuiltin()
 
+#include "opcode.h"
+
 #include <float.h>                // DBL_MANT_DIG
 #include <stddef.h>               // offsetof
 
@@ -6455,6 +6457,51 @@ long_vectorcall(PyObject *type, PyObject * const*args,
     }
 }
 
+static int
+long_float_guard(PyObject *lhs, PyObject *rhs, void *data)
+{
+    return (
+        PyFloat_CheckExact(rhs) &&
+        PyLong_CheckExact(lhs) &&
+        _PyLong_IsCompact((PyLongObject *)lhs)
+    );
+}
+
+static PyObject *
+long_float_subtract(PyObject *lhs, PyObject *rhs, void *data)
+{
+    double rhs_val = PyFloat_AsDouble(rhs);
+    Py_ssize_t lhs_val = _PyLong_CompactValue((PyLongObject *)lhs);
+    return PyFloat_FromDouble(lhs_val - rhs_val);
+}
+
+static PyObject *
+long_float_multiply(PyObject *lhs, PyObject *rhs, void *data)
+{
+    double rhs_val = PyFloat_AsDouble(rhs);
+    Py_ssize_t lhs_val = _PyLong_CompactValue((PyLongObject *)lhs);
+    return PyFloat_FromDouble(lhs_val * rhs_val);
+}
+
+static int
+long_specialize(PyObject *lhs, PyObject *rhs, int oparg, int *descr_idx, void **data)
+{
+    if (PyFloat_Check(rhs)) {
+        switch (oparg) {
+            case NB_SUBTRACT:
+                *descr_idx = BINOP_INT_FLOAT_SUBTRACT;
+                return 1;
+
+            case NB_MULTIPLY:
+                *descr_idx = BINOP_INT_FLOAT_MULTIPLY;
+                return 1;
+        }
+    }
+
+    return 0;
+}
+
+
 static PyMethodDef long_methods[] = {
     {"conjugate",       long_long_meth, METH_NOARGS,
      "Returns self, the complex conjugate of any int."},
@@ -6593,6 +6640,7 @@ PyTypeObject PyLong_Type = {
     long_new,                                   /* tp_new */
     PyObject_Free,                              /* tp_free */
     .tp_vectorcall = long_vectorcall,
+    .tp_binary_op_specialize = long_specialize,
 };
 
 static PyTypeObject Int_InfoType;
@@ -6660,6 +6708,11 @@ _PyLong_InitTypes(PyInterpreterState *interp)
     {
         return _PyStatus_ERR("can't init int info type");
     }
+
+    interp->binary_op_spec[BINOP_INT_FLOAT_MULTIPLY].guard = long_float_guard;
+    interp->binary_op_spec[BINOP_INT_FLOAT_MULTIPLY].action = long_float_multiply;
+    interp->binary_op_spec[BINOP_INT_FLOAT_SUBTRACT].guard = long_float_guard;
+    interp->binary_op_spec[BINOP_INT_FLOAT_SUBTRACT].action = long_float_subtract;
 
     return _PyStatus_OK();
 }

@@ -767,6 +767,51 @@
             break;
         }
 
+        case _GUARD_BINARY_OP_EXTEND: {
+            _PyStackRef right;
+            _PyStackRef left;
+            oparg = CURRENT_OPARG();
+            right = stack_pointer[-1];
+            left = stack_pointer[-2];
+            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - 5);
+            PyInterpreterState *interp = tstate->interp;
+            PyBinaryOpSpecializationDescr *descr = &interp->binary_op_spec[oparg];
+            // void *data = read_void(cache->external_cache);
+            void *data = NULL;
+            if (!descr->guard(left_o, right_o, data)) {
+                UOP_STAT_INC(uopcode, miss);
+                JUMP_TO_JUMP_TARGET();
+            }
+            break;
+        }
+
+        case _BINARY_OP_EXTEND: {
+            _PyStackRef right;
+            _PyStackRef left;
+            _PyStackRef res;
+            oparg = CURRENT_OPARG();
+            right = stack_pointer[-1];
+            left = stack_pointer[-2];
+            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - 5);
+            PyInterpreterState *interp = tstate->interp;
+            PyBinaryOpSpecializationDescr *descr = &interp->binary_op_spec[oparg];
+            // void *data = read_void(cache->external_cache);
+            void *data = NULL;
+            STAT_INC(BINARY_OP, hit);
+            PyObject *res_o = descr->action(left_o, right_o, data);
+            PyStackRef_CLOSE(left);
+            PyStackRef_CLOSE(right);
+            res = PyStackRef_FromPyObjectSteal(res_o);
+            stack_pointer[-2] = res;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
+            break;
+        }
+
         case _BINARY_SUBSCR: {
             _PyStackRef sub;
             _PyStackRef container;

@@ -16,6 +16,8 @@
 #include "pycore_pystate.h"       // _PyInterpreterState_GET()
 #include "pycore_structseq.h"     // _PyStructSequence_FiniBuiltin()
 
+#include "opcode.h"
+
 #include <float.h>                // DBL_MAX
 #include <stdlib.h>               // strtol()
 
@@ -1746,6 +1748,50 @@ float_getimag(PyObject *v, void *closure)
     return PyFloat_FromDouble(0.0);
 }
 
+static int
+float_int_guard(PyObject *lhs, PyObject *rhs, void *data)
+{
+    return (
+        PyFloat_CheckExact(lhs) &&
+        PyLong_CheckExact(rhs) &&
+        _PyLong_IsCompact((PyLongObject *)rhs)
+    );
+}
+
+static PyObject *
+float_int_subtract(PyObject *lhs, PyObject *rhs, void *data)
+{
+    double lhs_val = PyFloat_AsDouble(lhs);
+    Py_ssize_t rhs_val = _PyLong_CompactValue((PyLongObject *)rhs);
+    return PyFloat_FromDouble(lhs_val - rhs_val);
+}
+
+static PyObject *
+float_int_multiply(PyObject *lhs, PyObject *rhs, void *data)
+{
+    double lhs_val = PyFloat_AsDouble(lhs);
+    Py_ssize_t rhs_val = _PyLong_CompactValue((PyLongObject *)rhs);
+    return PyFloat_FromDouble(lhs_val * rhs_val);
+}
+
+static int
+float_specialize(PyObject *lhs, PyObject *rhs, int oparg, int *descr_idx, void **data)
+{
+    if (PyLong_CheckExact(rhs) && _PyLong_IsCompact((PyLongObject *)rhs)) {
+        switch (oparg) {
+            case NB_SUBTRACT:
+                *descr_idx = BINOP_FLOAT_INT_SUBTRACT;
+                return 1;
+
+            case NB_MULTIPLY:
+                *descr_idx = BINOP_FLOAT_INT_MULTIPLY;
+                return 1;
+        }
+    }
+
+    return 0;
+}
+
 /*[clinic input]
 float.__format__
 
@@ -1881,6 +1927,7 @@ PyTypeObject PyFloat_Type = {
     0,                                          /* tp_alloc */
     float_new,                                  /* tp_new */
     .tp_vectorcall = (vectorcallfunc)float_vectorcall,
+    .tp_binary_op_specialize = float_specialize
 };
 
 static void
@@ -1953,6 +2000,11 @@ _PyFloat_InitTypes(PyInterpreterState *interp)
     {
         return _PyStatus_ERR("can't init float info type");
     }
+
+    interp->binary_op_spec[BINOP_FLOAT_INT_MULTIPLY].guard = float_int_guard;
+    interp->binary_op_spec[BINOP_FLOAT_INT_MULTIPLY].action = float_int_multiply;
+    interp->binary_op_spec[BINOP_FLOAT_INT_SUBTRACT].guard = float_int_guard;
+    interp->binary_op_spec[BINOP_FLOAT_INT_SUBTRACT].action = float_int_subtract;
 
     return _PyStatus_OK();
 }

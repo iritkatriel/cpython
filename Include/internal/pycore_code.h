@@ -99,6 +99,7 @@ typedef struct {
 
 typedef struct {
     _Py_BackoffCounter counter;
+    uint16_t external_cache[4];
 } _PyBinaryOpCache;
 
 #define INLINE_CACHE_ENTRIES_BINARY_OP CACHE_ENTRIES(_PyBinaryOpCache)
@@ -436,6 +437,12 @@ write_obj(uint16_t *p, PyObject *val)
     memcpy(p, &val, sizeof(val));
 }
 
+static inline void
+write_void(uint16_t *p, void *val)
+{
+    memcpy(p, &val, sizeof(val));
+}
+
 static inline uint16_t
 read_u16(uint16_t *p)
 {
@@ -462,6 +469,14 @@ static inline PyObject *
 read_obj(uint16_t *p)
 {
     PyObject *val;
+    memcpy(&val, p, sizeof(val));
+    return val;
+}
+
+static inline void *
+read_void(uint16_t *p)
+{
+    void *val;
     memcpy(&val, p, sizeof(val));
     return val;
 }
