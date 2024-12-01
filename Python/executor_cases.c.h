@@ -778,8 +778,11 @@
             _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - 5);
             PyInterpreterState *interp = tstate->interp;
             PyBinaryOpSpecializationDescr *descr = &interp->binary_op_spec[oparg];
-            // void *data = read_void(cache->external_cache);
-            void *data = NULL;
+            void *data = read_void(cache->external_cache);
+            if (!descr->guard) {
+                UOP_STAT_INC(uopcode, miss);
+                JUMP_TO_JUMP_TARGET();
+            }
             if (!descr->guard(left_o, right_o, data)) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
@@ -799,8 +802,7 @@
             _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - 5);
             PyInterpreterState *interp = tstate->interp;
             PyBinaryOpSpecializationDescr *descr = &interp->binary_op_spec[oparg];
-            // void *data = read_void(cache->external_cache);
-            void *data = NULL;
+            void *data = read_void(cache->external_cache);
             STAT_INC(BINARY_OP, hit);
             PyObject *res_o = descr->action(left_o, right_o, data);
             PyStackRef_CLOSE(left);

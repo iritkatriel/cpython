@@ -643,8 +643,8 @@ dummy_func(
             _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - 5);
             PyInterpreterState *interp = tstate->interp;
             PyBinaryOpSpecializationDescr *descr = &interp->binary_op_spec[oparg];
-            // void *data = read_void(cache->external_cache);
-            void *data = NULL;
+            void *data = read_void(cache->external_cache);
+            EXIT_IF(!descr->guard);
             EXIT_IF(!descr->guard(left_o, right_o, data));
         }
 
@@ -654,8 +654,7 @@ dummy_func(
             _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - 5);
             PyInterpreterState *interp = tstate->interp;
             PyBinaryOpSpecializationDescr *descr = &interp->binary_op_spec[oparg];
-            // void *data = read_void(cache->external_cache);
-            void *data = NULL;
+            void *data = read_void(cache->external_cache);
 
             STAT_INC(BINARY_OP, hit);
 
