@@ -1606,7 +1606,7 @@ class TestBranchAndJumpEvents(CheckEvents):
             return None
 
         in_loop = ('branch', 'foo', 10, 14)
-        exit_loop = ('branch', 'foo', 10, 30)
+        exit_loop = ('branch', 'foo', 10, 38)
         self.check_events(foo, recorders = BRANCH_OFFSET_RECORDERS, expected = [
             in_loop,
             in_loop,
