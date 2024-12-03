@@ -640,25 +640,26 @@ dummy_func(
         op(_GUARD_BINARY_OP_EXTEND, (left, right -- left, right)) {
             PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
             PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
-            _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - 5);
-            PyInterpreterState *interp = tstate->interp;
-            PyBinaryOpSpecializationDescr *descr = &interp->binary_op_spec[oparg];
-            void *data = read_void(cache->external_cache);
+            assert(INLINE_CACHE_ENTRIES_BINARY_OP == 5);
+            _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - INLINE_CACHE_ENTRIES_BINARY_OP);
+            PyBinaryOpSpecializationDescr *descr =
+                (PyBinaryOpSpecializationDescr *)read_void(cache->external_cache);
+            EXIT_IF(!descr);
             EXIT_IF(!descr->guard);
-            EXIT_IF(!descr->guard(left_o, right_o, data));
+            EXIT_IF(!descr->guard(descr, left_o, right_o));
         }
 
         pure op(_BINARY_OP_EXTEND, (left, right -- res)) {
             PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
             PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
-            _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - 5);
-            PyInterpreterState *interp = tstate->interp;
-            PyBinaryOpSpecializationDescr *descr = &interp->binary_op_spec[oparg];
-            void *data = read_void(cache->external_cache);
+            assert(INLINE_CACHE_ENTRIES_BINARY_OP == 5);
+            _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - INLINE_CACHE_ENTRIES_BINARY_OP);
+            PyBinaryOpSpecializationDescr *descr =
+                (PyBinaryOpSpecializationDescr *)read_void(cache->external_cache);
 
             STAT_INC(BINARY_OP, hit);
 
-            PyObject *res_o = descr->action(left_o, right_o, data);
+            PyObject *res_o = descr->action(descr, left_o, right_o);
             DECREF_INPUTS();
             res = PyStackRef_FromPyObjectSteal(res_o);
         }

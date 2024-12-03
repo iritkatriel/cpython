@@ -2671,6 +2671,44 @@ _PyObject_DebugTypeStats(FILE *out)
     _PyTuple_DebugMallocStats(out);
 }
 
+/* Specialization Descriptors Management */
+
+PyBinaryOpSpecializationDescr*
+_PyObject_NewBinaryOpSpecializationDescr(void)
+{
+    PyThreadState *tstate = _PyThreadState_GET();
+    PyBinaryOpSpecializationDescr *head = tstate->interp->binary_op_specialization_list;
+    PyBinaryOpSpecializationDescr *new_descr = PyMem_Malloc(sizeof(PyBinaryOpSpecializationDescr));
+    if (new_descr == NULL) {
+        return NULL;
+    }
+    if (head != NULL) {
+        head->prev = new_descr;
+    }
+    new_descr->next = head;
+    new_descr->prev = NULL;
+    tstate->interp->binary_op_specialization_list = new_descr;
+
+    return new_descr;
+}
+
+void
+_PyObject_FreeBinaryOpSpecializationDescr(PyBinaryOpSpecializationDescr* descr)
+{
+    if (descr->prev != NULL) {
+        descr->prev->next = descr->next;
+    }
+    else {
+        PyThreadState *tstate = _PyThreadState_GET();
+        assert(tstate->interp->binary_op_specialization_list == descr);
+        tstate->interp->binary_op_specialization_list = descr->next;
+    }
+    if (descr->next != NULL) {
+        descr->next->prev = descr->prev;
+    }
+    PyMem_Free(descr);
+}
+
 /* These methods are used to control infinite recursion in repr, str, print,
    etc.  Container objects that may recursively contain themselves,
    e.g. builtin dictionaries and lists, should use Py_ReprEnter() and

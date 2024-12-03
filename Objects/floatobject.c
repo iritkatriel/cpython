@@ -1749,7 +1749,7 @@ float_getimag(PyObject *v, void *closure)
 }
 
 static int
-float_int_guard(PyObject *lhs, PyObject *rhs, void *data)
+float_int_guard(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *rhs)
 {
     return (
         PyFloat_CheckExact(lhs) &&
@@ -1759,7 +1759,7 @@ float_int_guard(PyObject *lhs, PyObject *rhs, void *data)
 }
 
 static PyObject *
-float_int_subtract(PyObject *lhs, PyObject *rhs, void *data)
+float_int_subtract(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *rhs)
 {
     double lhs_val = PyFloat_AsDouble(lhs);
     Py_ssize_t rhs_val = _PyLong_CompactValue((PyLongObject *)rhs);
@@ -1767,7 +1767,7 @@ float_int_subtract(PyObject *lhs, PyObject *rhs, void *data)
 }
 
 static PyObject *
-float_int_multiply(PyObject *lhs, PyObject *rhs, void *data)
+float_int_multiply(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *rhs)
 {
     double lhs_val = PyFloat_AsDouble(lhs);
     Py_ssize_t rhs_val = _PyLong_CompactValue((PyLongObject *)rhs);
@@ -1775,16 +1775,22 @@ float_int_multiply(PyObject *lhs, PyObject *rhs, void *data)
 }
 
 static int
-float_specialize(PyObject *lhs, PyObject *rhs, int oparg, int *descr_idx, void **data)
+float_specialize(PyObject *lhs, PyObject *rhs, int oparg, PyBinaryOpSpecializationDescr *descr)
 {
     if (PyLong_CheckExact(rhs) && _PyLong_IsCompact((PyLongObject *)rhs)) {
         switch (oparg) {
             case NB_SUBTRACT:
-                *descr_idx = BINOP_FLOAT_INT_SUBTRACT;
+                *descr = (PyBinaryOpSpecializationDescr){
+                    .guard = float_int_guard,
+                    .action = float_int_subtract,
+                };
                 return 1;
 
             case NB_MULTIPLY:
-                *descr_idx = BINOP_FLOAT_INT_MULTIPLY;
+                *descr = (PyBinaryOpSpecializationDescr){
+                    .guard = float_int_guard,
+                    .action = float_int_multiply,
+                };
                 return 1;
         }
     }
@@ -2000,11 +2006,6 @@ _PyFloat_InitTypes(PyInterpreterState *interp)
     {
         return _PyStatus_ERR("can't init float info type");
     }
-
-    interp->binary_op_spec[BINOP_FLOAT_INT_MULTIPLY].guard = float_int_guard;
-    interp->binary_op_spec[BINOP_FLOAT_INT_MULTIPLY].action = float_int_multiply;
-    interp->binary_op_spec[BINOP_FLOAT_INT_SUBTRACT].guard = float_int_guard;
-    interp->binary_op_spec[BINOP_FLOAT_INT_SUBTRACT].action = float_int_subtract;
 
     return _PyStatus_OK();
 }

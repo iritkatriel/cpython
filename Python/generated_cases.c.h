@@ -175,24 +175,25 @@
             {
                 PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
                 PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
-                _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - 5);
-                PyInterpreterState *interp = tstate->interp;
-                PyBinaryOpSpecializationDescr *descr = &interp->binary_op_spec[oparg];
-                void *data = read_void(cache->external_cache);
+                assert(INLINE_CACHE_ENTRIES_BINARY_OP == 5);
+                _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - INLINE_CACHE_ENTRIES_BINARY_OP);
+                PyBinaryOpSpecializationDescr *descr =
+                (PyBinaryOpSpecializationDescr *)read_void(cache->external_cache);
+                DEOPT_IF(!descr, BINARY_OP);
                 DEOPT_IF(!descr->guard, BINARY_OP);
-                DEOPT_IF(!descr->guard(left_o, right_o, data), BINARY_OP);
+                DEOPT_IF(!descr->guard(descr, left_o, right_o), BINARY_OP);
             }
             /* Skip 5 cache entries */
             // _BINARY_OP_EXTEND
             {
                 PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
                 PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
-                _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - 5);
-                PyInterpreterState *interp = tstate->interp;
-                PyBinaryOpSpecializationDescr *descr = &interp->binary_op_spec[oparg];
-                void *data = read_void(cache->external_cache);
+                assert(INLINE_CACHE_ENTRIES_BINARY_OP == 5);
+                _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(next_instr - INLINE_CACHE_ENTRIES_BINARY_OP);
+                PyBinaryOpSpecializationDescr *descr =
+                (PyBinaryOpSpecializationDescr *)read_void(cache->external_cache);
                 STAT_INC(BINARY_OP, hit);
-                PyObject *res_o = descr->action(left_o, right_o, data);
+                PyObject *res_o = descr->action(descr, left_o, right_o);
                 PyStackRef_CLOSE(left);
                 PyStackRef_CLOSE(right);
                 res = PyStackRef_FromPyObjectSteal(res_o);

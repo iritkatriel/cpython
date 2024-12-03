@@ -6458,7 +6458,7 @@ long_vectorcall(PyObject *type, PyObject * const*args,
 }
 
 static int
-long_float_guard(PyObject *lhs, PyObject *rhs, void *data)
+long_float_guard(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *rhs)
 {
     return (
         PyFloat_CheckExact(rhs) &&
@@ -6468,7 +6468,7 @@ long_float_guard(PyObject *lhs, PyObject *rhs, void *data)
 }
 
 static PyObject *
-long_float_subtract(PyObject *lhs, PyObject *rhs, void *data)
+long_float_subtract(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *rhs)
 {
     double rhs_val = PyFloat_AsDouble(rhs);
     Py_ssize_t lhs_val = _PyLong_CompactValue((PyLongObject *)lhs);
@@ -6476,7 +6476,7 @@ long_float_subtract(PyObject *lhs, PyObject *rhs, void *data)
 }
 
 static PyObject *
-long_float_multiply(PyObject *lhs, PyObject *rhs, void *data)
+long_float_multiply(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *rhs)
 {
     double rhs_val = PyFloat_AsDouble(rhs);
     Py_ssize_t lhs_val = _PyLong_CompactValue((PyLongObject *)lhs);
@@ -6484,16 +6484,22 @@ long_float_multiply(PyObject *lhs, PyObject *rhs, void *data)
 }
 
 static int
-long_specialize(PyObject *lhs, PyObject *rhs, int oparg, int *descr_idx, void **data)
+long_specialize(PyObject *lhs, PyObject *rhs, int oparg, PyBinaryOpSpecializationDescr *descr)
 {
     if (PyFloat_Check(rhs)) {
         switch (oparg) {
             case NB_SUBTRACT:
-                *descr_idx = BINOP_INT_FLOAT_SUBTRACT;
+                *descr = (PyBinaryOpSpecializationDescr){
+                    .guard = long_float_guard,
+                    .action = long_float_subtract,
+                };
                 return 1;
 
             case NB_MULTIPLY:
-                *descr_idx = BINOP_INT_FLOAT_MULTIPLY;
+                *descr = (PyBinaryOpSpecializationDescr){
+                    .guard = long_float_guard,
+                    .action = long_float_multiply,
+                };
                 return 1;
         }
     }
@@ -6708,11 +6714,6 @@ _PyLong_InitTypes(PyInterpreterState *interp)
     {
         return _PyStatus_ERR("can't init int info type");
     }
-
-    interp->binary_op_spec[BINOP_INT_FLOAT_MULTIPLY].guard = long_float_guard;
-    interp->binary_op_spec[BINOP_INT_FLOAT_MULTIPLY].action = long_float_multiply;
-    interp->binary_op_spec[BINOP_INT_FLOAT_SUBTRACT].guard = long_float_guard;
-    interp->binary_op_spec[BINOP_INT_FLOAT_SUBTRACT].action = long_float_subtract;
 
     return _PyStatus_OK();
 }

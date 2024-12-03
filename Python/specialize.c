@@ -2295,13 +2295,13 @@ _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *in
     }
 
     if (Py_TYPE(lhs)->tp_binary_op_specialize) {
-        int descr_idx;
-        void *data = NULL;
-        if (Py_TYPE(lhs)->tp_binary_op_specialize(lhs, rhs, oparg, &descr_idx, &data)) {
-            instr->op.code = BINARY_OP_EXTEND;
-            instr->op.arg = descr_idx;
-            write_void(cache->external_cache, data);
-            goto success;
+        PyBinaryOpSpecializationDescr *descr = _PyObject_NewBinaryOpSpecializationDescr();
+        if (descr != NULL) {  /* TODO: we need a way to report error if NULL */
+            if (Py_TYPE(lhs)->tp_binary_op_specialize(lhs, rhs, oparg, descr)) {
+                instr->op.code = BINARY_OP_EXTEND;
+                write_void(cache->external_cache, (void*)descr);
+                goto success;
+            }
         }
     }
 
