@@ -2709,6 +2709,15 @@ _PyObject_FreeBinaryOpSpecializationDescr(PyBinaryOpSpecializationDescr* descr)
     PyMem_Free(descr);
 }
 
+void
+_PyObject_FreeAllSpecializationDescrs(PyInterpreterState *interp)
+{
+    while(interp->binary_op_specialization_list) {
+        _PyObject_FreeBinaryOpSpecializationDescr(
+            interp->binary_op_specialization_list);
+    }
+}
+
 /* These methods are used to control infinite recursion in repr, str, print,
    etc.  Container objects that may recursively contain themselves,
    e.g. builtin dictionaries and lists, should use Py_ReprEnter() and
