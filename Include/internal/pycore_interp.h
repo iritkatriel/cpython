@@ -281,20 +281,16 @@ struct _is {
     _PyThreadStateImpl _initial_thread;
     Py_ssize_t _interactive_src_count;
 
-    PyBinaryOpSpecializationDescr binary_op_spec[256];
+    PyBinaryOpSpecializationDescr* binary_op_specialization_list;
 };
-
-
-#define BINOP_FLOAT_INT_MULTIPLY 0
-#define BINOP_FLOAT_INT_SUBTRACT 1
-#define BINOP_INT_FLOAT_MULTIPLY 2
-#define BINOP_INT_FLOAT_SUBTRACT 3
-
 
 /* other API */
 
 extern void _PyInterpreterState_Clear(PyThreadState *tstate);
 
+extern PyBinaryOpSpecializationDescr* _Py_Specialize_NewBinaryOpSpecializationDescr(void);
+extern void _Py_Specialize_FreeBinaryOpSpecializationDescr(PyBinaryOpSpecializationDescr* descr);
+extern void _Py_Specialize_FreeAllSpecializationDescrs(PyInterpreterState *interp);
 
 static inline PyThreadState*
 _PyInterpreterState_GetFinalizing(PyInterpreterState *interp) {

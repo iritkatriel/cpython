@@ -50,7 +50,7 @@ _cache_format = {
         "builtin_keys_version": 1,
     },
     "BINARY_OP": {
-        "counter": 1,
+        "counter": 5,
     },
     "UNPACK_SEQUENCE": {
         "counter": 1,
