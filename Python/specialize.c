@@ -2340,9 +2340,12 @@ _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *in
     }
 
     if (Py_TYPE(lhs)->tp_binary_op_specialize) {
-        PyBinaryOpSpecializationDescr *descr = _Py_Specialize_NewBinaryOpSpecializationDescr();
-        if (descr != NULL) {  /* TODO: we need a way to report error if NULL */
-            if (Py_TYPE(lhs)->tp_binary_op_specialize(lhs, rhs, oparg, descr)) {
+        PyBinaryOpSpecializationDescr tmp_descr;
+        memset(&tmp_descr, 0, sizeof(PyBinaryOpSpecializationDescr));
+        if (Py_TYPE(lhs)->tp_binary_op_specialize(lhs, rhs, oparg, &tmp_descr)) {
+            PyBinaryOpSpecializationDescr *descr = _Py_Specialize_NewBinaryOpSpecializationDescr();
+            if (descr != NULL) {  /* TODO: we need a way to report error if NULL */
+                *descr = tmp_descr;
                 instr->op.code = BINARY_OP_EXTEND;
                 write_void(cache->external_cache, (void*)descr);
                 goto success;
