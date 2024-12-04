@@ -66,9 +66,6 @@ extern void _PyDebugAllocatorStats(FILE *out, const char *block_name,
 
 extern void _PyObject_DebugTypeStats(FILE *out);
 
-extern PyBinaryOpSpecializationDescr* _PyObject_NewBinaryOpSpecializationDescr(void);
-extern void _PyObject_FreeBinaryOpSpecializationDescr(PyBinaryOpSpecializationDescr* descr);
-
 #ifdef Py_TRACE_REFS
 // Forget a reference registered by _Py_NewReference(). Function called by
 // _Py_Dealloc().

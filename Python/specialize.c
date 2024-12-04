@@ -2223,6 +2223,51 @@ binary_op_fail_kind(int oparg, PyObject *lhs, PyObject *rhs)
 }
 #endif   // Py_STATS
 
+PyBinaryOpSpecializationDescr*
+_Py_Specialize_NewBinaryOpSpecializationDescr(void)
+{
+    PyThreadState *tstate = _PyThreadState_GET();
+    PyBinaryOpSpecializationDescr *head = tstate->interp->binary_op_specialization_list;
+    PyBinaryOpSpecializationDescr *new_descr = PyMem_Malloc(sizeof(PyBinaryOpSpecializationDescr));
+    if (new_descr == NULL) {
+        return NULL;
+    }
+    if (head != NULL) {
+        head->prev = new_descr;
+    }
+    new_descr->next = head;
+    new_descr->prev = NULL;
+    tstate->interp->binary_op_specialization_list = new_descr;
+
+    return new_descr;
+}
+
+void
+_Py_Specialize_FreeBinaryOpSpecializationDescr(PyBinaryOpSpecializationDescr* descr)
+{
+    if (descr->prev != NULL) {
+        descr->prev->next = descr->next;
+    }
+    else {
+        PyThreadState *tstate = _PyThreadState_GET();
+        assert(tstate->interp->binary_op_specialization_list == descr);
+        tstate->interp->binary_op_specialization_list = descr->next;
+    }
+    if (descr->next != NULL) {
+        descr->next->prev = descr->prev;
+    }
+    PyMem_Free(descr);
+}
+
+void
+_Py_Specialize_FreeAllSpecializationDescrs(PyInterpreterState *interp)
+{
+    while(interp->binary_op_specialization_list) {
+        _Py_Specialize_FreeBinaryOpSpecializationDescr(
+            interp->binary_op_specialization_list);
+    }
+}
+
 void
 _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *instr,
                         int oparg, _PyStackRef *locals)
@@ -2295,7 +2340,7 @@ _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *in
     }
 
     if (Py_TYPE(lhs)->tp_binary_op_specialize) {
-        PyBinaryOpSpecializationDescr *descr = _PyObject_NewBinaryOpSpecializationDescr();
+        PyBinaryOpSpecializationDescr *descr = _Py_Specialize_NewBinaryOpSpecializationDescr();
         if (descr != NULL) {  /* TODO: we need a way to report error if NULL */
             if (Py_TYPE(lhs)->tp_binary_op_specialize(lhs, rhs, oparg, descr)) {
                 instr->op.code = BINARY_OP_EXTEND;
