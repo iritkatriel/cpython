@@ -354,6 +354,17 @@ typedef int (*initproc)(PyObject *, PyObject *, PyObject *);
 typedef PyObject *(*newfunc)(PyTypeObject *, PyObject *, PyObject *);
 typedef PyObject *(*allocfunc)(PyTypeObject *, Py_ssize_t);
 
+struct _PyBinaryOpSpecializationDescr;
+typedef int (*binaryopguardfunc)(struct _PyBinaryOpSpecializationDescr* descr, PyObject *lhs, PyObject *rhs);
+typedef PyObject *(*binaryopactionfunc)(struct _PyBinaryOpSpecializationDescr* descr, PyObject *lhs, PyObject *rhs);
+typedef int (*binaryopspecfunc)(PyObject *lhs, PyObject *rhs, int oparg, struct _PyBinaryOpSpecializationDescr* descr);
+
+typedef struct _PyBinaryOpSpecializationDescr {
+    binaryopguardfunc guard;
+    binaryopactionfunc action;
+    struct _PyBinaryOpSpecializationDescr *prev, *next;  /* For the tstate linked list */
+} PyBinaryOpSpecializationDescr;
+
 #if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x030c0000 // 3.12
 typedef PyObject *(*vectorcallfunc)(PyObject *callable, PyObject *const *args,
                                     size_t nargsf, PyObject *kwnames);

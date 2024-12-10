@@ -11,6 +11,8 @@
 #include "pycore_runtime.h"       // _PY_NSMALLPOSINTS
 #include "pycore_structseq.h"     // _PyStructSequence_FiniBuiltin()
 
+#include "opcode.h"
+
 #include <float.h>                // DBL_MANT_DIG
 #include <stddef.h>               // offsetof
 
@@ -6479,6 +6481,56 @@ long_vectorcall(PyObject *type, PyObject * const*args,
     }
 }
 
+static int
+long_float_guard(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *rhs)
+{
+    return (
+        PyFloat_CheckExact(rhs) &&
+        PyLong_CheckExact(lhs) &&
+        _PyLong_IsCompact((PyLongObject *)lhs)
+    );
+}
+
+static PyObject *
+long_float_subtract(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *rhs)
+{
+    double rhs_val = PyFloat_AsDouble(rhs);
+    Py_ssize_t lhs_val = _PyLong_CompactValue((PyLongObject *)lhs);
+    return PyFloat_FromDouble(lhs_val - rhs_val);
+}
+
+static PyObject *
+long_float_multiply(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *rhs)
+{
+    double rhs_val = PyFloat_AsDouble(rhs);
+    Py_ssize_t lhs_val = _PyLong_CompactValue((PyLongObject *)lhs);
+    return PyFloat_FromDouble(lhs_val * rhs_val);
+}
+
+static int
+long_specialize(PyObject *lhs, PyObject *rhs, int oparg, PyBinaryOpSpecializationDescr *descr)
+{
+    if (PyFloat_Check(rhs)) {
+        switch (oparg) {
+            case NB_SUBTRACT:
+                *descr = (PyBinaryOpSpecializationDescr){
+                    .guard = long_float_guard,
+                    .action = long_float_subtract,
+                };
+                return 1;
+
+            case NB_MULTIPLY:
+                *descr = (PyBinaryOpSpecializationDescr){
+                    .guard = long_float_guard,
+                    .action = long_float_multiply,
+                };
+                return 1;
+        }
+    }
+
+    return 0;
+}
+
 static PyMethodDef long_methods[] = {
     {"conjugate",       long_long_meth, METH_NOARGS,
      "Returns self, the complex conjugate of any int."},
@@ -6618,6 +6670,7 @@ PyTypeObject PyLong_Type = {
     PyObject_Free,                              /* tp_free */
     .tp_vectorcall = long_vectorcall,
     .tp_version_tag = _Py_TYPE_VERSION_INT,
+    .tp_binary_op_specialize = long_specialize,
 };
 
 static PyTypeObject Int_InfoType;

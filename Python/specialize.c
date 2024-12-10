@@ -2307,7 +2307,52 @@ binary_op_fail_kind(int oparg, PyObject *lhs, PyObject *rhs)
 }
 #endif
 
+PyBinaryOpSpecializationDescr*
+_Py_Specialize_NewBinaryOpSpecializationDescr(void)
+{
+    PyThreadState *tstate = _PyThreadState_GET();
+    PyBinaryOpSpecializationDescr *head = tstate->interp->binary_op_specialization_list;
+    PyBinaryOpSpecializationDescr *new_descr = PyMem_Malloc(sizeof(PyBinaryOpSpecializationDescr));
+    if (new_descr == NULL) {
+        return NULL;
+    }
+    if (head != NULL) {
+        head->prev = new_descr;
+    }
+    new_descr->next = head;
+    new_descr->prev = NULL;
+    tstate->interp->binary_op_specialization_list = new_descr;
+
+    return new_descr;
+}
+
 void
+_Py_Specialize_FreeBinaryOpSpecializationDescr(PyBinaryOpSpecializationDescr* descr)
+{
+    if (descr->prev != NULL) {
+        descr->prev->next = descr->next;
+    }
+    else {
+        PyThreadState *tstate = _PyThreadState_GET();
+        assert(tstate->interp->binary_op_specialization_list == descr);
+        tstate->interp->binary_op_specialization_list = descr->next;
+    }
+    if (descr->next != NULL) {
+        descr->next->prev = descr->prev;
+    }
+    PyMem_Free(descr);
+}
+
+void
+_Py_Specialize_FreeAllSpecializationDescrs(PyInterpreterState *interp)
+{
+    while(interp->binary_op_specialization_list) {
+        _Py_Specialize_FreeBinaryOpSpecializationDescr(
+            interp->binary_op_specialization_list);
+    }
+}
+
+int
 _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *instr,
                         int oparg, _PyStackRef *locals)
 {
@@ -2315,6 +2360,14 @@ _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *in
     PyObject *rhs = PyStackRef_AsPyObjectBorrow(rhs_st);
     assert(ENABLE_SPECIALIZATION_FT);
     assert(_PyOpcode_Caches[BINARY_OP] == INLINE_CACHE_ENTRIES_BINARY_OP);
+
+    _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(instr + 1);
+    if (instr->op.code == BINARY_OP_EXTEND) {
+        void *data = read_void(cache->external_cache);
+        _Py_Specialize_FreeBinaryOpSpecializationDescr(data);
+        write_void(cache->external_cache, NULL);
+    }
+
     switch (oparg) {
         case NB_ADD:
         case NB_INPLACE_ADD:
@@ -2326,18 +2379,18 @@ _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *in
                 bool to_store = (next.op.code == STORE_FAST);
                 if (to_store && PyStackRef_AsPyObjectBorrow(locals[next.op.arg]) == lhs) {
                     specialize(instr, BINARY_OP_INPLACE_ADD_UNICODE);
-                    return;
+                    return 0;
                 }
                 specialize(instr, BINARY_OP_ADD_UNICODE);
-                return;
+                return 0;
             }
             if (PyLong_CheckExact(lhs)) {
                 specialize(instr, BINARY_OP_ADD_INT);
-                return;
+                return 0;
             }
             if (PyFloat_CheckExact(lhs)) {
                 specialize(instr, BINARY_OP_ADD_FLOAT);
-                return;
+                return 0;
             }
             break;
         case NB_MULTIPLY:
@@ -2347,11 +2400,11 @@ _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *in
             }
             if (PyLong_CheckExact(lhs)) {
                 specialize(instr, BINARY_OP_MULTIPLY_INT);
-                return;
+                return 0;
             }
             if (PyFloat_CheckExact(lhs)) {
                 specialize(instr, BINARY_OP_MULTIPLY_FLOAT);
-                return;
+                return 0;
             }
             break;
         case NB_SUBTRACT:
@@ -2361,16 +2414,34 @@ _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *in
             }
             if (PyLong_CheckExact(lhs)) {
                 specialize(instr, BINARY_OP_SUBTRACT_INT);
-                return;
+                return 0;
             }
             if (PyFloat_CheckExact(lhs)) {
                 specialize(instr, BINARY_OP_SUBTRACT_FLOAT);
-                return;
+                return 0;
             }
             break;
     }
+
+    if (Py_TYPE(lhs)->tp_binary_op_specialize) {
+        PyBinaryOpSpecializationDescr tmp_descr;
+        memset(&tmp_descr, 0, sizeof(PyBinaryOpSpecializationDescr));
+        if (Py_TYPE(lhs)->tp_binary_op_specialize(lhs, rhs, oparg, &tmp_descr)) {
+            PyBinaryOpSpecializationDescr *descr = _Py_Specialize_NewBinaryOpSpecializationDescr();
+            if (descr == NULL) {
+                PyErr_SetString(PyExc_MemoryError, "Failed to allocate descriptor");
+                return -1;
+            }
+            *descr = tmp_descr;
+            instr->op.code = BINARY_OP_EXTEND;
+            write_void(cache->external_cache, (void*)descr);
+            return 0;
+        }
+    }
+
     SPECIALIZATION_FAIL(BINARY_OP, binary_op_fail_kind(oparg, lhs, rhs));
     unspecialize(instr);
+    return 0;
 }
 
 

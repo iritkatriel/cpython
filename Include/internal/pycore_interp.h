@@ -285,6 +285,8 @@ struct _is {
     _PyThreadStateImpl _initial_thread;
     // _initial_thread should be the last field of PyInterpreterState.
     // See https://github.com/python/cpython/issues/127117.
+
+    PyBinaryOpSpecializationDescr* binary_op_specialization_list;
 };
 
 
@@ -292,6 +294,9 @@ struct _is {
 
 extern void _PyInterpreterState_Clear(PyThreadState *tstate);
 
+extern PyBinaryOpSpecializationDescr* _Py_Specialize_NewBinaryOpSpecializationDescr(void);
+extern void _Py_Specialize_FreeBinaryOpSpecializationDescr(PyBinaryOpSpecializationDescr* descr);
+extern void _Py_Specialize_FreeAllSpecializationDescrs(PyInterpreterState *interp);
 
 static inline PyThreadState*
 _PyInterpreterState_GetFinalizing(PyInterpreterState *interp) {

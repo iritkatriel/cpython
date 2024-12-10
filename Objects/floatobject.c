@@ -16,6 +16,8 @@
 #include "pycore_pystate.h"       // _PyInterpreterState_GET()
 #include "pycore_structseq.h"     // _PyStructSequence_FiniBuiltin()
 
+#include "opcode.h"
+
 #include <float.h>                // DBL_MAX
 #include <stdlib.h>               // strtol()
 
@@ -1781,6 +1783,56 @@ float_getimag(PyObject *v, void *closure)
     return PyFloat_FromDouble(0.0);
 }
 
+static int
+float_int_guard(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *rhs)
+{
+    return (
+        PyFloat_CheckExact(lhs) &&
+        PyLong_CheckExact(rhs) &&
+        _PyLong_IsCompact((PyLongObject *)rhs)
+    );
+}
+
+static PyObject *
+float_int_subtract(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *rhs)
+{
+    double lhs_val = PyFloat_AsDouble(lhs);
+    Py_ssize_t rhs_val = _PyLong_CompactValue((PyLongObject *)rhs);
+    return PyFloat_FromDouble(lhs_val - rhs_val);
+}
+
+static PyObject *
+float_int_multiply(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *rhs)
+{
+    double lhs_val = PyFloat_AsDouble(lhs);
+    Py_ssize_t rhs_val = _PyLong_CompactValue((PyLongObject *)rhs);
+    return PyFloat_FromDouble(lhs_val * rhs_val);
+}
+
+static int
+float_specialize(PyObject *lhs, PyObject *rhs, int oparg, PyBinaryOpSpecializationDescr *descr)
+{
+    if (PyLong_CheckExact(rhs) && _PyLong_IsCompact((PyLongObject *)rhs)) {
+        switch (oparg) {
+            case NB_SUBTRACT:
+                *descr = (PyBinaryOpSpecializationDescr){
+                    .guard = float_int_guard,
+                    .action = float_int_subtract,
+                };
+                return 1;
+
+            case NB_MULTIPLY:
+                *descr = (PyBinaryOpSpecializationDescr){
+                    .guard = float_int_guard,
+                    .action = float_int_multiply,
+                };
+                return 1;
+        }
+    }
+
+    return 0;
+}
+
 /*[clinic input]
 float.__format__
 
@@ -1917,6 +1969,7 @@ PyTypeObject PyFloat_Type = {
     float_new,                                  /* tp_new */
     .tp_vectorcall = (vectorcallfunc)float_vectorcall,
     .tp_version_tag = _Py_TYPE_VERSION_FLOAT,
+    .tp_binary_op_specialize = float_specialize,
 };
 
 static void

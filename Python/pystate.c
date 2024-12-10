@@ -839,6 +839,7 @@ interpreter_clear(PyInterpreterState *interp, PyThreadState *tstate)
     for (int t = 0; t < PY_MONITORING_TOOL_IDS; t++) {
         Py_CLEAR(interp->monitoring_tool_names[t]);
     }
+    _Py_Specialize_FreeAllSpecializationDescrs(interp);
 
     PyConfig_Clear(&interp->config);
     _PyCodec_Fini(interp);
