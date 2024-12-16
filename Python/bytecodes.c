@@ -705,7 +705,8 @@ dummy_func(
                 (PyBinaryOpSpecializationDescr *)read_void(cache->external_cache);
             EXIT_IF(!descr);
             EXIT_IF(!descr->guard);
-            EXIT_IF(!descr->guard(descr, left_o, right_o));
+            int res = descr->guard(descr, left_o, right_o);
+            EXIT_IF(!res);
         }
 
         pure op(_BINARY_OP_EXTEND, (left, right -- res)) {

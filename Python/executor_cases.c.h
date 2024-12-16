@@ -888,11 +888,12 @@
                 JUMP_TO_JUMP_TARGET();
             }
             _PyFrame_SetStackPointer(frame, stack_pointer);
-            if (!descr->guard(descr, left_o, right_o)) {
+            int res = descr->guard(descr, left_o, right_o);
+            stack_pointer = _PyFrame_GetStackPointer(frame);
+            if (!res) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
-            stack_pointer = _PyFrame_GetStackPointer(frame);
             break;
         }
 

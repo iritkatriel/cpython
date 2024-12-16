@@ -2356,6 +2356,7 @@ int
 _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *instr,
                         int oparg, _PyStackRef *locals)
 {
+fprintf(stderr, ".");
     PyObject *lhs = PyStackRef_AsPyObjectBorrow(lhs_st);
     PyObject *rhs = PyStackRef_AsPyObjectBorrow(rhs_st);
     assert(ENABLE_SPECIALIZATION_FT);

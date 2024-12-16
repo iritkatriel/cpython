@@ -189,8 +189,9 @@
                 DEOPT_IF(!descr, BINARY_OP);
                 DEOPT_IF(!descr->guard, BINARY_OP);
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                DEOPT_IF(!descr->guard(descr, left_o, right_o), BINARY_OP);
+                int res = descr->guard(descr, left_o, right_o);
                 stack_pointer = _PyFrame_GetStackPointer(frame);
+                DEOPT_IF(!res, BINARY_OP);
             }
             /* Skip 5 cache entries */
             // _BINARY_OP_EXTEND

@@ -9,14 +9,12 @@ extern "C" {
 #  error "this header requires Py_BUILD_CORE define"
 #endif
 
+#include "cpython/code.h"
+
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 
-
-typedef struct {
-    uint16_t value_and_backoff;
-} _Py_BackoffCounter;
 
 
 /* 16-bit countdown counters using exponential backoff.

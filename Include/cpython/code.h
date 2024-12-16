@@ -27,6 +27,28 @@ typedef struct _Py_GlobalMonitors {
 } _Py_GlobalMonitors;
 
 
+/* Each instruction in a code object is a fixed-width value,
+ * currently 2 bytes: 1-byte opcode + 1-byte oparg.  The EXTENDED_ARG
+ * opcode allows for larger values but the current limit is 3 uses
+ * of EXTENDED_ARG (see Python/compile.c), for a maximum
+ * 32-bit value.  This aligns with the note in Python/compile.c
+ * (compiler_addop_i_line) indicating that the max oparg value is
+ * 2**32 - 1, rather than INT_MAX.
+ */
+
+typedef struct {
+    uint16_t value_and_backoff;
+} _Py_BackoffCounter;
+
+typedef union {
+    uint16_t cache;
+    struct {
+        uint8_t code;
+        uint8_t arg;
+    } op;
+    _Py_BackoffCounter counter;  // First cache entry of specializable op
+} _Py_CODEUNIT;
+
 typedef struct {
     PyObject *_co_code;
     PyObject *_co_varnames;
@@ -71,6 +93,60 @@ typedef struct {
     /* The tools that are to be notified for instruction events for the matching code unit */
     uint8_t *per_instruction_tools;
 } _PyCoMonitoringData;
+
+typedef struct _deoptInfo{
+    // if a whole chain of instructions is deoptimized
+    struct _deoptInfo *child;
+    _Py_CODEUNIT orig_instr;
+    _Py_CODEUNIT *position;
+    short data;
+    struct _deoptInfo *next;
+    struct _deoptInfo *prev;
+} PyExternalDeoptInfo;
+
+#ifndef __cplusplus
+typedef int (*PyExternal_CodeHandler)(void *restrict external_cache_pointer, PyObject* restrict ** stack_pointer);
+typedef int (*ExternalSpecializationHook)(_Py_CODEUNIT* old_instr, PyObject ***stack_pointer);
+#else
+typedef int (*PyExternal_CodeHandler)(_Py_CODEUNIT **next_instr, PyObject **stack_pointer);
+typedef int (*ExternalSpecializationHook)(_Py_CODEUNIT *old_instr, PyObject ***stack_pointer);
+#endif
+
+typedef void (*FunctionEndHook)(_Py_CODEUNIT *instr, void* external_cache_pointer);
+typedef int (*SpecializeInstructionPtr)(_Py_CODEUNIT*, int, PyExternal_CodeHandler, void *);
+typedef int (*SpecializeChainPtr)(_Py_CODEUNIT *, PyObject **, int , PyExternal_CodeHandler, unsigned char, void *);
+typedef int (*IsOperandConstantPtr)(_Py_CODEUNIT *, PyObject **, int );
+
+
+typedef struct _PyExternalSpecializer {
+    ExternalSpecializationHook TrySpecialization;
+    FunctionEndHook FunctionEnd;
+
+    // TODO: workaround until we resolve the mysterious linking performance issue
+    // For some reason a few benchmarks suffer a major performance regression when the numpy module
+    // dynamically resolves the function with the linker. This hack avoids the resolution by the linker and seems to help
+    SpecializeInstructionPtr SpecializeInstruction;
+    SpecializeChainPtr SpecializeChain;
+    IsOperandConstantPtr IsOperandConstant;
+} PyExternalSpecializer;
+
+
+#if defined(Py_OPT_CMLQ_ENV) || defined(Py_OPT_CMLQ_ALWAYS)
+    #define CMLQ_Def    \
+        PyObject *co_size_table;    \
+        PyExternalDeoptInfo *co_deopt_info_head;
+#else
+    #define CMLQ_Def
+#endif
+
+
+#ifdef INSTR_STATS
+    #define CMLQ_Stats_Def \
+        PyObject *co_stats_table;
+#else
+    #define CMLQ_Stats_Def
+#endif
+
 
 #ifdef Py_GIL_DISABLED
 
