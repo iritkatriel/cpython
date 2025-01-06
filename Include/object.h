@@ -358,10 +358,13 @@ struct _PyBinaryOpSpecializationDescr;
 typedef int (*binaryopguardfunc)(struct _PyBinaryOpSpecializationDescr* descr, PyObject *lhs, PyObject *rhs);
 typedef PyObject *(*binaryopactionfunc)(struct _PyBinaryOpSpecializationDescr* descr, PyObject *lhs, PyObject *rhs);
 typedef int (*binaryopspecfunc)(PyObject *lhs, PyObject *rhs, int oparg, struct _PyBinaryOpSpecializationDescr* descr);
+typedef void (*binaryopfreefunc)(struct _PyBinaryOpSpecializationDescr* descr);
 
 typedef struct _PyBinaryOpSpecializationDescr {
     binaryopguardfunc guard;
     binaryopactionfunc action;
+    binaryopfreefunc free;
+    void *data;
     struct _PyBinaryOpSpecializationDescr *prev, *next;  /* For the tstate linked list */
 } PyBinaryOpSpecializationDescr;
 

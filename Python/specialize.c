@@ -2329,6 +2329,9 @@ _Py_Specialize_NewBinaryOpSpecializationDescr(void)
 void
 _Py_Specialize_FreeBinaryOpSpecializationDescr(PyBinaryOpSpecializationDescr* descr)
 {
+    if (descr->free != NULL) {
+        descr->free(descr);
+    }
     if (descr->prev != NULL) {
         descr->prev->next = descr->next;
     }
@@ -2352,11 +2355,12 @@ _Py_Specialize_FreeAllSpecializationDescrs(PyInterpreterState *interp)
     }
 }
 
+#define VERBOSE 0
+
 int
 _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *instr,
                         int oparg, _PyStackRef *locals)
 {
-fprintf(stderr, ".");
     PyObject *lhs = PyStackRef_AsPyObjectBorrow(lhs_st);
     PyObject *rhs = PyStackRef_AsPyObjectBorrow(rhs_st);
     assert(ENABLE_SPECIALIZATION_FT);
@@ -2428,13 +2432,17 @@ fprintf(stderr, ".");
         PyBinaryOpSpecializationDescr tmp_descr;
         memset(&tmp_descr, 0, sizeof(PyBinaryOpSpecializationDescr));
         if (Py_TYPE(lhs)->tp_binary_op_specialize(lhs, rhs, oparg, &tmp_descr)) {
+            if (VERBOSE) {
+                fprintf(stderr, "specialize %p (lhs type = %s, rhs type = %s) \n",
+                        instr, Py_TYPE(lhs)->tp_name, Py_TYPE(rhs)->tp_name);
+            }
             PyBinaryOpSpecializationDescr *descr = _Py_Specialize_NewBinaryOpSpecializationDescr();
             if (descr == NULL) {
                 PyErr_SetString(PyExc_MemoryError, "Failed to allocate descriptor");
                 return -1;
             }
             *descr = tmp_descr;
-            instr->op.code = BINARY_OP_EXTEND;
+            specialize(instr, BINARY_OP_EXTEND);
             write_void(cache->external_cache, (void*)descr);
             return 0;
         }
