@@ -1784,7 +1784,7 @@ float_getimag(PyObject *v, void *closure)
 }
 
 static int
-float_int_guard(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *rhs)
+float_int_guard(PyObject *lhs, PyObject *rhs, void *data)
 {
     return (
         PyFloat_CheckExact(lhs) &&
@@ -1794,7 +1794,7 @@ float_int_guard(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *r
 }
 
 static PyObject *
-float_int_subtract(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *rhs)
+float_int_subtract(PyObject *lhs, PyObject *rhs, void *data)
 {
     double lhs_val = PyFloat_AsDouble(lhs);
     Py_ssize_t rhs_val = _PyLong_CompactValue((PyLongObject *)rhs);
@@ -1802,7 +1802,7 @@ float_int_subtract(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject
 }
 
 static PyObject *
-float_int_multiply(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject *rhs)
+float_int_multiply(PyObject *lhs, PyObject *rhs, void *data)
 {
     double lhs_val = PyFloat_AsDouble(lhs);
     Py_ssize_t rhs_val = _PyLong_CompactValue((PyLongObject *)rhs);
@@ -1810,22 +1810,23 @@ float_int_multiply(PyBinaryOpSpecializationDescr *descr, PyObject *lhs, PyObject
 }
 
 static int
-float_specialize(PyObject *lhs, PyObject *rhs, int oparg, PyBinaryOpSpecializationDescr *descr)
+float_specialize(PyObject *lhs, PyObject *rhs, int oparg,
+                 binaryopguardfunc *guard, binaryopactionfunc *action,
+                 binaryopfreefunc *free, void **data)
 {
+    *free = NULL;
+    *data = NULL;
+
     if (PyLong_CheckExact(rhs) && _PyLong_IsCompact((PyLongObject *)rhs)) {
         switch (oparg) {
             case NB_SUBTRACT:
-                *descr = (PyBinaryOpSpecializationDescr){
-                    .guard = float_int_guard,
-                    .action = float_int_subtract,
-                };
+                *guard = float_int_guard;
+                *action = float_int_subtract;
                 return 1;
 
             case NB_MULTIPLY:
-                *descr = (PyBinaryOpSpecializationDescr){
-                    .guard = float_int_guard,
-                    .action = float_int_multiply,
-                };
+                *guard = float_int_guard;
+                *action = float_int_multiply;
                 return 1;
         }
     }

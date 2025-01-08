@@ -294,8 +294,10 @@ struct _is {
 
 extern void _PyInterpreterState_Clear(PyThreadState *tstate);
 
-extern PyBinaryOpSpecializationDescr* _Py_Specialize_NewBinaryOpSpecializationDescr(void);
+extern PyBinaryOpSpecializationDescr* _Py_Specialize_NewBinaryOpSpecializationDescr(
+    binaryopguardfunc guard, binaryopactionfunc action, binaryopfreefunc free, void *data);
 extern void _Py_Specialize_FreeBinaryOpSpecializationDescr(PyBinaryOpSpecializationDescr* descr);
+
 extern void _Py_Specialize_FreeAllSpecializationDescrs(PyInterpreterState *interp);
 
 static inline PyThreadState*

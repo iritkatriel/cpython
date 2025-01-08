@@ -189,7 +189,7 @@
                 DEOPT_IF(!descr, BINARY_OP);
                 DEOPT_IF(!descr->guard, BINARY_OP);
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                int res = descr->guard(descr, left_o, right_o);
+                int res = descr->guard(left_o, right_o, descr->data);
                 stack_pointer = _PyFrame_GetStackPointer(frame);
                 DEOPT_IF(!res, BINARY_OP);
             }
@@ -206,7 +206,7 @@
                 stack_pointer = _PyFrame_GetStackPointer(frame);
                 STAT_INC(BINARY_OP, hit);
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                PyObject *res_o = descr->action(descr, left_o, right_o);
+                PyObject *res_o = descr->action(left_o, right_o, descr->data);
                 stack_pointer = _PyFrame_GetStackPointer(frame);
                 PyStackRef_CLOSE(left);
                 PyStackRef_CLOSE(right);

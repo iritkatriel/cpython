@@ -705,7 +705,7 @@ dummy_func(
                 (PyBinaryOpSpecializationDescr *)read_void(cache->external_cache);
             EXIT_IF(!descr);
             EXIT_IF(!descr->guard);
-            int res = descr->guard(descr, left_o, right_o);
+            int res = descr->guard(left_o, right_o, descr->data);
             EXIT_IF(!res);
         }
 
@@ -719,7 +719,7 @@ dummy_func(
 
             STAT_INC(BINARY_OP, hit);
 
-            PyObject *res_o = descr->action(descr, left_o, right_o);
+            PyObject *res_o = descr->action(left_o, right_o, descr->data);
             DECREF_INPUTS();
             res = PyStackRef_FromPyObjectSteal(res_o);
         }

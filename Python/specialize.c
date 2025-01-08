@@ -2308,7 +2308,8 @@ binary_op_fail_kind(int oparg, PyObject *lhs, PyObject *rhs)
 #endif
 
 PyBinaryOpSpecializationDescr*
-_Py_Specialize_NewBinaryOpSpecializationDescr(void)
+_Py_Specialize_NewBinaryOpSpecializationDescr(binaryopguardfunc guard,
+    binaryopactionfunc action, binaryopfreefunc free, void *data)
 {
     PyThreadState *tstate = _PyThreadState_GET();
     PyBinaryOpSpecializationDescr *head = tstate->interp->binary_op_specialization_list;
@@ -2316,6 +2317,11 @@ _Py_Specialize_NewBinaryOpSpecializationDescr(void)
     if (new_descr == NULL) {
         return NULL;
     }
+    new_descr->guard = *guard;
+    new_descr->action = *action;
+    new_descr->free = *free;
+    new_descr->data = data;
+
     if (head != NULL) {
         head->prev = new_descr;
     }
@@ -2429,19 +2435,24 @@ _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *in
     }
 
     if (Py_TYPE(lhs)->tp_binary_op_specialize) {
-        PyBinaryOpSpecializationDescr tmp_descr;
-        memset(&tmp_descr, 0, sizeof(PyBinaryOpSpecializationDescr));
-        if (Py_TYPE(lhs)->tp_binary_op_specialize(lhs, rhs, oparg, &tmp_descr)) {
+        binaryopguardfunc guard = NULL;
+        binaryopactionfunc action = NULL;
+        binaryopfreefunc free = NULL;
+        void *data = NULL;
+        if (Py_TYPE(lhs)->tp_binary_op_specialize(lhs, rhs, oparg, &guard, &action, &free, &data)) {
             if (VERBOSE) {
                 fprintf(stderr, "specialize %p (lhs type = %s, rhs type = %s) \n",
                         instr, Py_TYPE(lhs)->tp_name, Py_TYPE(rhs)->tp_name);
             }
-            PyBinaryOpSpecializationDescr *descr = _Py_Specialize_NewBinaryOpSpecializationDescr();
+            PyBinaryOpSpecializationDescr *descr =
+                _Py_Specialize_NewBinaryOpSpecializationDescr(guard, action, free, data);
             if (descr == NULL) {
+                if (free != NULL) {
+                    free(data);
+                }
                 PyErr_SetString(PyExc_MemoryError, "Failed to allocate descriptor");
                 return -1;
             }
-            *descr = tmp_descr;
             specialize(instr, BINARY_OP_EXTEND);
             write_void(cache->external_cache, (void*)descr);
             return 0;

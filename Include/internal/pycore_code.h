@@ -573,6 +573,16 @@ adaptive_counter_backoff(_Py_BackoffCounter counter) {
     return restart_backoff_counter(counter);
 }
 
+/* Cross-Module Specialization */
+
+typedef struct _PyBinaryOpSpecializationDescr {
+    binaryopguardfunc guard;
+    binaryopactionfunc action;
+    binaryopfreefunc free;
+    void *data;
+    struct _PyBinaryOpSpecializationDescr *prev, *next;  /* For the tstate linked list */
+} PyBinaryOpSpecializationDescr;
+
 
 /* Comparison bit masks. */
 
