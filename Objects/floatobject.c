@@ -1784,7 +1784,7 @@ float_getimag(PyObject *v, void *closure)
 }
 
 static int
-float_int_guard(PyObject *lhs, PyObject *rhs, void *data)
+float_long_guard(PyObject *lhs, PyObject *rhs, void *data)
 {
     return (
         PyFloat_CheckExact(lhs) &&
@@ -1793,21 +1793,46 @@ float_int_guard(PyObject *lhs, PyObject *rhs, void *data)
     );
 }
 
-static PyObject *
-float_int_subtract(PyObject *lhs, PyObject *rhs, void *data)
-{
-    double lhs_val = PyFloat_AsDouble(lhs);
-    Py_ssize_t rhs_val = _PyLong_CompactValue((PyLongObject *)rhs);
-    return PyFloat_FromDouble(lhs_val - rhs_val);
-}
+#define FLOAT_LONG_ACTION(NAME, OP) \
+    static PyObject * \
+    (NAME)(PyObject *lhs, PyObject *rhs, void *data) \
+    { \
+        double lhs_val = PyFloat_AsDouble(lhs); \
+        Py_ssize_t rhs_val = _PyLong_CompactValue((PyLongObject *)rhs); \
+        return PyFloat_FromDouble(lhs_val OP rhs_val); \
+    }
 
-static PyObject *
-float_int_multiply(PyObject *lhs, PyObject *rhs, void *data)
-{
-    double lhs_val = PyFloat_AsDouble(lhs);
-    Py_ssize_t rhs_val = _PyLong_CompactValue((PyLongObject *)rhs);
-    return PyFloat_FromDouble(lhs_val * rhs_val);
-}
+FLOAT_LONG_ACTION(float_long_add, +)
+FLOAT_LONG_ACTION(float_long_subtract, -)
+FLOAT_LONG_ACTION(float_long_multiply, *)
+FLOAT_LONG_ACTION(float_long_true_div, /)
+
+#undef FLOAT_LONG_ACTION
+
+static binaryopactionfunc float_long_actions[NB_OPARG_LAST+1] = {
+    [NB_ADD] = float_long_add,
+    [NB_MULTIPLY] = NULL,
+    [NB_REMAINDER] = NULL,
+    [NB_OR] = NULL,
+    [NB_POWER] = NULL,
+    [NB_RSHIFT] = NULL,
+    [NB_SUBTRACT] = float_long_subtract,
+    [NB_TRUE_DIVIDE] = float_long_true_div,
+    [NB_XOR] = NULL,
+    [NB_INPLACE_ADD] = NULL,
+    [NB_INPLACE_AND] = NULL,
+    [NB_INPLACE_FLOOR_DIVIDE] = NULL,
+    [NB_INPLACE_LSHIFT] = NULL,
+    [NB_INPLACE_MATRIX_MULTIPLY] = NULL,
+    [NB_INPLACE_MULTIPLY] = float_long_multiply,
+    [NB_INPLACE_REMAINDER] = NULL,
+    [NB_INPLACE_OR] = NULL,
+    [NB_INPLACE_POWER] = NULL,
+    [NB_INPLACE_RSHIFT] = NULL,
+    [NB_INPLACE_SUBTRACT] = NULL,
+    [NB_INPLACE_TRUE_DIVIDE] = NULL,
+    [NB_INPLACE_XOR] = NULL,
+};
 
 static int
 float_specialize(PyObject *lhs, PyObject *rhs, int oparg,
@@ -1817,20 +1842,13 @@ float_specialize(PyObject *lhs, PyObject *rhs, int oparg,
     *free = NULL;
     *data = NULL;
 
-    if (PyLong_CheckExact(rhs) && _PyLong_IsCompact((PyLongObject *)rhs)) {
-        switch (oparg) {
-            case NB_SUBTRACT:
-                *guard = float_int_guard;
-                *action = float_int_subtract;
-                return 1;
-
-            case NB_MULTIPLY:
-                *guard = float_int_guard;
-                *action = float_int_multiply;
-                return 1;
+    if (float_long_actions[oparg]) {
+        if (float_long_guard(lhs, rhs, NULL)) {
+            *guard = float_long_guard;
+            *action = float_long_actions[oparg];
+            return 1;
         }
     }
-
     return 0;
 }
 

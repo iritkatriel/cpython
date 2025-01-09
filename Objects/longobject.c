@@ -6537,21 +6537,46 @@ long_float_guard(PyObject *lhs, PyObject *rhs, void *data)
     );
 }
 
-static PyObject *
-long_float_subtract(PyObject *lhs, PyObject *rhs, void *data)
-{
-    double rhs_val = PyFloat_AsDouble(rhs);
-    Py_ssize_t lhs_val = _PyLong_CompactValue((PyLongObject *)lhs);
-    return PyFloat_FromDouble(lhs_val - rhs_val);
-}
+#define LONG_FLOAT_ACTION(NAME, OP) \
+    static PyObject * \
+    (NAME)(PyObject *lhs, PyObject *rhs, void *data) \
+    { \
+        double rhs_val = PyFloat_AsDouble(rhs); \
+        Py_ssize_t lhs_val = _PyLong_CompactValue((PyLongObject *)lhs); \
+        return PyFloat_FromDouble(lhs_val OP rhs_val); \
+    }
 
-static PyObject *
-long_float_multiply(PyObject *lhs, PyObject *rhs, void *data)
-{
-    double rhs_val = PyFloat_AsDouble(rhs);
-    Py_ssize_t lhs_val = _PyLong_CompactValue((PyLongObject *)lhs);
-    return PyFloat_FromDouble(lhs_val * rhs_val);
-}
+LONG_FLOAT_ACTION(long_float_add, +)
+LONG_FLOAT_ACTION(long_float_subtract, -)
+LONG_FLOAT_ACTION(long_float_multiply, *)
+LONG_FLOAT_ACTION(long_float_true_div, /)
+
+#undef LONG_FLOAT_ACTION
+
+static binaryopactionfunc long_float_actions[NB_OPARG_LAST+1] = {
+    [NB_ADD] = long_float_add,
+    [NB_MULTIPLY] = NULL,
+    [NB_REMAINDER] = NULL,
+    [NB_OR] = NULL,
+    [NB_POWER] = NULL,
+    [NB_RSHIFT] = NULL,
+    [NB_SUBTRACT] = long_float_subtract,
+    [NB_TRUE_DIVIDE] = long_float_true_div,
+    [NB_XOR] = NULL,
+    [NB_INPLACE_ADD] = NULL,
+    [NB_INPLACE_AND] = NULL,
+    [NB_INPLACE_FLOOR_DIVIDE] = NULL,
+    [NB_INPLACE_LSHIFT] = NULL,
+    [NB_INPLACE_MATRIX_MULTIPLY] = NULL,
+    [NB_INPLACE_MULTIPLY] = long_float_multiply,
+    [NB_INPLACE_REMAINDER] = NULL,
+    [NB_INPLACE_OR] = NULL,
+    [NB_INPLACE_POWER] = NULL,
+    [NB_INPLACE_RSHIFT] = NULL,
+    [NB_INPLACE_SUBTRACT] = NULL,
+    [NB_INPLACE_TRUE_DIVIDE] = NULL,
+    [NB_INPLACE_XOR] = NULL,
+};
 
 static int
 long_specialize(PyObject *lhs, PyObject *rhs, int oparg,
@@ -6560,20 +6585,14 @@ long_specialize(PyObject *lhs, PyObject *rhs, int oparg,
 {
     *free = NULL;
     *data = NULL;
-    if (PyFloat_Check(rhs)) {
-        switch (oparg) {
-            case NB_SUBTRACT:
-                *guard = long_float_guard;
-                *action = long_float_subtract;
-                return 1;
 
-            case NB_MULTIPLY:
-                *guard = long_float_guard;
-                *action = long_float_multiply;
-                return 1;
+    if (long_float_actions[oparg]) {
+        if (long_float_guard(lhs, rhs, NULL)) {
+            *guard = long_float_guard;
+            *action = long_float_actions[oparg];
+            return 1;
         }
     }
-
     return 0;
 }
 
