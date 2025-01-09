@@ -2376,17 +2376,17 @@ PyBinaryOpSpecializationDescr*
 _Py_Specialize_NewBinaryOpSpecializationDescr(binaryopguardfunc guard,
     binaryopactionfunc action, binaryopfreefunc free, void *data)
 {
-    PyThreadState *tstate = _PyThreadState_GET();
-    PyBinaryOpSpecializationDescr *head = tstate->interp->binary_op_specialization_list;
     PyBinaryOpSpecializationDescr *new_descr = PyMem_Malloc(sizeof(PyBinaryOpSpecializationDescr));
     if (new_descr == NULL) {
         return NULL;
     }
-    new_descr->guard = *guard;
-    new_descr->action = *action;
-    new_descr->free = *free;
+    new_descr->guard = guard;
+    new_descr->action = action;
+    new_descr->free = free;
     new_descr->data = data;
 
+    PyThreadState *tstate = _PyThreadState_GET();
+    PyBinaryOpSpecializationDescr *head = tstate->interp->binary_op_specialization_list;
     if (head != NULL) {
         head->prev = new_descr;
     }
@@ -2401,7 +2401,7 @@ void
 _Py_Specialize_FreeBinaryOpSpecializationDescr(PyBinaryOpSpecializationDescr* descr)
 {
     if (descr->free != NULL) {
-        descr->free(descr);
+        descr->free(descr->data);
     }
     if (descr->prev != NULL) {
         descr->prev->next = descr->next;
