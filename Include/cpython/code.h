@@ -94,51 +94,6 @@ typedef struct {
     uint8_t *per_instruction_tools;
 } _PyCoMonitoringData;
 
-typedef struct _deoptInfo{
-    // if a whole chain of instructions is deoptimized
-    struct _deoptInfo *child;
-    _Py_CODEUNIT orig_instr;
-    _Py_CODEUNIT *position;
-    short data;
-    struct _deoptInfo *next;
-    struct _deoptInfo *prev;
-} PyExternalDeoptInfo;
-
-#ifndef __cplusplus
-typedef int (*PyExternal_CodeHandler)(void *restrict external_cache_pointer, PyObject* restrict ** stack_pointer);
-typedef int (*ExternalSpecializationHook)(_Py_CODEUNIT* old_instr, PyObject ***stack_pointer);
-#else
-typedef int (*PyExternal_CodeHandler)(_Py_CODEUNIT **next_instr, PyObject **stack_pointer);
-typedef int (*ExternalSpecializationHook)(_Py_CODEUNIT *old_instr, PyObject ***stack_pointer);
-#endif
-
-typedef void (*FunctionEndHook)(_Py_CODEUNIT *instr, void* external_cache_pointer);
-typedef int (*SpecializeInstructionPtr)(_Py_CODEUNIT*, int, PyExternal_CodeHandler, void *);
-typedef int (*SpecializeChainPtr)(_Py_CODEUNIT *, PyObject **, int , PyExternal_CodeHandler, unsigned char, void *);
-typedef int (*IsOperandConstantPtr)(_Py_CODEUNIT *, PyObject **, int );
-
-
-typedef struct _PyExternalSpecializer {
-    ExternalSpecializationHook TrySpecialization;
-    FunctionEndHook FunctionEnd;
-
-    // TODO: workaround until we resolve the mysterious linking performance issue
-    // For some reason a few benchmarks suffer a major performance regression when the numpy module
-    // dynamically resolves the function with the linker. This hack avoids the resolution by the linker and seems to help
-    SpecializeInstructionPtr SpecializeInstruction;
-    SpecializeChainPtr SpecializeChain;
-    IsOperandConstantPtr IsOperandConstant;
-} PyExternalSpecializer;
-
-
-#if defined(Py_OPT_CMLQ_ENV) || defined(Py_OPT_CMLQ_ALWAYS)
-    #define CMLQ_Def    \
-        PyObject *co_size_table;    \
-        PyExternalDeoptInfo *co_deopt_info_head;
-#else
-    #define CMLQ_Def
-#endif
-
 
 #ifdef INSTR_STATS
     #define CMLQ_Stats_Def \
