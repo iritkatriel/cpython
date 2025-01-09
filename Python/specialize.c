@@ -2372,8 +2372,8 @@ binary_op_fail_kind(int oparg, PyObject *lhs, PyObject *rhs)
 }
 #endif
 
-PyBinaryOpSpecializationDescr*
-_Py_Specialize_NewBinaryOpSpecializationDescr(binaryopguardfunc guard,
+static PyBinaryOpSpecializationDescr*
+new_binary_op_specialization_descr(binaryopguardfunc guard,
     binaryopactionfunc action, binaryopfreefunc free, void *data)
 {
     PyBinaryOpSpecializationDescr *new_descr = PyMem_Malloc(sizeof(PyBinaryOpSpecializationDescr));
@@ -2397,8 +2397,8 @@ _Py_Specialize_NewBinaryOpSpecializationDescr(binaryopguardfunc guard,
     return new_descr;
 }
 
-void
-_Py_Specialize_FreeBinaryOpSpecializationDescr(PyBinaryOpSpecializationDescr* descr)
+static void
+free_binary_op_specialization_descr(PyBinaryOpSpecializationDescr* descr)
 {
     if (descr->free != NULL) {
         descr->free(descr->data);
@@ -2421,7 +2421,7 @@ void
 _Py_Specialize_FreeAllSpecializationDescrs(PyInterpreterState *interp)
 {
     while(interp->binary_op_specialization_list) {
-        _Py_Specialize_FreeBinaryOpSpecializationDescr(
+        free_binary_op_specialization_descr(
             interp->binary_op_specialization_list);
     }
 }
@@ -2440,7 +2440,7 @@ _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *in
     _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(instr + 1);
     if (instr->op.code == BINARY_OP_EXTEND) {
         void *data = read_void(cache->external_cache);
-        _Py_Specialize_FreeBinaryOpSpecializationDescr(data);
+        free_binary_op_specialization_descr(data);
         write_void(cache->external_cache, NULL);
     }
 
@@ -2510,7 +2510,7 @@ _Py_Specialize_BinaryOp(_PyStackRef lhs_st, _PyStackRef rhs_st, _Py_CODEUNIT *in
                         instr, Py_TYPE(lhs)->tp_name, Py_TYPE(rhs)->tp_name);
             }
             PyBinaryOpSpecializationDescr *descr =
-                _Py_Specialize_NewBinaryOpSpecializationDescr(guard, action, free, data);
+                new_binary_op_specialization_descr(guard, action, free, data);
             if (descr == NULL) {
                 if (free != NULL) {
                     free(data);
