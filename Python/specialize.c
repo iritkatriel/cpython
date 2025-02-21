@@ -593,7 +593,11 @@ _PyCode_Quicken(_Py_CODEUNIT *instructions, Py_ssize_t size, int enable_counters
 #define SPEC_FAIL_BINARY_OP_SUBSCR_LIST_SLICE           34
 #define SPEC_FAIL_BINARY_OP_SUBSCR_TUPLE_SLICE          35
 #define SPEC_FAIL_BINARY_OP_SUBSCR_STRING_SLICE         36
-#define SPEC_FAIL_BINARY_OP_SUBSCR_NOT_HEAP_TYPE        37
+#define SPEC_FAIL_BINARY_OP_SUBSCR_OTHER_SLICE          37
+#define SPEC_FAIL_BINARY_OP_SUBSCR_NOT_HEAP_TYPE        38
+#define SPEC_FAIL_BINARY_OP_SUBSCR_LIST_OUT_OF_RANGE    39
+#define SPEC_FAIL_BINARY_OP_SUBSCR_TUPLE_OUT_OF_RANGE   40
+#define SPEC_FAIL_BINARY_OP_SUBSCR_STRING_OUT_OF_RANGE  41
 
 /* Calls */
 
@@ -2303,7 +2307,7 @@ binary_op_fail_kind(int oparg, PyObject *lhs, PyObject *rhs)
         case NB_SUBSCR:
             if (PyList_CheckExact(lhs)) {
                 if (PyLong_CheckExact(rhs) && !_PyLong_IsNonNegativeCompact((PyLongObject *)rhs)) {
-                    return SPEC_FAIL_OUT_OF_RANGE;
+                    return SPEC_FAIL_BINARY_OP_SUBSCR_LIST_OUT_OF_RANGE;
                 }
                 if (PySlice_Check(rhs)) {
                     return SPEC_FAIL_BINARY_OP_SUBSCR_LIST_SLICE;
@@ -2311,7 +2315,7 @@ binary_op_fail_kind(int oparg, PyObject *lhs, PyObject *rhs)
             }
             if (PyTuple_CheckExact(lhs)) {
                 if (PyLong_CheckExact(rhs) && !_PyLong_IsNonNegativeCompact((PyLongObject *)rhs)) {
-                    return SPEC_FAIL_OUT_OF_RANGE;
+                    return SPEC_FAIL_BINARY_OP_SUBSCR_TUPLE_OUT_OF_RANGE;
                 }
                 if (PySlice_Check(rhs)) {
                     return SPEC_FAIL_BINARY_OP_SUBSCR_TUPLE_SLICE;
@@ -2319,7 +2323,7 @@ binary_op_fail_kind(int oparg, PyObject *lhs, PyObject *rhs)
             }
             if (PyUnicode_CheckExact(lhs)) {
                 if (PyLong_CheckExact(rhs) && !_PyLong_IsNonNegativeCompact((PyLongObject *)rhs)) {
-                    return SPEC_FAIL_OUT_OF_RANGE;
+                    return SPEC_FAIL_BINARY_OP_SUBSCR_STRING_OUT_OF_RANGE;
                 }
                 if (PySlice_Check(rhs)) {
                     return SPEC_FAIL_BINARY_OP_SUBSCR_STRING_SLICE;
@@ -2352,6 +2356,9 @@ binary_op_fail_kind(int oparg, PyObject *lhs, PyObject *rhs)
                 }
             }
             Py_XDECREF(descriptor);
+            if (PySlice_Check(rhs)) {
+                return SPEC_FAIL_BINARY_OP_SUBSCR_OTHER_SLICE;
+            }
             return SPEC_FAIL_BINARY_OP_SUBSCR;
     }
     Py_UNREACHABLE();
