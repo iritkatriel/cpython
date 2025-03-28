@@ -3853,9 +3853,22 @@ maybe_optimize_function_call(compiler *c, expr_ty e, jump_target_label end)
         initial_res = Py_False;
         continue_jump_opcode = POP_JUMP_IF_FALSE;
     }
+    else if (_PyUnicode_EqualToASCIIString(func->v.Name.id, "sum")) {
+        const_oparg = CONSTANT_BUILTIN_SUM;
+        initial_res = _PyLong_GetZero();
+    }
+    else if (_PyUnicode_EqualToASCIIString(func->v.Name.id, "min")) {
+        const_oparg = CONSTANT_BUILTIN_MIN;
+        initial_res = Py_None;
+    }
+    else if (_PyUnicode_EqualToASCIIString(func->v.Name.id, "max")) {
+        const_oparg = CONSTANT_BUILTIN_MAX;
+        initial_res = Py_None;
+    }
     else if (_PyUnicode_EqualToASCIIString(func->v.Name.id, "tuple")) {
         const_oparg = CONSTANT_BUILTIN_TUPLE;
     }
+
     if (const_oparg != -1) {
         ADDOP_I(c, loc, COPY, 1); // the function
         ADDOP_I(c, loc, LOAD_COMMON_CONSTANT, const_oparg);
@@ -3866,6 +3879,13 @@ maybe_optimize_function_call(compiler *c, expr_ty e, jump_target_label end)
         if (const_oparg == CONSTANT_BUILTIN_TUPLE) {
             ADDOP_I(c, loc, BUILD_LIST, 0);
         }
+        else if (const_oparg == CONSTANT_BUILTIN_SUM ||
+                 const_oparg == CONSTANT_BUILTIN_MIN ||
+                 const_oparg == CONSTANT_BUILTIN_MAX)
+        {
+            ADDOP_LOAD_CONST(c, loc, initial_res);
+        }
+
         expr_ty generator_exp = asdl_seq_GET(args, 0);
         VISIT(c, expr, generator_exp);
 
@@ -3878,13 +3898,38 @@ maybe_optimize_function_call(compiler *c, expr_ty e, jump_target_label end)
             ADDOP_I(c, loc, LIST_APPEND, 2);
             ADDOP_JUMP(c, loc, JUMP, loop);
         }
-        else {
+        else if (const_oparg == CONSTANT_BUILTIN_SUM) {
+            ADDOP_I(c, loc, COPY, 3);
+            ADDOP_I(c, loc, BINARY_OP, NB_ADD);
+            ADDOP_I(c, loc, SWAP, 3);
+            ADDOP(c, loc, POP_TOP);
+            ADDOP_JUMP(c, loc, JUMP, loop);
+        }
+        else if (const_oparg == CONSTANT_BUILTIN_MIN || const_oparg == CONSTANT_BUILTIN_MAX) {
+            NEW_JUMP_TARGET_LABEL(c, new_result);
+            NEW_JUMP_TARGET_LABEL(c, done);
+
+            ADDOP_I(c, loc, COPY, 3);
+            ADDOP_JUMP(c, loc, POP_JUMP_IF_NONE, new_result);
+
+            ADDOP_I(c, loc, COPY, 3);  // result-so-far
+            ADDOP_I(c, loc, COPY, 2);  // new item
+            ADDOP_COMPARE(c, loc, const_oparg == CONSTANT_BUILTIN_MAX ? Gt : Lt);
+            ADDOP_JUMP(c, loc, POP_JUMP_IF_TRUE, done);
+
+            USE_LABEL(c, new_result);
+            ADDOP_I(c, loc, SWAP, 3);
+
+            USE_LABEL(c, done);
+            ADDOP(c, loc, POP_TOP);
+        }
+        else if (const_oparg == CONSTANT_BUILTIN_ALL || const_oparg == CONSTANT_BUILTIN_ANY) {
             ADDOP(c, loc, TO_BOOL);
             ADDOP_JUMP(c, loc, continue_jump_opcode, loop);
         }
 
         ADDOP(c, NO_LOCATION, POP_ITER);
-        if (const_oparg != CONSTANT_BUILTIN_TUPLE) {
+        if (const_oparg == CONSTANT_BUILTIN_ALL || const_oparg == CONSTANT_BUILTIN_ANY) {
             ADDOP_LOAD_CONST(c, loc, initial_res == Py_True ? Py_False : Py_True);
         }
         ADDOP_JUMP(c, loc, JUMP, end);
@@ -3895,7 +3940,7 @@ maybe_optimize_function_call(compiler *c, expr_ty e, jump_target_label end)
         if (const_oparg == CONSTANT_BUILTIN_TUPLE) {
             ADDOP_I(c, loc, CALL_INTRINSIC_1, INTRINSIC_LIST_TO_TUPLE);
         }
-        else {
+        else if (const_oparg == CONSTANT_BUILTIN_ALL || const_oparg == CONSTANT_BUILTIN_ANY) {
             ADDOP_LOAD_CONST(c, loc, initial_res);
         }
 
