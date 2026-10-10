@@ -722,17 +722,6 @@ _PyCompile_EnterScope(compiler *c, identifier name, int scope_type,
             return ERROR;
         }
     }
-    if (u->u_ste->ste_has_conditional_annotations) {
-        /* Cook up an implicit __conditional_annotations__ cell */
-        Py_ssize_t res;
-        assert(u->u_scope_type == COMPILE_SCOPE_CLASS || u->u_scope_type == COMPILE_SCOPE_MODULE);
-        res = _PyCompile_DictAddObj(u->u_metadata.u_cellvars, &_Py_ID(__conditional_annotations__));
-        if (res < 0) {
-            compiler_unit_free(u);
-            return ERROR;
-        }
-    }
-
     u->u_metadata.u_freevars = dictbytype(u->u_ste->ste_symbols, FREE, DEF_FREE_CLASS,
                                PyDict_GET_SIZE(u->u_metadata.u_cellvars));
     if (!u->u_metadata.u_freevars) {
@@ -1001,6 +990,15 @@ compiler_resolve_inlined_free(PySTEntryObject **ste, PyObject *name)
         assert(parent != NULL);
         if (parent->ste_type == ClassBlock) {
             if (_PyST_IsClassClosureName(name)) {
+                /* __conditional_annotations__ is a real CELL on the class;
+                 * other class-closure names (__class__, ...) are cooked
+                 * under private cellvar names and are not in ste_symbols. */
+                int parent_scope = _PyST_GetScope(parent, name);
+                RETURN_IF_ERROR(parent_scope);
+                if (parent_scope == CELL) {
+                    *ste = parent;
+                    return CELL;
+                }
                 return GLOBAL_IMPLICIT;
             }
             break;
@@ -1024,24 +1022,12 @@ compiler_class_closure_cellvar(PyObject *name)
     if (name == &_Py_ID(__classdict__)) {
         return &_Py_ID(__classdictcell__);
     }
-    if (name == &_Py_ID(__conditional_annotations__)) {
-        return &_Py_ID(__conditional_annotations__);
-    }
     return NULL;
 }
 
 int
 _PyCompile_GetRefType(compiler *c, PyObject *name)
 {
-    /* Synthetic cells cooked into u_cellvars under their public spelling
-     * (today only __conditional_annotations__) are not always in ste_symbols. */
-    if (c->u->u_scope_type == COMPILE_SCOPE_CLASS ||
-        c->u->u_scope_type == COMPILE_SCOPE_MODULE) {
-        PyObject *cell_name = compiler_class_closure_cellvar(name);
-        if (cell_name != NULL && cell_name == name) {
-            return CELL;
-        }
-    }
     PySTEntryObject *ste = c->u->u_ste;
     int scope = compiler_resolve_inlined_free(&ste, name);
     RETURN_IF_ERROR(scope);
@@ -1081,9 +1067,9 @@ int
 _PyCompile_LookupArg(compiler *c, PyCodeObject *co, PyObject *name)
 {
     /* Class units store the synthetic class-closure cell under a private
-     * name (__classcell__, ...). Inside an inlined comprehension, a nested
-     * free of the public name usually captures that comprehension's CELL;
-     * elsewhere (methods, class-body lambdas) it is the private cell. */
+     * name (__classcell__, ...). Map a free of the public name to that
+     * private cell, except in an inlined comprehension that already has
+     * its own CELL under the public name — prefer that slot. */
     if (c->u->u_scope_type == COMPILE_SCOPE_CLASS) {
         PyObject *cell_name = compiler_class_closure_cellvar(name);
         if (cell_name != NULL) {

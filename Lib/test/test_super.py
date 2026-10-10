@@ -229,12 +229,9 @@ class TestSuper(unittest.TestCase):
                           if isinstance(c, types.CodeType) and c.co_name == "outer")
         class_code = next(c for c in outer_code.co_consts
                           if isinstance(c, types.CodeType) and c.co_name == "C")
-        self.assertIn("__classcell__", class_code.co_cellvars)
-        self.assertNotIn("__class__", class_code.co_cellvars)
-        self.assertIn("__class__", class_code.co_freevars)
-        localsplus = (class_code.co_varnames + class_code.co_cellvars
-                      + class_code.co_freevars)
-        self.assertEqual(len(set(localsplus)), len(localsplus))
+        self.assertEqual(class_code.co_cellvars,
+                         ('__classcell__', '__classdictcell__'))
+        self.assertEqual(class_code.co_freevars, ('__class__',))
 
     def test_class_cell_distinct_from_inlined_comp_cell(self):
         # Private __classcell__ coexists with an inlined-comp cell named
@@ -259,8 +256,8 @@ class TestSuper(unittest.TestCase):
             "    lambdas = [lambda: __class__ for __class__ in (1, 2)]\n",
             "<test>", "exec").co_consts
             if isinstance(c, types.CodeType) and c.co_name == "C")
-        self.assertIn("__classcell__", class_code.co_cellvars)
-        self.assertIn("__class__", class_code.co_cellvars)
+        self.assertEqual(class_code.co_cellvars,
+                         ('__class__', '__classcell__', '__classdictcell__'))
 
     def test___classcell___expected_behaviour(self):
         # See issue #23722
