@@ -701,20 +701,22 @@ _PyCompile_EnterScope(compiler *c, identifier name, int scope_type,
         return ERROR;
     }
     if (u->u_ste->ste_needs_class_closure) {
-        /* Cook up an implicit __class__ cell. */
+        /* Private cellvar name so it cannot clash with a class-body
+         * LOCAL/FREE named __class__. Methods still expose freevar
+         * __class__; _PyCompile_LookupArg maps that free to this cell. */
         Py_ssize_t res;
         assert(u->u_scope_type == COMPILE_SCOPE_CLASS);
-        res = _PyCompile_DictAddObj(u->u_metadata.u_cellvars, &_Py_ID(__class__));
+        res = _PyCompile_DictAddObj(u->u_metadata.u_cellvars, &_Py_ID(__classcell__));
         if (res < 0) {
             compiler_unit_free(u);
             return ERROR;
         }
     }
     if (u->u_ste->ste_needs_classdict) {
-        /* Cook up an implicit __classdict__ cell. */
+        /* Private cellvar name; see ste_needs_class_closure above. */
         Py_ssize_t res;
         assert(u->u_scope_type == COMPILE_SCOPE_CLASS);
-        res = _PyCompile_DictAddObj(u->u_metadata.u_cellvars, &_Py_ID(__classdict__));
+        res = _PyCompile_DictAddObj(u->u_metadata.u_cellvars, &_Py_ID(__classdictcell__));
         if (res < 0) {
             compiler_unit_free(u);
             return ERROR;
@@ -1010,11 +1012,35 @@ compiler_resolve_inlined_free(PySTEntryObject **ste, PyObject *name)
     return scope;
 }
 
+/* Class-closure cells use private cellvar names that do not collide with
+ * class-body locals/frees of the same spelling. Method freevars keep the
+ * public names (__class__, ...); map those to the private cellvar. */
+static PyObject *
+compiler_class_closure_cellvar(PyObject *name)
+{
+    if (name == &_Py_ID(__class__)) {
+        return &_Py_ID(__classcell__);
+    }
+    if (name == &_Py_ID(__classdict__)) {
+        return &_Py_ID(__classdictcell__);
+    }
+    if (name == &_Py_ID(__conditional_annotations__)) {
+        return &_Py_ID(__conditional_annotations__);
+    }
+    return NULL;
+}
+
 int
 _PyCompile_GetRefType(compiler *c, PyObject *name)
 {
-    if (c->u->u_scope_type == COMPILE_SCOPE_CLASS && _PyST_IsClassClosureName(name)) {
-        return CELL;
+    /* Synthetic cells cooked into u_cellvars under their public spelling
+     * (today only __conditional_annotations__) are not always in ste_symbols. */
+    if (c->u->u_scope_type == COMPILE_SCOPE_CLASS ||
+        c->u->u_scope_type == COMPILE_SCOPE_MODULE) {
+        PyObject *cell_name = compiler_class_closure_cellvar(name);
+        if (cell_name != NULL && cell_name == name) {
+            return CELL;
+        }
     }
     PySTEntryObject *ste = c->u->u_ste;
     int scope = compiler_resolve_inlined_free(&ste, name);
@@ -1054,6 +1080,61 @@ _PyCompile_LookupCellvar(compiler *c, PyObject *name)
 int
 _PyCompile_LookupArg(compiler *c, PyCodeObject *co, PyObject *name)
 {
+    /* Class units store the synthetic class-closure cell under a private
+     * name (__classcell__, ...). Inside an inlined comprehension, a nested
+     * free of the public name usually captures that comprehension's CELL;
+     * elsewhere (methods, class-body lambdas) it is the private cell. */
+    if (c->u->u_scope_type == COMPILE_SCOPE_CLASS) {
+        PyObject *cell_name = compiler_class_closure_cellvar(name);
+        if (cell_name != NULL) {
+            int arg;
+            int in_inlined = (c->u->u_ste->ste_type == InlinedComprehensionBlock);
+            if (in_inlined) {
+                arg = dict_lookup_arg(c->u->u_metadata.u_cellvars, name);
+                if (arg != -1) {
+                    return arg;
+                }
+                if (PyErr_Occurred()) {
+                    return ERROR;
+                }
+            }
+            if (cell_name != name) {
+                arg = dict_lookup_arg(c->u->u_metadata.u_cellvars, cell_name);
+                if (arg != -1) {
+                    return arg;
+                }
+                if (PyErr_Occurred()) {
+                    return ERROR;
+                }
+            }
+            if (!in_inlined) {
+                arg = dict_lookup_arg(c->u->u_metadata.u_cellvars, name);
+                if (arg != -1) {
+                    return arg;
+                }
+                if (PyErr_Occurred()) {
+                    return ERROR;
+                }
+            }
+            arg = dict_lookup_arg(c->u->u_metadata.u_freevars, name);
+            if (arg != -1 || PyErr_Occurred()) {
+                return arg;
+            }
+            PyObject *freevars = _PyCode_GetFreevars(co);
+            if (freevars == NULL) {
+                PyErr_Clear();
+            }
+            PyErr_Format(PyExc_SystemError,
+                "compiler_lookup_arg(name=%R) failed in class %S; "
+                "freevars of code %S: %R",
+                name,
+                c->u->u_metadata.u_name,
+                co->co_name,
+                freevars);
+            Py_XDECREF(freevars);
+            return ERROR;
+        }
+    }
     /* Special case: If a class contains a method with a
      * free variable that has the same name as a method,
      * the name will be considered free *and* local in the
